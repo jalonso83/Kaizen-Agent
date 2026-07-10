@@ -9,9 +9,9 @@ Este es un proyecto **independiente** de FinZen: repo, deploy y credenciales
 propios. Toda la comunicación con FinZen pasa por la Agent API (API Key + 3
 endpoints). **No** se toca el código ni la base de datos de FinZen.
 
-> 📄 El documento de referencia es el PRD (`PRD_Agente_Crecimiento_*.md`, lo
-> entrega FinZen): fases, contratos de la API, guardarraíles y criterios de
-> aceptación. Léelo completo antes de escribir código.
+> 📄 El documento de referencia es el PRD: **[`docs/PRD_Kaizen.md`](docs/PRD_Kaizen.md)** —
+> fases, contratos de la API, guardarraíles y criterios de aceptación.
+> Léelo completo antes de escribir código.
 
 ## Estructura
 
