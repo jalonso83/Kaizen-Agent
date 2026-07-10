@@ -1,0 +1,19 @@
+# Dependencias
+node_modules/
+
+# Builds
+dist/
+.next/
+build/
+
+# Secretos — NUNCA commitear credenciales
+.env
+.env.*
+!.env.example
+*service-account*.json
+*credentials*.json
+
+# Logs y temporales
+*.log
+.DS_Store
+Thumbs.db
