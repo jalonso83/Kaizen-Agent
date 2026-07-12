@@ -12,6 +12,11 @@ endpoints). **No** se toca el código ni la base de datos de FinZen.
 > 📄 El documento de referencia es el PRD: **[`docs/PRD_Kaizen.md`](docs/PRD_Kaizen.md)** —
 > fases, contratos de la API, guardarraíles y criterios de aceptación.
 > Léelo completo antes de escribir código.
+>
+> 🧭 El estado vivo del proyecto (qué está hecho, qué sigue, infra) está en
+> **[`docs/ESTADO.md`](docs/ESTADO.md)** — es lo primero que debe leer
+> cualquier persona o agente que retome el trabajo, y se actualiza en el
+> mismo commit que cambie el estado.
 
 ## Estructura
 

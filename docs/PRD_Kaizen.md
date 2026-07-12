@@ -1,6 +1,8 @@
 # PRD Técnico — Kaizen, el Agente de Crecimiento de FinZen AI
 
-**Documento para el pasante** · Versión 1.2 · 2026-07-10
+**Documento para el pasante** · Versión 1.3 · 2026-07-12
+
+> 🧭 **¿En qué punto está el proyecto?** El estado vivo (qué está hecho, qué sigue, credenciales e infra) se mantiene en **[`docs/ESTADO.md`](ESTADO.md)** — léelo primero. Este PRD es la especificación; aquel es la bitácora.
 **Repositorio del proyecto:** `github.com/jalonso83/Kaizen-Agent` (privado — FinZen es dueño; el pasante trabaja como colaborador, en ramas + Pull Request)
 **Basado en:** "El ecosistema de crecimiento de FinZen AI" (arquitectura, 2026-07-06)
 **Responsable del proyecto:** José Luis (FinZen AI)
@@ -233,6 +235,12 @@ FASE 0 (setup) → FASE 1 (agente interno) → FASE 2 (Meta) → FASE 3 (visión
 **Objetivo:** esqueleto desplegado y conexiones verificadas.
 
 > ✅ **Actualización 2026-07-10: el repo `Kaizen-Agent` ya existe con el esqueleto inicial** — estructura `server/` + `web/`, TypeScript, `config.ts` (validación de env vars al boot), cliente completo de la FinZen Agent API (`clients/finzenApi.ts`, tipado según los contratos del §4), cliente de Drive, y `npm run check` (smoke tests de las 3 conexiones). Tu Fase 0 arranca en la tarea 2: clonar, configurar `.env` y verificar conexiones. Lee los README del repo (raíz, `server/src/agent/`, `web/`).
+>
+> ✅ **Actualización 2026-07-12: FASE 0 COMPLETADA (salvo el login de socios, que se hace junto con el chat en Fase 1).** Detalle en `docs/ESTADO.md`. Resumen:
+> - **Deploy en Railway arriba:** `https://kaizen-agent-production.up.railway.app/health` responde OK. Root Directory = `server`.
+> - **Todas las credenciales reales configuradas en Railway:** FinZen Agent API, Anthropic, y Google Drive.
+> - **Google Drive operativo:** Service Account `kaizen-drive@kaizen-agent-502219.iam.gserviceaccount.com` con acceso verificado a las carpetas **Cerebro** (Lector) y **Contenidos** (Editor). `drive.ts` acepta credenciales por path local (`GOOGLE_SERVICE_ACCOUNT_PATH`) o por `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64` (Railway); ambos modos probados contra el Drive real.
+> - Las tareas 3–5 de abajo ya NO son del pasante: quedaron hechas.
 
 ### Tareas
 
@@ -262,9 +270,9 @@ FASE 0 (setup) → FASE 1 (agente interno) → FASE 2 (Meta) → FASE 3 (visión
 
 ### Criterios de aceptación Fase 0
 
-- [ ] `npm run check` pasa las 3 conexiones en el entorno desplegado.
-- [ ] Un socio puede hacer login y ver una pantalla de chat vacía.
-- [ ] Ninguna credencial hardcodeada; todo por env vars.
+- [x] Conexiones verificadas: FinZen Agent API validada E2E en prod (2026-07-10) y Drive probado contra las carpetas reales en ambos modos de credencial (2026-07-12). El server desplegado arranca con todas las env vars reales.
+- [ ] Un socio puede hacer login y ver una pantalla de chat vacía. *(Movido a Fase 1 — se construye junto con el chat.)*
+- [x] Ninguna credencial hardcodeada; todo por env vars.
 
 ---
 
