@@ -15,7 +15,7 @@
 ## 📍 Dónde estamos (actualizado: 2026-07-12)
 
 **FASE 0 COMPLETADA** (salvo login de socios, movido a Fase 1).
-**Siguiente paso: FASE 1 — el agente interno** (loop de Claude + tools + chat de socios). Nada de Fase 1 está empezado.
+**Siguiente paso: FASE 1 — el agente interno** (loop de Claude + tools + chat de socios). Nada de Fase 1 está empezado, pero **el diseño técnico completo ya está escrito: [`DISENO_FASE1.md`](DISENO_FASE1.md)** (producido por una mesa de 3 arquitectos + síntesis, 2026-07-12) — esquema de BD, rutas, loop, las 9 tools, gate de confirmación, system prompt redactado y plan semana a semana. El pasante arranca por ahí. Además, **los 5 skills de marketing de Kaizen ya están escritos** en `server/skills/` (adaptados de repos MIT al contexto FinZen) — mecánica y catálogo en [`SKILLS.md`](SKILLS.md).
 
 ---
 
