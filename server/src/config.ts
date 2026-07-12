@@ -36,8 +36,11 @@ export const config = {
   anthropicApiKey: required('ANTHROPIC_API_KEY'),
 
   // Google Drive (Fase 1 — opcionales hasta que FinZen comparta las carpetas)
+  // Credenciales de la service account: por path a JSON (local) o por el JSON
+  // en base64 (Railway, donde no hay filesystem para credenciales).
   drive: {
     serviceAccountPath: optional('GOOGLE_SERVICE_ACCOUNT_PATH'),
+    serviceAccountJsonBase64: optional('GOOGLE_SERVICE_ACCOUNT_JSON_BASE64'),
     cerebroFolderId: optional('DRIVE_CEREBRO_FOLDER_ID'),
     contenidosFolderId: optional('DRIVE_CONTENIDOS_FOLDER_ID'),
   },

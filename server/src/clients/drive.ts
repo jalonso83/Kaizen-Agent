@@ -10,17 +10,24 @@ import { config } from '../config';
 // ─────────────────────────────────────────────────────────────────────────
 
 function isConfigured(): boolean {
-  return Boolean(config.drive.serviceAccountPath && config.drive.cerebroFolderId);
+  const hasCredentials = Boolean(config.drive.serviceAccountPath || config.drive.serviceAccountJsonBase64);
+  return hasCredentials && Boolean(config.drive.cerebroFolderId);
 }
 
 function driveClient() {
   if (!isConfigured()) {
-    throw new Error('Drive no configurado: faltan GOOGLE_SERVICE_ACCOUNT_PATH y/o DRIVE_CEREBRO_FOLDER_ID');
+    throw new Error(
+      'Drive no configurado: faltan credenciales (GOOGLE_SERVICE_ACCOUNT_PATH o GOOGLE_SERVICE_ACCOUNT_JSON_BASE64) y/o DRIVE_CEREBRO_FOLDER_ID'
+    );
   }
-  const auth = new google.auth.GoogleAuth({
-    keyFile: config.drive.serviceAccountPath,
-    scopes: ['https://www.googleapis.com/auth/drive'],
-  });
+  const scopes = ['https://www.googleapis.com/auth/drive'];
+  // Railway: el JSON viaja en base64 por env var. Local: path al archivo.
+  const auth = config.drive.serviceAccountJsonBase64
+    ? new google.auth.GoogleAuth({
+        credentials: JSON.parse(Buffer.from(config.drive.serviceAccountJsonBase64, 'base64').toString('utf8')),
+        scopes,
+      })
+    : new google.auth.GoogleAuth({ keyFile: config.drive.serviceAccountPath, scopes });
   return google.drive({ version: 'v3', auth });
 }
 
