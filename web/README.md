@@ -1,9 +1,35 @@
-# web/ — chat de socios (Fase 1)
+# web/ — chat de socios
 
-Frontend del chat conversacional con Kaizen. Por construir en Fase 1 (PRD §1.3):
+> Ver [`../server/README.md`](../server/README.md) para la guía completa del
+> backend. Esto es solo el mapa rápido del frontend.
 
-- React + Vite (o Next.js, a elección).
-- Login propio de socios (JWT en cookie httpOnly) — NO es el login de la app FinZen.
-- Lista de conversaciones + vista de chat con streaming (SSE desde el server).
-- Tarjeta de propuesta de campaña con botón **Confirmar** (gate de doble aprobación).
-- Todo el texto en español.
+**Construido:** React + Vite + TS. Login (JWT en cookie httpOnly — no es el
+login de la app FinZen), lista de conversaciones, chat con streaming real
+(`useAgentStream`, mismo parser de SSE que `server/src/scripts/chatCli.ts`),
+`ProposalCard` con los botones Confirmar/Rechazar. Todo el texto en español.
+
+**Corre en dev vía Vite** (`npm run dev`, puerto 5173) con proxy a
+`localhost:4000` — mismo origen, sin CORS, la cookie viaja normal. En
+producción se sirve como estático desde el mismo Express (`web/dist`,
+pendiente de conectar en `app.ts`).
+
+**Todavía no funcional:** los botones Confirmar/Rechazar de `ProposalCard`
+llaman a `/api/proposals/:id/confirm` y `/reject`, que no existen en el
+server hasta que se construya el gate (slice 2 — ver `server/README.md §10`).
+Hasta entonces esas dos acciones dan 404; el resto del chat sí funciona
+contra el backend real.
+
+```
+web/src/
+├── App.tsx                # router mínimo: Login o Chat según GET /api/auth/me
+├── api.ts                   # cliente HTTP (rutas relativas /api/...)
+├── types.ts                   # tipos calcados del esquema Prisma real
+├── hooks/useAgentStream.ts      # el parser de SSE
+├── pages/{Login,Chat}Page.tsx
+└── components/
+    ├── ConversationList.tsx
+    ├── ChatView.tsx
+    ├── Composer.tsx
+    ├── ProposalCard.tsx
+    └── AgentStatusBar.tsx
+```

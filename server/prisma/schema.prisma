@@ -1,0 +1,101 @@
+// Esquema de la base de datos de Kaizen (Fase 1) — DISENO_FASE1.md §1.
+// Postgres en Railway (SQLite pierde datos en cada redeploy; el audit log debe ser durable).
+// El blindaje del audit log (trigger append-only) y el índice FTS del Cerebro
+// se aplican por SQL crudo: ver prisma/manual.sql (correr DESPUÉS de migrate).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Partner {
+  // Socios de FinZen. Seed manual (2-3 filas) — sin registro público.
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  passwordHash  String // bcrypt cost 12
+  disabled      Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  conversations Conversation[]
+}
+
+model Conversation {
+  id             String     @id @default(cuid())
+  partnerId      String
+  partner        Partner    @relation(fields: [partnerId], references: [id])
+  title          String     @default("Nueva conversación")
+  summary        String? // resumen rodante para compactación (§5); null hasta que haga falta
+  summaryUpToSeq Int? // hasta qué seq cubre el resumen
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  messages       Message[]
+  proposals      Proposal[]
+
+  @@index([partnerId, updatedAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  seq            Int // orden estricto dentro de la conversación
+  role           String // 'user' | 'assistant'
+  content        Json // array de content blocks de la API de Anthropic TAL CUAL
+  inputTokens    Int? // usage de la corrida (solo en assistant)
+  outputTokens   Int?
+  stopReason     String? // end_turn | max_tokens | refusal | ...
+  createdAt      DateTime     @default(now())
+
+  @@unique([conversationId, seq])
+}
+
+model Proposal {
+  id               String       @id @default(cuid())
+  conversationId   String
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  status           String       @default("PROPOSED")
+  // PROPOSED → CONFIRMED → EXECUTING → EXECUTED
+  //          ↘ REJECTED (botón Rechazar) · SUPERSEDED (propuesta más nueva en la conversación)
+  //            EXECUTING → UNKNOWN_OUTCOME (fallo a mitad del POST — requiere verificación humana)
+  payload          Json // CampaignDraftInput COMPLETO al momento de proponer — la única fuente de verdad
+  segmentCount     Int? // count real al proponer, para la tarjeta
+  finzenCampaignId String?
+  confirmedAt      DateTime?
+  confirmedBy      String? // partnerId — SOLO lo escribe el endpoint HTTP, jamás el agente
+  executedAt       DateTime?
+  error            String?
+  createdAt        DateTime     @default(now())
+
+  @@index([conversationId, status])
+}
+
+model AuditLog {
+  // INMUTABLE: solo INSERT (un trigger de Postgres aborta UPDATE/DELETE — ver manual.sql).
+  id             BigInt   @id @default(autoincrement())
+  conversationId String?
+  actor          String // 'agent' | 'partner:<id>' | 'cron' | 'system'
+  action         String // 'tool:get_kpis' | 'proposal:confirmed' | 'login' | 'gate:denied' | ...
+  input          Json?
+  resultSummary  String? // resultado truncado a 2000 chars
+  isError        Boolean  @default(false)
+  durationMs     Int?
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+}
+
+model CerebroDoc {
+  id           String   @id // fileId de Drive
+  name         String
+  path         String // ej. "10-decisiones/pricing"
+  mimeType     String
+  text         String // texto plano exportado (truncado a ~200KB)
+  modifiedTime String // el de Drive — para re-descargar solo cambios
+  indexedAt    DateTime @default(now())
+  // + columna tsv (tsvector) añadida por SQL manual — ver prisma/manual.sql
+}

@@ -17,19 +17,28 @@ endpoints). **No** se toca el código ni la base de datos de FinZen.
 > **[`docs/ESTADO.md`](docs/ESTADO.md)** — es lo primero que debe leer
 > cualquier persona o agente que retome el trabajo, y se actualiza en el
 > mismo commit que cambie el estado.
+>
+> 🛠️ **Cómo funciona lo que ya está construido** (arquitectura, capa por
+> capa, cómo correrlo) está en **[`server/README.md`](server/README.md)** y
+> **[`web/README.md`](web/README.md)** — este README raíz es solo la
+> puerta de entrada.
 
 ## Estructura
 
 ```
 Kaizen-Agent/
-├── server/          # Backend: orquestador del agente (loop de Claude), API del chat
+├── server/
+│   ├── skills/            # 5 playbooks de marketing (ver docs/SKILLS.md)
 │   └── src/
-│       ├── app.ts       # Express — /health y (Fase 1) /chat
-│       ├── config.ts    # Env vars validadas al boot
-│       ├── check.ts     # Smoke tests de conexiones (npm run check)
-│       ├── clients/     # finzenApi.ts (Agent API) · drive.ts (Cerebro)
-│       └── agent/       # (Fase 1) loop de Claude, tools, system prompt
-└── web/             # (Fase 1) Chat de socios — React
+│       ├── app.ts            # Express — /health, /api/auth, /api/conversations
+│       ├── config.ts          # Env vars validadas al boot
+│       ├── check.ts            # Smoke tests de conexiones (npm run check)
+│       ├── clients/             # finzenApi.ts (Agent API) · drive.ts (Cerebro)
+│       ├── routes/               # auth.ts · chat.ts
+│       ├── middleware/            # requireAuth.ts · asyncRoute.ts
+│       ├── scripts/                # seedPartners.ts · chatCli.ts (chat por consola)
+│       └── agent/                   # el loop, las tools, el system prompt, el loader de skills
+└── web/                # Chat de socios — React + Vite (dev: npm run dev, puerto 5173)
 ```
 
 ## Arranque (día 1)
@@ -37,10 +46,22 @@ Kaizen-Agent/
 ```bash
 cd server
 npm install
-cp .env.example .env    # y completa las variables (te las da FinZen)
-npm run check           # smoke tests: FinZen API, Anthropic, Drive
-npm run dev             # server en http://localhost:4000/health
+cp .env.example .env        # y completa las variables (te las da FinZen)
+npx prisma migrate deploy   # crea las tablas + el blindaje
+npm run check                # smoke tests: FinZen API, Anthropic, Drive
+npm run seed:partner -- --email=vos@finzen.ai --name="Tu Nombre"
+npm run dev                   # server en http://localhost:4000/health
 ```
+
+`npm run dev` queda corriendo en primer plano — para hablar con el agente, abrí **otra terminal** (con el server de arriba seguir corriendo) y desde ahí:
+
+```bash
+cd server && npm run chat                              # consola
+# o, en una tercera terminal:
+cd web && npm install && npm run dev                    # web, puerto 5173
+```
+
+Guía de pruebas paso a paso, capa por capa: [`TESTING.md`](TESTING.md).
 
 ## Variables de entorno
 

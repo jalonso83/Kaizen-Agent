@@ -9,19 +9,34 @@
   "scripts": {
     "dev": "tsx watch src/app.ts",
     "check": "tsx src/check.ts",
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "start": "node dist/app.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "seed:partner": "tsx src/scripts/seedPartners.ts",
+    "chat": "tsx src/scripts/chatCli.ts",
+    "mock:finzen": "tsx src/mock/finzenApiMock.ts",
+    "test:tools": "tsx src/scripts/testTools.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "googleapis": "^173.0.0"
+    "express-rate-limit": "^7.4.0",
+    "googleapis": "^173.0.0",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cookie-parser": "^1.4.7",
     "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.14.0",
+    "prisma": "^5.22.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.0"
   }

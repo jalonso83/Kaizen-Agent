@@ -17,3 +17,9 @@ build/
 *.log
 .DS_Store
 Thumbs.db
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Tools especificos para claude
+.claude
