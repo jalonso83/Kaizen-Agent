@@ -11,6 +11,10 @@ import chatRoutes from './routes/chat';
 // ─────────────────────────────────────────────────────────────────────────
 
 const app = express();
+// Detrás del proxy de Railway (edge). Necesario para que express-rate-limit
+// identifique bien la IP (via X-Forwarded-For) y para la detección de HTTPS.
+// '1' = confiar solo en el primer proxy (el edge de Railway), no en cualquiera.
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(cookieParser());
 
