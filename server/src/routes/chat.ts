@@ -39,6 +39,44 @@ async function loadOwnedConversation(conversationId: string, partnerId: string) 
   return db.conversation.findFirst({ where: { id: conversationId, partnerId } });
 }
 
+router.patch('/:id', asyncRoute(async (req, res) => {
+  const conversation = await loadOwnedConversation(req.params.id, req.partner!.id);
+  if (!conversation) {
+    res.status(404).json({ message: 'Conversación no encontrada.' });
+    return;
+  }
+
+  const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+  if (!title) {
+    res.status(400).json({ message: 'Falta "title".' });
+    return;
+  }
+  if (title.length > 200) {
+    res.status(400).json({ message: 'El título no puede superar los 200 caracteres.' });
+    return;
+  }
+
+  const updated = await db.conversation.update({ where: { id: conversation.id }, data: { title } });
+  res.json(updated);
+}));
+
+router.delete('/:id', asyncRoute(async (req, res) => {
+  const conversation = await loadOwnedConversation(req.params.id, req.partner!.id);
+  if (!conversation) {
+    res.status(404).json({ message: 'Conversación no encontrada.' });
+    return;
+  }
+
+  if (runningConversations.has(conversation.id)) {
+    res.status(409).json({ message: 'El agente está respondiendo en esta conversación — esperá a que termine para borrarla.' });
+    return;
+  }
+
+  // Message/Proposal se borran en cascada (migración 20260719223000).
+  await db.conversation.delete({ where: { id: conversation.id } });
+  res.status(204).end();
+}));
+
 router.get('/:id/messages', asyncRoute(async (req, res) => {
   const conversation = await loadOwnedConversation(req.params.id, req.partner!.id);
   if (!conversation) {

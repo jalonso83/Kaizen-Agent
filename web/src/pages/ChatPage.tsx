@@ -85,6 +85,33 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
     onLoggedOut();
   };
 
+  const handleRename = async (id: string, title: string) => {
+    try {
+      await api.renameConversation(id, title);
+      await refreshConversations();
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : 'No se pudo renombrar la conversación.');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await api.deleteConversation(id);
+      const list = await refreshConversations();
+      if (id === activeId) {
+        if (list.length > 0) {
+          await loadConversation(list[0].id);
+        } else {
+          setActiveId(null);
+          setMessages([]);
+          setProposals([]);
+        }
+      }
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : 'No se pudo eliminar la conversación.');
+    }
+  };
+
   // El gate (propose_campaign/create_campaign_draft) todavía no existe en el
   // server — ver server/README.md §10. Estas dos rutas 404 hasta esa slice.
   const handleConfirmProposal = async (proposalId: string) => {
@@ -112,6 +139,8 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
         activeId={activeId}
         onSelect={(id) => loadConversation(id).catch(() => setLoadError('No se pudo abrir esa conversación.'))}
         onNew={() => handleNew().catch(() => setLoadError('No se pudo crear la conversación.'))}
+        onRename={handleRename}
+        onDelete={handleDelete}
         partner={partner}
         onLogout={handleLogout}
       />

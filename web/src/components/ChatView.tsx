@@ -1,33 +1,33 @@
 import { useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import type { ContentBlock, Proposal, StoredMessage } from '../types';
 import { ProposalCard } from './ProposalCard';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Burbujas de chat. Los bloques `thinking` NUNCA se muestran (DISENO §10);
-// los tool_use del historial se pintan como chips discretos.
+// tool_use y tool_result tampoco se pintan (a pedido del socio, 2026-07-20 —
+// mostrar qué tool corrió era ruido, no información útil para el socio) — su
+// contenido ya se refleja en la respuesta de texto. Por eso un mensaje que
+// SOLO tiene tool_use/tool_result no tiene nada para pintar y su burbuja
+// entera se omite (antes aparecía una burbuja "VOS" vacía — bug real,
+// 2026-07-19).
+//
+// Sin etiqueta "VOS": en un chat de IA es obvio que el mensaje alineado a la
+// derecha es tuyo (a pedido explícito, matching la convención de chats de IA
+// reales). "Kaizen" sí se mantiene del otro lado.
 // ─────────────────────────────────────────────────────────────────────────
 
 function renderBlock(block: ContentBlock, key: string) {
-  if (block.type === 'thinking') return null;
-
-  if (block.type === 'text' && typeof block.text === 'string') {
+  if (block.type === 'text' && typeof block.text === 'string' && block.text.trim().length > 0) {
     return (
-      <p key={key} className="bubble-text">
-        {block.text}
-      </p>
+      <div key={key} className="bubble-text">
+        <ReactMarkdown>{block.text}</ReactMarkdown>
+      </div>
     );
   }
 
-  if (block.type === 'tool_use' && typeof block.name === 'string') {
-    return (
-      <span key={key} className="tool-chip">
-        tool: {block.name}
-      </span>
-    );
-  }
-
-  // tool_result y cualquier bloque futuro no reconocido: no se muestran
-  // directamente (su contenido ya se reflejó en la respuesta de texto).
+  // thinking, tool_use, tool_result y cualquier bloque futuro no reconocido:
+  // no se muestran directamente.
   return null;
 }
 
@@ -58,12 +58,20 @@ export function ChatView({ messages, proposals, liveText, isStreaming, onConfirm
 
   return (
     <div className="chat-view">
-      {messages.map((message) => (
-        <div key={message.id} className={`bubble bubble-${message.role}`}>
-          <span className="bubble-who">{message.role === 'user' ? 'Vos' : 'Kaizen'}</span>
-          {message.content.map((block, i) => renderBlock(block, `${message.id}-${i}`))}
-        </div>
-      ))}
+      {messages.map((message) => {
+        const blocks = message.content
+          .map((block, i) => renderBlock(block, `${message.id}-${i}`))
+          .filter((b) => b !== null);
+
+        if (blocks.length === 0) return null; // burbuja sin nada que mostrar (p.ej. tool_result)
+
+        return (
+          <div key={message.id} className={`bubble bubble-${message.role}`}>
+            {message.role === 'assistant' && <span className="bubble-who">Kaizen</span>}
+            {blocks}
+          </div>
+        );
+      })}
 
       {proposals.map((proposal) => (
         <ProposalCard key={proposal.id} proposal={proposal} onConfirm={onConfirmProposal} onReject={onRejectProposal} />
@@ -72,10 +80,10 @@ export function ChatView({ messages, proposals, liveText, isStreaming, onConfirm
       {isStreaming && (
         <div className="bubble bubble-assistant bubble-live">
           <span className="bubble-who">Kaizen</span>
-          <p className="bubble-text">
-            {liveText}
+          <div className="bubble-text">
+            <ReactMarkdown>{liveText}</ReactMarkdown>
             <span className="cursor" aria-hidden="true" />
-          </p>
+          </div>
         </div>
       )}
 

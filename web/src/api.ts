@@ -25,6 +25,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(res.status, body.message ?? `Error ${res.status}`);
   }
 
+  if (res.status === 204) return undefined as T;
+
   return res.json() as Promise<T>;
 }
 
@@ -42,4 +44,13 @@ export const api = {
 
   getMessages: (conversationId: string) =>
     request<{ messages: StoredMessage[]; proposals: Proposal[] }>(`/api/conversations/${conversationId}/messages`),
+
+  renameConversation: (conversationId: string, title: string) =>
+    request<ConversationSummary>(`/api/conversations/${conversationId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ title }),
+    }),
+
+  deleteConversation: (conversationId: string) =>
+    request<void>(`/api/conversations/${conversationId}`, { method: 'DELETE' }),
 };
