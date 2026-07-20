@@ -10,7 +10,7 @@
     "dev": "tsx watch src/app.ts",
     "check": "tsx src/check.ts",
     "build": "prisma generate && tsc",
-    "start": "prisma migrate deploy && node dist/app.js",
+    "start": "node dist/app.js",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
