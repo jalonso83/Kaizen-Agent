@@ -133,6 +133,13 @@ Headers: x-agent-key
 
 Notas: los porcentajes vienen como puntos (ej. `31.0` = 31%). `campaigns` incluye la medición causal (lift en puntos porcentuales vs. grupo control/holdout) de los broadcasts enviados en el período (máx. 20). `cac_usd` es `null` si la campaña no tiene costo registrado.
 
+> ⏳ **Pendiente de confirmar con FinZen (2026-07-21): WAU en `engagement`.** Se dio permiso conceptual para extraer usuarios activos semanales, pero no está en el contrato "ya implementado" de arriba — WAU existe en el dashboard interno de FinZen, no confirmado todavía en esta Agent API. Diseño propuesto para que el equipo de FinZen lo implemente:
+> - `engagement.wau`: `number` — usuarios activos en la ventana semanal (misma semántica que `dau`/`mau`, agregado, sin PII).
+> - Query param nuevo, opcional: `week_mode=rolling|calendar` (default `rolling`).
+>   - `rolling`: ventana de 7 días terminando en `to` (o hoy si no se pasa `to`) — mismo patrón que el parámetro `days` de los segmentos `dormant`/`active`.
+>   - `calendar`: la última semana **completa** de lunes a domingo a partir de `to` (si `to` cae a mitad de semana, se usa la semana anterior ya cerrada, no la parcial — mismo criterio que el default de 30 días de este endpoint, que tampoco usa el mes en curso).
+> Mientras FinZen no confirme esto en producción, `get_kpis` puede devolver la respuesta sin `wau` — Kaizen no debe inventar el número (regla dura #1); usa `evaluate_segment` con el segmento `active` y `days=7` como alternativa ya real. El mock local (`server/src/mock/finzenApiMock.ts`) ya implementa este diseño para poder probarlo antes de que FinZen lo confirme.
+
 ### 4.3 Contrato del endpoint de segmentos (capa semántica)
 
 Los segmentos son **curados por FinZen en código** — el agente nunca ejecuta SQL. Solo devuelven conteos, nunca datos personales.

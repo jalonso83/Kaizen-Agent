@@ -26,23 +26,38 @@ function validateRange(input: Record<string, unknown>): { from?: string; to?: st
   return { from, to };
 }
 
+const WEEK_MODES = ['rolling', 'calendar'] as const;
+
 export const getKpisTool: KaizenTool = {
   name: 'get_kpis',
   description:
     'Obtiene los KPIs del negocio de FinZen (adquisición, activación, engagement, retención, ingresos y campañas pasadas con su lift) para un rango de fechas. ' +
     'LLÁMALA SIEMPRE antes de afirmar cualquier cifra del negocio; nunca respondas métricas de memoria. ' +
-    'Rango por defecto: últimos 30 días. Los porcentajes vienen como puntos (31.0 = 31%).',
+    'Rango por defecto: últimos 30 días. Los porcentajes vienen como puntos (31.0 = 31%). ' +
+    'engagement.wau (usuarios activos semanales) es un campo pendiente de confirmar con FinZen — puede faltar en la respuesta real; si no aparece, no lo inventes, dilo y usa evaluate_segment con el segmento "active" y days=7 como alternativa.',
   inputSchema: {
     type: 'object',
     properties: {
       from: { type: 'string', description: 'Fecha inicio YYYY-MM-DD (opcional; default: hace 30 días)' },
       to: { type: 'string', description: 'Fecha fin YYYY-MM-DD (opcional; default: hoy)' },
+      week_mode: {
+        type: 'string',
+        enum: [...WEEK_MODES],
+        description:
+          'Solo afecta a engagement.wau. "rolling" (default): últimos 7 días terminando en "to". ' +
+          '"calendar": última semana completa de lunes a domingo (si "to" cae a mitad de semana, usa la anterior ya cerrada, no la parcial).',
+      },
     },
     required: [],
   },
   async execute(input) {
     const { from, to } = validateRange(input);
-    const kpis = await getKpis({ from, to });
+    const weekModeInput = input.week_mode as string | undefined;
+    if (weekModeInput && !WEEK_MODES.includes(weekModeInput as (typeof WEEK_MODES)[number])) {
+      throw new Error(`"week_mode" debe ser uno de: ${WEEK_MODES.join(', ')} (recibí "${weekModeInput}").`);
+    }
+    const week_mode = weekModeInput as 'rolling' | 'calendar' | undefined;
+    const kpis = await getKpis({ from, to, week_mode });
     return `${PCT_NOTE}\n${JSON.stringify(kpis)}`;
   },
 };

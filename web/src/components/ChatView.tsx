@@ -15,10 +15,19 @@ import { ProposalCard } from './ProposalCard';
 // Sin etiqueta "VOS": en un chat de IA es obvio que el mensaje alineado a la
 // derecha es tuyo (a pedido explícito, matching la convención de chats de IA
 // reales). "Kaizen" sí se mantiene del otro lado.
+//
+// Los mensajes sintéticos <evento_sistema> (routes/proposals.ts, al confirmar
+// una tarjeta) tampoco se muestran — son instrucciones internas para el
+// modelo, no algo que el socio escribió; sin este filtro aparecían como una
+// burbuja con el XML crudo apenas pulsabas "Confirmar" (bug real, 2026-07-24).
 // ─────────────────────────────────────────────────────────────────────────
+
+const SYSTEM_EVENT_RE = /^<evento_sistema>[\s\S]*<\/evento_sistema>$/;
 
 function renderBlock(block: ContentBlock, key: string) {
   if (block.type === 'text' && typeof block.text === 'string' && block.text.trim().length > 0) {
+    const trimmed = block.text.trim();
+    if (SYSTEM_EVENT_RE.test(trimmed)) return null;
     return (
       <div key={key} className="bubble-text">
         <ReactMarkdown>{block.text}</ReactMarkdown>

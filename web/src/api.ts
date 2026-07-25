@@ -1,4 +1,4 @@
-import type { ConversationSummary, Partner, Proposal, StoredMessage } from './types';
+import type { ConversationSummary, Partner, Proposal, StoredMessage, WeeklySummaryConfig } from './types';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Cliente HTTP de la API de Kaizen. Rutas relativas ("/api/...") — same-origin
@@ -53,4 +53,12 @@ export const api = {
 
   deleteConversation: (conversationId: string) =>
     request<void>(`/api/conversations/${conversationId}`, { method: 'DELETE' }),
+
+  getWeeklySummaryConfig: () => request<WeeklySummaryConfig>('/api/config/weekly-summary'),
+
+  updateWeeklySummaryConfig: (weekMode: WeeklySummaryConfig['weekMode'], weekStartDay: number) =>
+    request<WeeklySummaryConfig>('/api/config/weekly-summary', {
+      method: 'PUT',
+      body: JSON.stringify({ weekMode, weekStartDay }),
+    }),
 };

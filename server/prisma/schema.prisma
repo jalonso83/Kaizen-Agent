@@ -63,6 +63,8 @@ model Proposal {
   //            EXECUTING → UNKNOWN_OUTCOME (fallo a mitad del POST — requiere verificación humana)
   payload          Json // CampaignDraftInput COMPLETO al momento de proponer — la única fuente de verdad
   segmentCount     Int? // count real al proponer, para la tarjeta
+  expectedMeasurement String? // qué se va a medir y cómo (DISENO §6) — no viaja a FinZen, solo para la tarjeta/auditoría
+  messageType      String? // taxonomía de tipo de mensaje (2026-07-24): urgencia|educativo|incentivo|social_proof|pregunta_directa|otro — no viaja a FinZen, es para que get_message_type_performance agregue lift por tipo
   finzenCampaignId String?
   confirmedAt      DateTime?
   confirmedBy      String? // partnerId — SOLO lo escribe el endpoint HTTP, jamás el agente
@@ -98,4 +100,14 @@ model CerebroDoc {
   modifiedTime String // el de Drive — para re-descargar solo cambios
   indexedAt    DateTime @default(now())
   // + columna tsv (tsvector) añadida por SQL manual — ver prisma/manual.sql
+}
+
+model WeeklySummaryConfig {
+  // Singleton (siempre id=1) — DISENO_FASE1.md §12 addendum, 2026-07-22.
+  // Define qué semana usa el cron del resumen semanal.
+  id           Int      @id @default(1)
+  weekMode     String   @default("calendar") // 'rolling' | 'calendar' — mismo concepto que get_kpis(week_mode), PRD §4.2
+  weekStartDay Int      @default(1) // 0=domingo..6=sábado; solo aplica si weekMode='calendar'
+  updatedAt    DateTime @updatedAt
+  updatedBy    String? // partnerId de quien lo cambió por última vez (null = nunca configurado a mano)
 }

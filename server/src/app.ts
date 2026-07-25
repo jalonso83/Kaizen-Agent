@@ -4,11 +4,14 @@ import cookieParser from 'cookie-parser';
 import { config } from './config';
 import authRoutes from './routes/auth';
 import chatRoutes from './routes/chat';
+import proposalsRoutes from './routes/proposals';
+import configRoutes from './routes/config';
+import { startCerebroIndexJob } from './jobs/cerebroIndex';
+import { startWeeklySummaryCron } from './jobs/weeklySummary';
 
 // ─────────────────────────────────────────────────────────────────────────
-// Kaizen server — Fase 1: /health público, /api/auth (login de socios) y
-// /api/conversations (CRUD + chat SSE) requieren sesión. /proposals (el gate
-// de confirmación) y el static de web/dist se agregan en slices siguientes.
+// Kaizen server — Fase 1: /health público; /api/auth, /api/conversations y
+// /api/proposals (el gate de confirmación) requieren sesión.
 // ─────────────────────────────────────────────────────────────────────────
 
 const app = express();
@@ -30,6 +33,8 @@ app.get('/health', (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/conversations', chatRoutes);
+app.use('/api/proposals', proposalsRoutes);
+app.use('/api/config', configRoutes);
 
 // ─── Web de socios (build de Vite) ───
 // Servida desde el MISMO Express que la API → mismo origen, sin CORS, la cookie
@@ -47,3 +52,9 @@ app.get('*', (req, res, next) => {
 app.listen(config.port, () => {
   console.log(`[Kaizen] Server escuchando en http://localhost:${config.port} (agente ${config.agentEnabled ? 'habilitado' : 'DESHABILITADO por kill switch'})`);
 });
+
+// Async a propósito (DISENO §9) — nunca bloquea ni tumba el arranque de arriba.
+startCerebroIndexJob();
+
+// Solo agenda — no corre nada al boot (DISENO §12).
+startWeeklySummaryCron();

@@ -43,7 +43,9 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
 export interface KpisResponse {
   period: { from: string; to: string };
   users: { total: number; new_registrations: number; registration_change_pct: number; activated: number };
-  engagement: { dau: number; mau: number; retention_d1_pct: number; retention_d7_pct: number; retention_d30_pct: number };
+  // wau es opcional: pendiente de confirmar con FinZen (PRD §4.2) — puede no
+  // venir todavía en la respuesta real. Nunca asumir su presencia.
+  engagement: { dau: number; wau?: number; mau: number; retention_d1_pct: number; retention_d7_pct: number; retention_d30_pct: number };
   revenue: {
     mrr_usd: number;
     plan_distribution: Record<string, number>;
@@ -107,11 +109,17 @@ export interface CampaignDraftResult {
 
 // ── Llamadas ──────────────────────────────────────────────────────────────
 
-/** KPIs del negocio para un rango de fechas (default: últimos 30 días). */
-export function getKpis(params?: { from?: string; to?: string }): Promise<KpisResponse> {
+/**
+ * KPIs del negocio para un rango de fechas (default: últimos 30 días).
+ * `week_mode` (rolling|calendar) es un parámetro propuesto para `wau` — ver
+ * PRD §4.2, pendiente de confirmar con FinZen; se envía igual, la API real
+ * simplemente lo ignorará si todavía no lo soporta.
+ */
+export function getKpis(params?: { from?: string; to?: string; week_mode?: 'rolling' | 'calendar' }): Promise<KpisResponse> {
   const qs = new URLSearchParams();
   if (params?.from) qs.set('from', params.from);
   if (params?.to) qs.set('to', params.to);
+  if (params?.week_mode) qs.set('week_mode', params.week_mode);
   const suffix = qs.size > 0 ? `?${qs.toString()}` : '';
   return request<KpisResponse>('GET', `/api/agent/kpis${suffix}`);
 }

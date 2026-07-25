@@ -32,14 +32,22 @@ app.use((req, res, next) => {
   next();
 });
 
+// wau: propuesta pendiente de confirmar con FinZen (PRD §4.2, 2026-07-21) —
+// valores fijos de ejemplo (igual que el resto de este mock), no un cálculo
+// real sobre datos de usuarios; solo sirve para probar el contrato/UI.
+function mockWau(weekMode: string): number {
+  return weekMode === 'calendar' ? 255 : 270;
+}
+
 // ── KPIs — forma y valores del ejemplo real de PRD_Kaizen.md §4.2 ──────────
 app.get('/api/agent/kpis', (req, res) => {
   const from = (req.query.from as string) || '2026-06-01';
   const to = (req.query.to as string) || '2026-06-30';
+  const weekMode = (req.query.week_mode as string) || 'rolling';
   res.json({
     period: { from, to },
     users: { total: 2100, new_registrations: 412, registration_change_pct: 12.5, activated: 205 },
-    engagement: { dau: 310, mau: 890, retention_d1_pct: 42.1, retention_d7_pct: 31.0, retention_d30_pct: 18.2 },
+    engagement: { dau: 310, wau: mockWau(weekMode), mau: 890, retention_d1_pct: 42.1, retention_d7_pct: 31.0, retention_d30_pct: 18.2 },
     revenue: {
       mrr_usd: 1480.0,
       plan_distribution: { FREE: 1990, PREMIUM: 96, PRO: 12 },

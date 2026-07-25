@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api';
 import { useAgentStream } from '../hooks/useAgentStream';
+import { useTheme } from '../hooks/useTheme';
 import { ConversationList } from '../components/ConversationList';
 import { ChatView } from '../components/ChatView';
 import { Composer } from '../components/Composer';
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function ChatPage({ partner, onLoggedOut }: Props) {
+  const { theme, toggleTheme } = useTheme();
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<StoredMessage[]>([]);
@@ -112,15 +114,13 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
     }
   };
 
-  // El gate (propose_campaign/create_campaign_draft) todavía no existe en el
-  // server — ver server/README.md §10. Estas dos rutas 404 hasta esa slice.
-  const handleConfirmProposal = async (proposalId: string) => {
-    try {
-      await fetch(`/api/proposals/${proposalId}/confirm`, { method: 'POST', credentials: 'include' });
-      if (activeId) await loadConversation(activeId);
-    } catch {
-      setLoadError('Confirmar propuestas todavía no está disponible en el server.');
-    }
+  // Confirmar dispara una corrida real del agente (create_campaign_draft) —
+  // reusa el mismo mecanismo de streaming que un mensaje normal (barra de
+  // estado, texto en vivo) en vez de un fetch mudo. La tarjeta se actualiza
+  // sola al recargar el historial cuando el turno termina (stream.confirmProposal
+  // ya llama a onDone internamente vía runStream).
+  const handleConfirmProposal = (proposalId: string) => {
+    stream.confirmProposal(proposalId).catch(() => setLoadError('No se pudo confirmar la propuesta.'));
   };
 
   const handleRejectProposal = async (proposalId: string) => {
@@ -128,7 +128,7 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
       await fetch(`/api/proposals/${proposalId}/reject`, { method: 'POST', credentials: 'include' });
       if (activeId) await loadConversation(activeId);
     } catch {
-      setLoadError('Rechazar propuestas todavía no está disponible en el server.');
+      setLoadError('No se pudo rechazar la propuesta.');
     }
   };
 
@@ -143,6 +143,8 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
         onDelete={handleDelete}
         partner={partner}
         onLogout={handleLogout}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       <main className="chat-main">

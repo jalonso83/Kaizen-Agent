@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { ConversationSummary, Partner } from '../types';
+import type { Theme } from '../hooks/useTheme';
 import { ConfirmDialog } from './ConfirmDialog';
+import { ConfigDialog } from './ConfigDialog';
 
 interface Props {
   conversations: ConversationSummary[];
@@ -12,6 +14,8 @@ interface Props {
   onDelete: (id: string) => void;
   partner: Partner;
   onLogout: () => void;
+  theme: Theme;
+  onToggleTheme: () => void;
 }
 
 export function ConversationList({
@@ -23,10 +27,13 @@ export function ConversationList({
   onDelete,
   partner,
   onLogout,
+  theme,
+  onToggleTheme,
 }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [deletingConversation, setDeletingConversation] = useState<ConversationSummary | null>(null);
+  const [showConfig, setShowConfig] = useState(false);
 
   const startRename = (c: ConversationSummary) => {
     setEditingId(c.id);
@@ -52,7 +59,12 @@ export function ConversationList({
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <span className="brand">Kaizen</span>
+        <span className="brand-group">
+          {/* Isotipo real de FinZen (extraído de finzen-manual-de-marca.pdf) — a pedido del
+              socio, "por ahora" como logo de Kaizen hasta que definan uno propio. */}
+          <img src="/logo.png" alt="FinZen" className="brand-logo" />
+          <span className="brand">Kaizen</span>
+        </span>
         <button type="button" className="new-conversation" onClick={onNew}>
           + Nueva
         </button>
@@ -105,9 +117,29 @@ export function ConversationList({
 
       <div className="sidebar-footer">
         <span className="partner-name">{partner.name}</span>
-        <button type="button" className="logout" onClick={onLogout}>
-          Salir
-        </button>
+        <span className="sidebar-footer-actions">
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={onToggleTheme}
+            title={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+            aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+          >
+            {theme === 'dark' ? '☀' : '☾'}
+          </button>
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={() => setShowConfig(true)}
+            title="Configuración"
+            aria-label="Configuración"
+          >
+            ⚙
+          </button>
+          <button type="button" className="logout" onClick={onLogout}>
+            Salir
+          </button>
+        </span>
       </div>
 
       {deletingConversation && (
@@ -120,6 +152,8 @@ export function ConversationList({
           onCancel={() => setDeletingConversation(null)}
         />
       )}
+
+      {showConfig && <ConfigDialog onClose={() => setShowConfig(false)} />}
     </aside>
   );
 }

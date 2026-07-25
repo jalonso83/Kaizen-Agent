@@ -10,6 +10,17 @@
       href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,400;0,500;0,600;0,700;1,600&display=swap"
       rel="stylesheet"
     />
+    <script>
+      // Aplica el tema ANTES del primer paint (evita flash) — localStorage si
+      // el socio ya eligió, si no sigue la preferencia del sistema operativo.
+      (function () {
+        var stored = localStorage.getItem('kaizen-theme');
+        var theme = stored === 'light' || stored === 'dark'
+          ? stored
+          : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

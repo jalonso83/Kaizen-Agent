@@ -298,9 +298,9 @@ export async function runAgentTurn(conversationId: string, sse: SseWriter) {
 
 ---
 
-## 6. Las 8 tools
+## 6. Las 10 tools
 
-Son las 6 del PRD **+ `propose_campaign`** (ver §7 — por qué existe) **+ `get_campaign_results`** (§1.7 del PRD).
+Son las 6 del PRD **+ `propose_campaign`** (ver §7 — por qué existe) **+ `get_campaign_results`** (§1.7 del PRD) **+ `get_message_type_performance`** (2026-07-24 — taxonomía de tipo de mensaje, ver más abajo).
 
 ### Infraestructura común: `withGuard(name, conversationId, fn)`
 
@@ -315,13 +315,14 @@ Cada tool pasa por el mismo wrapper: (1) valida input; (2) emite `tool_start` al
 | `get_kpis` | `GET /api/agent/kpis` | "LLÁMALA SIEMPRE antes de afirmar cualquier cifra — nunca respondas métricas de memoria". Valida fechas `YYYY-MM-DD`, `from ≤ to`. Devuelve el JSON crudo + una línea-guía: "los *_pct son puntos porcentuales (31.0 = 31%)" |
 | `list_segments` | `GET /api/agent/segments` | "El catálogo puede crecer: consúltalo en vivo, no asumas que conoces los slugs" |
 | `evaluate_segment` | `GET /api/agent/segments/{slug}` | "LLÁMALA SIEMPRE antes de proponer — el count ya descuenta opt-outs: es el alcance real". En 404, devolver los `available_slugs` del error para que el modelo corrija |
-| `propose_campaign` | BD propia (NO FinZen) | Ver §7. El schema exige `segment_count`, `rationale` (≥10) y `expected_measurement` — el schema hace de checklist del formato de propuesta del PRD |
+| `propose_campaign` | BD propia (NO FinZen) | Ver §7. El schema exige `segment_count`, `rationale` (≥10), `expected_measurement` y `message_type` — el schema hace de checklist del formato de propuesta del PRD |
 | `create_campaign_draft` | `POST /api/agent/campaigns` | Ver §7. Input: SOLO `{ proposal_id }` |
 | `search_cerebro` | BD local (índice FTS) | "Úsala SIEMPRE antes de redactar el mensaje de una campaña (tono de marca) y ante preguntas de decisiones/contexto". Top 3 fragmentos (~1500 chars) con documento fuente |
 | `save_content_draft` | Drive (carpeta Contenidos) | `{ title, folder: 'reels'\|'guiones'\|'carruseles'\|'assets', content }` (Markdown). Crea Google Doc, devuelve el link. Sin reintentos |
 | `get_campaign_results` | `GET /api/agent/kpis` (bloque `campaigns`, filtrado) | "Úsala cuando pregunten cómo le fue a una campaña, y antes de proponer una similar (para citar el lift real)" |
+| `get_message_type_performance` | BD propia (`Proposal.messageType`) + `GET /api/agent/kpis` | "Úsala antes de elegir message_type si ya hay campañas ejecutadas — para saber qué enfoque dio mejor lift". Solo cubre campañas propuestas por Kaizen (join por `finzenCampaignId`); con <3 campañas por tipo, es pista, no certeza |
 
-Validación local ANTES de llamar a FinZen en `propose_campaign`: `title ≤ 100`, `message ≤ 200`, `rationale ≥ 10`, `holdout_pct 0-100` — las mismas reglas del §4.4 del PRD, para que el error llegue al modelo al proponer y no al ejecutar.
+Validación local ANTES de llamar a FinZen en `propose_campaign`: `title ≤ 100`, `message ≤ 200`, `rationale ≥ 10`, `holdout_pct 0-100`, `message_type` (enum: urgencia/educativo/incentivo/social_proof/pregunta_directa/otro, agregado 2026-07-24 — pendiente de validar con marketing de FinZen) — las mismas reglas del §4.4 del PRD, para que el error llegue al modelo al proponer y no al ejecutar.
 
 ---
 
@@ -522,6 +523,15 @@ Estados: `PROPUESTA` (ámbar, botones) → `CONFIRMADA` (azul, "creando borrador
 - **Sin tools de escritura hacia FinZen**: el array de tools de esta corrida excluye `propose_campaign` y `create_campaign_draft`. Un cron no debe *poder* crear borradores. Solo lecturas + Drive.
 - Prompt de la corrida: KPIs de la semana vs anterior (2 llamadas a `get_kpis`) → 3-5 movimientos con cifras · resultados de campañas medidas (lift y lectura) · 2-3 recomendaciones accionables con el dato que las respalda (si una implica campaña, describirla con count real pero NO crearla) → `save_content_draft` en `assets` con título `Resumen semanal YYYY-MM-DD`.
 - `stream: false`, `max_iterations: 12`. Si falla: audit con `isError`, nunca tumba el proceso.
+
+> ✅ **Construido 2026-07-23**: apartado de **Configuración** en la web
+> (`ConfigDialog.tsx`, botón ⚙ en el sidebar) para definir la semana que usa
+> este cron — `WeeklySummaryConfig` (fila única) + `routes/config.ts`
+> (`GET`/`PUT /api/config/weekly-summary`). Mismo concepto de `week_mode`
+> propuesto en PRD §4.2 para WAU: `rolling` (últimos 7 días) vs `calendar`
+> (semana completa con día de inicio elegible, no necesariamente lunes).
+> Probado de punta a punta contra la BD real y en el navegador; falta la
+> corrida real del cron con `ANTHROPIC_API_KEY` válida (ver ESTADO.md).
 
 ---
 

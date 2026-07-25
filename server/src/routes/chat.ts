@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { runAgentTurn } from '../agent/runner';
 import type { SseWriter } from '../agent/tools/guard';
+import { runningConversations } from '../services/runningConversations';
 
 // ─────────────────────────────────────────────────────────────────────────
 // /api/conversations — CRUD de conversaciones + el endpoint de chat (SSE).
@@ -13,10 +14,6 @@ import type { SseWriter } from '../agent/tools/guard';
 
 const router = Router();
 router.use(requireAuth);
-
-// Lock en memoria de "una corrida por conversación" (§3). Proceso único en
-// Fase 1 — si Kaizen corre multi-instancia algún día, esto se mueve a Redis.
-const runningConversations = new Set<string>();
 
 router.get('/', asyncRoute(async (req, res) => {
   const conversations = await db.conversation.findMany({

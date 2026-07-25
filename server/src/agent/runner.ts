@@ -4,6 +4,7 @@ import { audit } from '../services/audit';
 import type { SseWriter, ToolContext } from './tools/guard';
 import { buildBetaTools } from './adapter';
 import { buildSystemPrompt } from './systemPrompt';
+import { getTonoDeMarca } from './tono';
 import {
   buildHistory,
   persistUserText,
@@ -29,14 +30,14 @@ import {
 // incluso para mostrar la web/login, que no la necesita. Se construye recién
 // cuando de verdad hace falta, después de chequear que la key exista.
 let client: Anthropic | null = null;
-function getClient(): Anthropic {
+export function getClient(): Anthropic {
   if (!client) {
     client = new Anthropic({ apiKey: config.anthropicApiKey, timeout: 120_000 });
   }
   return client;
 }
 
-const MODEL = 'claude-opus-4-8';
+export const MODEL = 'claude-opus-4-8';
 
 function handleStopReason(message: Anthropic.Beta.BetaMessage, sse?: SseWriter): void {
   switch (message.stop_reason) {
@@ -97,13 +98,14 @@ export async function runAgentTurn(
     const messages = await buildHistory(conversationId);
     const baseLen = messages.length;
     const ctx: ToolContext = { conversationId, sse };
+    const tonoDeMarca = await getTonoDeMarca().catch(() => undefined); // nunca tumba el turno por esto
 
     const runner = getClient().beta.messages.toolRunner({
       model: MODEL,
       max_tokens: 16_000,
       thinking: { type: 'adaptive' }, // EXPLÍCITO — omitirlo = correr SIN thinking.
       // NO enviar temperature/top_p/top_k (dan 400 en Opus 4.8).
-      system: buildSystemPrompt(),
+      system: buildSystemPrompt(tonoDeMarca),
       tools: buildBetaTools(ctx),
       messages,
       stream: true,

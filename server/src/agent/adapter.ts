@@ -1,6 +1,6 @@
 import { betaTool } from '@anthropic-ai/sdk/helpers/beta/json-schema';
 import { TOOL_LIST } from './tools';
-import { withGuard, type ToolContext } from './tools/guard';
+import { withGuard, type KaizenTool, type ToolContext } from './tools/guard';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Adaptador: convierte las KaizenTool (desacopladas del SDK) en las betaTool
@@ -14,8 +14,9 @@ import { withGuard, type ToolContext } from './tools/guard';
 // is_error para que el modelo se recupere.
 // ─────────────────────────────────────────────────────────────────────────
 
-export function buildBetaTools(ctx: ToolContext) {
-  return TOOL_LIST.map((tool) =>
+/** `toolList` por defecto TOOL_LIST completa; el cron pasa CRON_TOOL_LIST (sin escritura a FinZen). */
+export function buildBetaTools(ctx: ToolContext, toolList: KaizenTool[] = TOOL_LIST) {
+  return toolList.map((tool) =>
     betaTool({
       name: tool.name,
       description: tool.description,

@@ -31,81 +31,94 @@ export function useAgentStream(conversationId: string | null, onDone: () => void
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
 
-  const sendMessage = useCallback(
-    async (text: string) => {
-      if (!conversationId || !text.trim()) return;
-      setState({ isStreaming: true, liveText: '', toolStatus: null, error: null });
+  // Núcleo compartido: consume el SSE de CUALQUIER endpoint que dispare un
+  // turno del agente (mensaje normal o la corrida que confirma una propuesta,
+  // routes/proposals.ts) — mismo protocolo de eventos en ambos casos.
+  const runStream = useCallback(async (url: string, body: Record<string, unknown>) => {
+    setState({ isStreaming: true, liveText: '', toolStatus: null, error: null });
 
-      let res: Response;
-      try {
-        res = await fetch(`/api/conversations/${conversationId}/messages`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ text }),
-        });
-      } catch {
-        setState((s) => ({ ...s, isStreaming: false, error: 'No se pudo conectar con Kaizen.' }));
-        onDoneRef.current(); // el padre reconcilia (p.ej. saca el mensaje optimista)
-        return;
-      }
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+    } catch {
+      setState((s) => ({ ...s, isStreaming: false, error: 'No se pudo conectar con Kaizen.' }));
+      onDoneRef.current(); // el padre reconcilia (p.ej. saca el mensaje optimista)
+      return;
+    }
 
-      if (!res.ok || !res.body) {
-        const body = await res.json().catch(() => ({}) as { message?: string });
-        setState((s) => ({ ...s, isStreaming: false, error: body.message ?? `Error ${res.status}` }));
-        onDoneRef.current();
-        return;
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const chunks = buffer.split('\n\n');
-        buffer = chunks.pop() ?? '';
-
-        for (const raw of chunks) {
-          const eventLine = raw.split('\n').find((l) => l.startsWith('event:'));
-          const dataLine = raw.split('\n').find((l) => l.startsWith('data:'));
-          if (!eventLine || !dataLine) continue;
-
-          const event = eventLine.slice(6).trim();
-          let data: Record<string, unknown>;
-          try {
-            data = JSON.parse(dataLine.slice(5).trim());
-          } catch {
-            continue;
-          }
-
-          if (event === 'text_delta') {
-            setState((s) => ({ ...s, liveText: s.liveText + String(data.text ?? '') }));
-          } else if (event === 'tool_start') {
-            setState((s) => ({
-              ...s,
-              toolStatus: { name: String(data.name ?? ''), label: String(data.label ?? 'Trabajando…') },
-            }));
-          } else if (event === 'tool_end') {
-            setState((s) => ({ ...s, toolStatus: null }));
-          } else if (event === 'run_error') {
-            setState((s) => ({ ...s, error: String(data.message ?? 'Ocurrió un error.') }));
-          }
-          // message_done y done: el turno se cierra abajo, tras el while.
-        }
-      }
-
-      // Preserva el error si el turno terminó con uno (p.ej. run_error) — antes
-      // esto lo pisaba sin condición, así que el mensaje de error se borraba
-      // solo un instante después de aparecer (bug real, encontrado 2026-07-19).
-      setState((s) => ({ ...initialState, error: s.error }));
+    if (!res.ok || !res.body) {
+      const body = await res.json().catch(() => ({}) as { message?: string });
+      setState((s) => ({ ...s, isStreaming: false, error: body.message ?? `Error ${res.status}` }));
       onDoneRef.current();
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const chunks = buffer.split('\n\n');
+      buffer = chunks.pop() ?? '';
+
+      for (const raw of chunks) {
+        const eventLine = raw.split('\n').find((l) => l.startsWith('event:'));
+        const dataLine = raw.split('\n').find((l) => l.startsWith('data:'));
+        if (!eventLine || !dataLine) continue;
+
+        const event = eventLine.slice(6).trim();
+        let data: Record<string, unknown>;
+        try {
+          data = JSON.parse(dataLine.slice(5).trim());
+        } catch {
+          continue;
+        }
+
+        if (event === 'text_delta') {
+          setState((s) => ({ ...s, liveText: s.liveText + String(data.text ?? '') }));
+        } else if (event === 'tool_start') {
+          setState((s) => ({
+            ...s,
+            toolStatus: { name: String(data.name ?? ''), label: String(data.label ?? 'Trabajando…') },
+          }));
+        } else if (event === 'tool_end') {
+          setState((s) => ({ ...s, toolStatus: null }));
+        } else if (event === 'run_error') {
+          setState((s) => ({ ...s, error: String(data.message ?? 'Ocurrió un error.') }));
+        }
+        // proposal: la tarjeta se pinta al recargar el historial en onDone();
+        // message_done y done: el turno se cierra abajo, tras el while.
+      }
+    }
+
+    // Preserva el error si el turno terminó con uno (p.ej. run_error) — antes
+    // esto lo pisaba sin condición, así que el mensaje de error se borraba
+    // solo un instante después de aparecer (bug real, encontrado 2026-07-19).
+    setState((s) => ({ ...initialState, error: s.error }));
+    onDoneRef.current();
+  }, []);
+
+  const sendMessage = useCallback(
+    (text: string) => {
+      if (!conversationId || !text.trim()) return;
+      void runStream(`/api/conversations/${conversationId}/messages`, { text });
     },
-    [conversationId],
+    [conversationId, runStream],
   );
 
-  return { ...state, sendMessage };
+  const confirmProposal = useCallback(
+    (proposalId: string) => runStream(`/api/proposals/${proposalId}/confirm`, {}),
+    [runStream],
+  );
+
+  return { ...state, sendMessage, confirmProposal };
 }

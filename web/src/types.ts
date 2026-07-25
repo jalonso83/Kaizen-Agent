@@ -30,7 +30,8 @@ export type ProposalStatus =
   | 'EXECUTED'
   | 'REJECTED'
   | 'SUPERSEDED'
-  | 'UNKNOWN_OUTCOME';
+  | 'UNKNOWN_OUTCOME'
+  | 'EXPIRED';
 
 export interface CampaignPayload {
   title: string;
@@ -50,6 +51,8 @@ export interface Proposal {
   status: ProposalStatus;
   payload: CampaignPayload;
   segmentCount: number | null;
+  expectedMeasurement: string | null;
+  messageType: string | null;
   finzenCampaignId: string | null;
   confirmedAt: string | null;
   confirmedBy: string | null;
@@ -63,4 +66,15 @@ export interface ConversationSummary {
   title: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export type WeekMode = 'rolling' | 'calendar';
+
+// Calca server/prisma/schema.prisma → model WeeklySummaryConfig.
+export interface WeeklySummaryConfig {
+  id: number;
+  weekMode: WeekMode;
+  weekStartDay: number; // 0=domingo..6=sábado (solo aplica si weekMode='calendar')
+  updatedAt: string;
+  updatedBy: string | null;
 }

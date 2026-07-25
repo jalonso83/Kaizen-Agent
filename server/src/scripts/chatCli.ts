@@ -129,12 +129,17 @@ async function getOrCreateConversation(userName: string): Promise<string> {
   return conversation.id;
 }
 
+const SYSTEM_EVENT_RE = /^<evento_sistema>[\s\S]*<\/evento_sistema>$/;
+
 /** Imprime un mensaje ya guardado (al retomar), filtrando bloques thinking. */
 function printStoredMessage(role: string, content: unknown, userName: string): void {
   if (!Array.isArray(content)) return;
   const who = role === 'user' ? ansi.cyan(userName) : ansi.green('Kaizen');
   for (const block of content as Array<Record<string, unknown>>) {
     if (block.type === 'text' && typeof block.text === 'string') {
+      // <evento_sistema> (routes/proposals.ts, al confirmar una tarjeta) es
+      // una instrucción interna para el modelo, no algo que el socio escribió.
+      if (SYSTEM_EVENT_RE.test(block.text.trim())) continue;
       console.log(`${who}: ${renderMarkdownBlock(block.text)}`);
     } else if (block.type === 'tool_use') {
       console.log(ansi.dim(`  [tool] ${block.name}`));

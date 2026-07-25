@@ -3,12 +3,8 @@ import type { Proposal } from '../types';
 // ─────────────────────────────────────────────────────────────────────────
 // La tarjeta de propuesta — DISENO_FASE1.md §10. El payload que se muestra
 // es EXACTAMENTE el guardado en BD: el socio confirma lo que se va a enviar,
-// no una versión distinta.
-//
-// Nota: los botones llaman a /api/proposals/:id/confirm y /reject, que
-// todavía no existen en el server (el gate es la Fase 1 slice 2 — ver
-// server/README.md §10). Hasta que esos endpoints existan, confirmar da 404;
-// el componente queda listo para cuando se construyan.
+// no una versión distinta. Confirmar/Rechazar llaman a
+// /api/proposals/:id/{confirm,reject} (routes/proposals.ts, el gate §7).
 // ─────────────────────────────────────────────────────────────────────────
 
 const STATUS_LABEL: Record<Proposal['status'], string> = {
@@ -19,6 +15,17 @@ const STATUS_LABEL: Record<Proposal['status'], string> = {
   REJECTED: 'Rechazada',
   SUPERSEDED: 'Reemplazada',
   UNKNOWN_OUTCOME: 'Resultado desconocido',
+  EXPIRED: 'Confirmación expirada',
+};
+
+// Taxonomía de tipo de mensaje (server/src/agent/tools/campaigns.ts, MESSAGE_TYPES).
+const MESSAGE_TYPE_LABEL: Record<string, string> = {
+  urgencia: 'Urgencia',
+  educativo: 'Educativo',
+  incentivo: 'Incentivo',
+  social_proof: 'Social proof',
+  pregunta_directa: 'Pregunta directa',
+  otro: 'Otro',
 };
 
 interface Props {
@@ -57,9 +64,18 @@ export function ProposalCard({ proposal, onConfirm, onReject }: Props) {
           <dt>Superficie</dt>
           <dd>{payload.surface ?? 'push'}</dd>
         </div>
+        {proposal.messageType && (
+          <div>
+            <dt>Tipo</dt>
+            <dd>{MESSAGE_TYPE_LABEL[proposal.messageType] ?? proposal.messageType}</dd>
+          </div>
+        )}
       </dl>
 
       <p className="proposal-rationale">{payload.rationale}</p>
+      {proposal.expectedMeasurement && (
+        <p className="proposal-note">Se mide: {proposal.expectedMeasurement}</p>
+      )}
 
       {proposal.status === 'EXECUTED' && (
         <p className="proposal-note">Queda pendiente de aprobación humana en el panel de FinZen.</p>
@@ -67,6 +83,11 @@ export function ProposalCard({ proposal, onConfirm, onReject }: Props) {
       {proposal.status === 'UNKNOWN_OUTCOME' && (
         <p className="proposal-note proposal-note-warning">
           No se pudo confirmar si el borrador se creó — verificar en el panel de FinZen antes de reintentar.
+        </p>
+      )}
+      {proposal.status === 'EXPIRED' && (
+        <p className="proposal-note proposal-note-warning">
+          La confirmación expiró (más de 30 minutos) — proponé de nuevo si sigue siendo una buena idea.
         </p>
       )}
       {proposal.error && <p className="proposal-note proposal-note-warning">{proposal.error}</p>}
