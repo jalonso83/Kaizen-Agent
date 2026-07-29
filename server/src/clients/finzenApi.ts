@@ -91,6 +91,21 @@ export interface SegmentEvaluation {
   evaluated_at: string;
 }
 
+/** Una fila de adquisición: combinación (source, campaign, medium) de la ventana. */
+export interface AcquisitionWindowRow {
+  source: string;              // 'Directo' cuando el evento no traía utm_source
+  campaign: string | null;
+  medium: string | null;
+  visitors: number;            // visitantes únicos (PageView distinct)
+  leads: number;               // RAW: cada click al CTA de descarga cuenta
+  leads_unicos: number;        // distinct por identidad — la columna "Registros" del dashboard
+}
+
+export interface AcquisitionWindowResponse {
+  window: { start: string; end: string; timezone: string }; // días inclusivos, hora RD
+  rows: AcquisitionWindowRow[];
+}
+
 export interface CampaignDraftInput {
   title: string;          // ≤ 100 chars
   message: string;        // ≤ 200 chars
@@ -122,6 +137,24 @@ export function getKpis(params?: { from?: string; to?: string; week_mode?: 'roll
   if (params?.week_mode) qs.set('week_mode', params.week_mode);
   const suffix = qs.size > 0 ? `?${qs.toString()}` : '';
   return request<KpisResponse>('GET', `/api/agent/kpis${suffix}`);
+}
+
+/**
+ * Adquisición por (source, campaign, medium) de una ventana de días EN HORA RD.
+ * Sin parámetros, FinZen devuelve la última semana completa lunes→domingo — es
+ * la forma preferida: el corte de semana lo calcula el servidor en su zona y
+ * Kaizen no tiene que hacer aritmética de husos.
+ *
+ * OJO — no confundir con getKpis().acquisition.by_source: ese es LIFETIME a
+ * propósito (ignora from/to porque cruza costos por campaña sin granularidad
+ * temporal). Para cualquier número "de esta semana" por red, va ESTE endpoint.
+ */
+export function getAcquisitionWindow(params?: { from?: string; to?: string }): Promise<AcquisitionWindowResponse> {
+  const qs = new URLSearchParams();
+  if (params?.from) qs.set('from', params.from);
+  if (params?.to) qs.set('to', params.to);
+  const suffix = qs.size > 0 ? `?${qs.toString()}` : '';
+  return request<AcquisitionWindowResponse>('GET', `/api/agent/acquisition-window${suffix}`);
 }
 
 /** Catálogo de segmentos curados. Leerlo en vivo: FinZen puede agregar segmentos. */

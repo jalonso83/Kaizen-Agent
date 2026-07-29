@@ -8,6 +8,7 @@ import proposalsRoutes from './routes/proposals';
 import configRoutes from './routes/config';
 import { startCerebroIndexJob } from './jobs/cerebroIndex';
 import { startWeeklySummaryCron } from './jobs/weeklySummary';
+import { startAcquisitionExportCron } from './jobs/acquisitionExport';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Kaizen server — Fase 1: /health público; /api/auth, /api/conversations y
@@ -58,3 +59,6 @@ startCerebroIndexJob();
 
 // Solo agenda — no corre nada al boot (DISENO §12).
 startWeeklySummaryCron();
+
+// Export semanal de adquisición → Drive (lunes 1am RD). Solo agenda.
+startAcquisitionExportCron();

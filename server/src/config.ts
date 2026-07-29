@@ -56,6 +56,11 @@ export const config = {
     serviceAccountJsonBase64: optional('GOOGLE_SERVICE_ACCOUNT_JSON_BASE64'),
     cerebroFolderId: optional('DRIVE_CEREBRO_FOLDER_ID'),
     contenidosFolderId: optional('DRIVE_CONTENIDOS_FOLDER_ID'),
+    // Destino del CSV semanal de adquisición. Provisional (2026-07-28): sin
+    // esta var cae en la raíz del Cerebro, que es la carpeta que la service
+    // account ya tiene compartida. Cuando exista la carpeta definitiva basta
+    // con setear la env var — no hay que tocar código ni redeployar el job.
+    acquisitionExportFolderId: optional('DRIVE_ACQUISITION_EXPORT_FOLDER_ID'),
   },
 
   // BD propia de Kaizen — ya se usa (audit log, historial, auth): requerida.

@@ -90,6 +90,19 @@ async function findSubfolderId(client: drive_v3.Drive, parentId: string, name: s
   return res.data.files?.[0]?.id ?? null;
 }
 
+const CSV_MIME = 'text/csv';
+
+/** Archivo por nombre exacto dentro de una carpeta (para escribir de forma idempotente). */
+async function findFileIdByName(client: drive_v3.Drive, folderId: string, name: string): Promise<string | null> {
+  const escaped = name.replace(/'/g, "\\'");
+  const res = await client.files.list({
+    q: `'${folderId}' in parents and name = '${escaped}' and trashed = false`,
+    fields: 'files(id)',
+    pageSize: 1,
+  });
+  return res.data.files?.[0]?.id ?? null;
+}
+
 export const drive = {
   isConfigured,
 
@@ -126,6 +139,42 @@ export const drive = {
    * a partir de Markdown/texto plano. Sin reintentos (un reintento de escritura puede
    * duplicar un Doc real — misma regla que create_campaign_draft, DISENO §1).
    */
+  /**
+   * Sube un CSV como archivo CRUDO (sin convertirlo a Google Sheets: lo lee un
+   * parser, no una persona). Idempotente por nombre dentro de la carpeta — si
+   * el archivo ya existe se REEMPLAZA su contenido en vez de crear un duplicado.
+   *
+   * Ese upsert es lo que hace seguro reintentar: Drive admite dos archivos con
+   * el mismo nombre en la misma carpeta, así que un simple `create` en el
+   * segundo intento dejaría dos semanas iguales y el lector no sabría cuál
+   * tomar. Cada semana tiene nombre propio, así que no se pisan entre sí.
+   */
+  async saveCsv(
+    folderId: string,
+    filename: string,
+    content: string,
+  ): Promise<{ id: string; link: string; replaced: boolean }> {
+    if (!folderId) throw new Error('saveCsv: falta el id de la carpeta destino.');
+    const client = driveClient();
+
+    const existingId = await findFileIdByName(client, folderId, filename);
+    if (existingId) {
+      const res = await client.files.update({
+        fileId: existingId,
+        media: { mimeType: CSV_MIME, body: content },
+        fields: 'id, webViewLink',
+      });
+      return { id: res.data.id ?? existingId, link: res.data.webViewLink ?? '', replaced: true };
+    }
+
+    const res = await client.files.create({
+      requestBody: { name: filename, mimeType: CSV_MIME, parents: [folderId] },
+      media: { mimeType: CSV_MIME, body: content },
+      fields: 'id, webViewLink',
+    });
+    return { id: res.data.id ?? '', link: res.data.webViewLink ?? '', replaced: false };
+  },
+
   async saveContentDraft(
     folder: 'reels' | 'guiones' | 'carruseles' | 'assets',
     title: string,
