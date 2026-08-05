@@ -30,7 +30,10 @@ export function LoginPage({ onLoggedIn }: Props) {
   return (
     <div className="login-screen">
       <form className="login-card" onSubmit={handleSubmit}>
-        <span className="brand">Kaizen</span>
+        <span className="brand-group">
+          <img src="/logo.png" alt="FinZen" className="brand-logo login-logo" />
+          <span className="brand">Kaizen</span>
+        </span>
         <p className="login-sub">El agente de crecimiento de FinZen AI.</p>
 
         <label>

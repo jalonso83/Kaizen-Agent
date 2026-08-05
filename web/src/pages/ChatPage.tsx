@@ -13,6 +13,9 @@ interface Props {
   onLoggedOut: () => void;
 }
 
+// Calca server/prisma/schema.prisma → Conversation.title @default(...).
+const DEFAULT_CONVERSATION_TITLE = 'Nueva conversación';
+
 export function ChatPage({ partner, onLoggedOut }: Props) {
   const { theme, toggleTheme } = useTheme();
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -55,8 +58,23 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
     if (!activeId) return;
     // La fuente de verdad es el server: al terminar un turno, recargamos.
     loadConversation(activeId).catch(() => undefined);
-    refreshConversations().catch(() => undefined);
-  }, [activeId, loadConversation, refreshConversations]);
+
+    // Título automático tras el primer intercambio (mismo patrón que
+    // Claude.ai): si ANTES de este turno la conversación seguía con el título
+    // por defecto, generamos uno corto ahora que ya hay al menos un mensaje
+    // del socio guardado. El endpoint es idempotente (solo pisa el default),
+    // así que no hace falta trackear "primer mensaje" con más precisión acá.
+    const wasDefaultTitle = conversations.find((c) => c.id === activeId)?.title === DEFAULT_CONVERSATION_TITLE;
+    refreshConversations()
+      .then(() => {
+        if (!wasDefaultTitle) return;
+        return api
+          .autoTitleConversation(activeId)
+          .then(() => refreshConversations())
+          .catch(() => undefined); // best-effort — el título por defecto es un fallback aceptable
+      })
+      .catch(() => undefined);
+  }, [activeId, loadConversation, refreshConversations, conversations]);
 
   const stream = useAgentStream(activeId, handleDone);
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { ContentBlock, Proposal, StoredMessage } from '../types';
 import { ProposalCard } from './ProposalCard';
@@ -65,26 +66,69 @@ export function ChatView({ messages, proposals, liveText, isStreaming, onConfirm
     );
   }
 
+  // Mensajes y propuestas se intercalan por createdAt en una sola línea de
+  // tiempo — antes se pintaban en dos bloques separados (todos los mensajes,
+  // luego todas las propuestas), así que una propuesta rechazada quedaba
+  // "atrapada" debajo de mensajes posteriores de otro tema en vez de aparecer
+  // en su lugar cronológico (bug real, 2026-07-26).
+  type MessageEntry = { kind: 'message'; role: StoredMessage['role']; id: string; createdAt: string; blocks: ReactNode[] };
+  type ProposalEntry = { kind: 'proposal'; id: string; createdAt: string; node: ReactNode };
+  type SortedEntry = MessageEntry | ProposalEntry;
+
+  const messageEntries: (MessageEntry | null)[] = messages.map((message) => {
+    const blocks = message.content
+      .map((block, i) => renderBlock(block, `${message.id}-${i}`))
+      .filter((b) => b !== null);
+
+    if (blocks.length === 0) return null; // burbuja sin nada que mostrar (p.ej. tool_result)
+
+    return { kind: 'message', role: message.role, id: message.id, createdAt: message.createdAt, blocks };
+  });
+
+  const proposalEntries: ProposalEntry[] = proposals.map((proposal) => ({
+    kind: 'proposal',
+    id: proposal.id,
+    createdAt: proposal.createdAt,
+    node: <ProposalCard key={proposal.id} proposal={proposal} onConfirm={onConfirmProposal} onReject={onRejectProposal} />,
+  }));
+
+  const sorted: SortedEntry[] = [...messageEntries, ...proposalEntries]
+    .filter((item): item is SortedEntry => item !== null)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  // Kaizen puede escribir varias rondas cortas de texto entre tool-calls
+  // dentro de un mismo turno; cada ronda queda en su propia fila de la BD
+  // (runner.ts persiste un Message por ronda), pero visualmente es UNA sola
+  // respuesta — igual a como ya se ve en vivo mientras streamea (liveText
+  // crece continuo, sin cortes). Se fusionan burbujas de assistant
+  // consecutivas (sin una propuesta ni un mensaje del socio entre medio) en
+  // una sola burbuja, para que el historial recargado luzca igual que en vivo.
+  const merged: Array<{ key: string; role?: StoredMessage['role']; blocks?: ReactNode[]; node?: ReactNode }> = [];
+  for (const entry of sorted) {
+    if (entry.kind === 'proposal') {
+      merged.push({ key: `proposal-${entry.id}`, node: entry.node });
+      continue;
+    }
+    const prev = merged[merged.length - 1];
+    if (prev?.blocks && prev.role === 'assistant' && entry.role === 'assistant') {
+      prev.blocks.push(...entry.blocks);
+    } else {
+      merged.push({ key: `message-${entry.id}`, role: entry.role, blocks: [...entry.blocks] });
+    }
+  }
+
   return (
     <div className="chat-view">
-      {messages.map((message) => {
-        const blocks = message.content
-          .map((block, i) => renderBlock(block, `${message.id}-${i}`))
-          .filter((b) => b !== null);
-
-        if (blocks.length === 0) return null; // burbuja sin nada que mostrar (p.ej. tool_result)
-
-        return (
-          <div key={message.id} className={`bubble bubble-${message.role}`}>
-            {message.role === 'assistant' && <span className="bubble-who">Kaizen</span>}
-            {blocks}
+      {merged.map((item) =>
+        item.blocks ? (
+          <div key={item.key} className={`bubble bubble-${item.role}`}>
+            {item.role === 'assistant' && <span className="bubble-who">Kaizen</span>}
+            {item.blocks}
           </div>
-        );
-      })}
-
-      {proposals.map((proposal) => (
-        <ProposalCard key={proposal.id} proposal={proposal} onConfirm={onConfirmProposal} onReject={onRejectProposal} />
-      ))}
+        ) : (
+          item.node
+        ),
+      )}
 
       {isStreaming && (
         <div className="bubble bubble-assistant bubble-live">

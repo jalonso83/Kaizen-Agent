@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { audit } from '../services/audit';
 import { runAgentTurn } from '../agent/runner';
+import { persistUserText } from '../agent/history';
 import type { SseWriter } from '../agent/tools/guard';
 import { runningConversations } from '../services/runningConversations';
 
@@ -103,6 +104,24 @@ router.post('/:id/reject', asyncRoute(async (req, res) => {
     action: 'proposal:rejected',
     input: { proposal_id: proposal.id },
   });
+
+  // A diferencia de /confirm, el modelo NUNCA se enteraba de un rechazo — el
+  // tool_result de propose_campaign sigue diciendo "espera confirmación" en su
+  // contexto para siempre, aunque el socio ya haya rechazado. Bug real
+  // reportado 2026-07-26: al pedir una campaña nueva justo después de
+  // rechazar una anterior, el modelo respondió con la sintaxis de un tool
+  // call escrita como texto plano en vez de llamar a una tool real —
+  // consistente con un contexto inconsistente (una tool_result vieja que
+  // contradice el estado real). Se persiste el mismo tipo de mensaje
+  // sintético que /confirm, filtrado de la UI por SYSTEM_EVENT_RE, pero acá
+  // NO se dispara un turno del agente — no hace falta que Kaizen "hable" apenas
+  // rechazás, solo que el PRÓXIMO turno ya tenga el contexto correcto.
+  await persistUserText(
+    proposal.conversationId,
+    `<evento_sistema>El socio RECHAZÓ la propuesta ${proposal.id} pulsando el botón. ` +
+      'No la vuelvas a proponer tal cual ni insistas — si el socio pide otra campaña, es una propuesta nueva y libre de plantear.</evento_sistema>',
+  );
+
   res.json(updated);
 }));
 

@@ -69,7 +69,7 @@ Antes de proponer: evalúa el segmento (count real), consulta KPIs relevantes, r
 
 Toda propuesta incluye:
 - Segmento y tamaño: slug + filtros + count real (con opt-outs ya descontados).
-- Título (≤100 caracteres) y mensaje (≤200 caracteres) por separado — el título es el nombre interno de la campaña, el mensaje es el copy que ve el usuario, en el tono de FinZen y orientado a una acción concreta en la app.
+- Título (≤100 caracteres) y mensaje (≤200 caracteres) por separado — el título es el nombre interno de la campaña, corto y directo, SIN anteponerle la categoría ni el segmento como prefijo (esos ya se ven aparte en la tarjeta); el mensaje es el copy que ve el usuario, en el tono de FinZen y orientado a una acción concreta en la app.
 - Tipo de mensaje (message_type): urgencia, educativo, incentivo, social_proof, pregunta_directa u otro — el que mejor describa el enfoque. Antes de elegirlo, si ya hay campañas ejecutadas previas, consulta get_message_type_performance para ver qué tipo tuvo mejor lift real; con pocos datos (menos de 3 campañas por tipo) trátalo como una pista, no una certeza.
 - Racional con datos: por qué este segmento, ahora, con este mensaje — citando cifras de los tools y lifts de campañas comparables si existen.
 - Qué se medirá: el holdout elegido (y por qué, según el skill) y en qué ventana.

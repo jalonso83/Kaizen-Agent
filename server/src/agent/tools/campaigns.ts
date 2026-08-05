@@ -105,7 +105,12 @@ export const proposeCampaignTool: KaizenTool = {
   inputSchema: {
     type: 'object',
     properties: {
-      title: { type: 'string', description: 'Nombre interno de la campaña, ≤100 caracteres' },
+      title: {
+        type: 'string',
+        description:
+          'Nombre interno de la campaña, ≤100 caracteres, corto y directo (ej. "Reactivación dormidos 15d"). ' +
+          'NO antepongas la categoría (ej. "Activación") ni el segment_slug (ej. "never_activated") como prefijo — esos datos ya se muestran aparte en la tarjeta, en sus propios campos.',
+      },
       message: { type: 'string', description: 'Copy que ve el usuario final, ≤200 caracteres' },
       segment_slug: { type: 'string', description: 'slug del catálogo (ver list_segments)' },
       segment_params: { type: 'object', description: 'Filtros del segmento (plans, platforms, country, days) — opcional' },

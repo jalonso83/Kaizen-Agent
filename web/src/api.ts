@@ -51,6 +51,9 @@ export const api = {
       body: JSON.stringify({ title }),
     }),
 
+  autoTitleConversation: (conversationId: string) =>
+    request<ConversationSummary>(`/api/conversations/${conversationId}/auto-title`, { method: 'POST' }),
+
   deleteConversation: (conversationId: string) =>
     request<void>(`/api/conversations/${conversationId}`, { method: 'DELETE' }),
 

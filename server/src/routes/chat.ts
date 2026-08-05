@@ -3,8 +3,18 @@ import { db } from '../db';
 import { requireAuth } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { runAgentTurn } from '../agent/runner';
+import { generateConversationTitle } from '../agent/autoTitle';
 import type { SseWriter } from '../agent/tools/guard';
 import { runningConversations } from '../services/runningConversations';
+
+const DEFAULT_CONVERSATION_TITLE = 'Nueva conversación';
+
+/** Primer bloque de texto de un array de content blocks crudo (o '' si no hay). */
+function firstTextBlock(content: unknown): string {
+  if (!Array.isArray(content)) return '';
+  const block = content.find((b) => b && typeof b === 'object' && (b as { type?: string }).type === 'text');
+  return block && typeof (block as { text?: unknown }).text === 'string' ? (block as { text: string }).text : '';
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // /api/conversations — CRUD de conversaciones + el endpoint de chat (SSE).
@@ -50,6 +60,48 @@ router.patch('/:id', asyncRoute(async (req, res) => {
   }
   if (title.length > 200) {
     res.status(400).json({ message: 'El título no puede superar los 200 caracteres.' });
+    return;
+  }
+
+  const updated = await db.conversation.update({ where: { id: conversation.id }, data: { title } });
+  res.json(updated);
+}));
+
+// Título automático tras el primer intercambio — mismo patrón que Claude.ai.
+// Idempotente y defensivo: solo pisa el título si SIGUE siendo el default (si
+// el socio ya lo renombró a mano, no lo tocamos) y solo si el modelo de título
+// devolvió algo usable — nunca rompe el flujo de chat, esto es best-effort.
+router.post('/:id/auto-title', asyncRoute(async (req, res) => {
+  const conversation = await loadOwnedConversation(req.params.id, req.partner!.id);
+  if (!conversation) {
+    res.status(404).json({ message: 'Conversación no encontrada.' });
+    return;
+  }
+  if (conversation.title !== DEFAULT_CONVERSATION_TITLE) {
+    res.json(conversation); // ya tiene título (manual o generado antes) — no-op
+    return;
+  }
+
+  const firstMessages = await db.message.findMany({
+    where: { conversationId: conversation.id },
+    orderBy: { seq: 'asc' },
+    take: 2,
+  });
+  const firstUser = firstMessages.find((m) => m.role === 'user');
+  const firstAssistant = firstMessages.find((m) => m.role === 'assistant');
+  const firstUserText = firstUser ? firstTextBlock(firstUser.content) : '';
+
+  if (!firstUserText) {
+    res.json(conversation); // no hay texto todavía (p.ej. corrida sin turno completo)
+    return;
+  }
+
+  const title = await generateConversationTitle(
+    firstUserText,
+    firstAssistant ? firstTextBlock(firstAssistant.content) : undefined,
+  );
+  if (!title) {
+    res.json(conversation); // el modelo de título falló — se queda el default
     return;
   }
 
