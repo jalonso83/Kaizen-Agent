@@ -112,14 +112,30 @@ function buildCronPrompt(reportWeek: WeekRange, priorWeek: WeekRange): string {
   );
 }
 
-export async function runWeeklySummary(): Promise<void> {
+export type WeeklySummaryResult =
+  | { ok: true; from: string; to: string }
+  | { ok: false; error: string };
+
+// Guard simple anti-concurrencia: solo existe UNA conversación de cron (ver
+// ensureCronConversation), así que dos corridas superpuestas — el cron
+// disparando justo cuando alguien pulsa "forzar ahora" — escribirían sobre el
+// mismo hilo de mensajes a la vez. Un booleano en memoria alcanza: un solo
+// proceso, sin necesidad de un lock en BD.
+let isRunning = false;
+
+export async function runWeeklySummary(): Promise<WeeklySummaryResult> {
+  if (isRunning) {
+    return { ok: false, error: 'Ya hay una corrida del resumen semanal en curso — esperá a que termine.' };
+  }
+  isRunning = true;
+
   const startedAt = Date.now();
   let conversationId: string | undefined;
 
   try {
     if (!config.anthropicApiKey) {
       console.warn('[weekly-summary] Sin ANTHROPIC_API_KEY configurada — se omite la corrida.');
-      return;
+      return { ok: false, error: 'Kaizen todavía no tiene configurada la key de Anthropic.' };
     }
 
     const cfg = await db.weeklySummaryConfig.findUnique({ where: { id: 1 } });
@@ -175,6 +191,7 @@ export async function runWeeklySummary(): Promise<void> {
       durationMs: Date.now() - startedAt,
     });
     console.log(`[weekly-summary] listo en ${Date.now() - startedAt}ms — semana ${reportWeek.from} a ${reportWeek.to}.`);
+    return { ok: true, from: reportWeek.from, to: reportWeek.to };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[weekly-summary] Falló la corrida:', message);
@@ -188,6 +205,9 @@ export async function runWeeklySummary(): Promise<void> {
         durationMs: Date.now() - startedAt,
       })
       .catch(() => undefined);
+    return { ok: false, error: message };
+  } finally {
+    isRunning = false;
   }
 }
 

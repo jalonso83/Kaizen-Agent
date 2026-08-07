@@ -64,4 +64,7 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ weekMode, weekStartDay }),
     }),
+
+  runWeeklySummaryNow: () =>
+    request<{ ok: true; from: string; to: string }>('/api/config/weekly-summary/run-now', { method: 'POST' }),
 };

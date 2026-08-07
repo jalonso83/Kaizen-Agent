@@ -19,6 +19,9 @@ export function ConfigDialog({ onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [runningNow, setRunningNow] = useState(false);
+  const [runNowError, setRunNowError] = useState<string | null>(null);
+  const [runNowResult, setRunNowResult] = useState<string | null>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -50,6 +53,23 @@ export function ConfigDialog({ onClose }: Props) {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo guardar la configuración.');
       setSaving(false);
+    }
+  };
+
+  // Corre la MISMA función que el cron de los lunes, ahora mismo — para no
+  // tener que esperar a que llegue un lunes con el server despierto en ese
+  // momento exacto solo para probar que el resumen funciona.
+  const handleRunNow = async () => {
+    setRunningNow(true);
+    setRunNowError(null);
+    setRunNowResult(null);
+    try {
+      const result = await api.runWeeklySummaryNow();
+      setRunNowResult(`Listo — resumen de ${result.from} a ${result.to} guardado en Contenidos/assets.`);
+    } catch (err) {
+      setRunNowError(err instanceof ApiError ? err.message : 'No se pudo correr el resumen.');
+    } finally {
+      setRunningNow(false);
     }
   };
 
@@ -112,6 +132,17 @@ export function ConfigDialog({ onClose }: Props) {
                 <strong>Últimos 7 días</strong> — ventana móvil terminando el día que corre el resumen
               </span>
             </label>
+
+            <div className="config-run-now">
+              <button type="button" className="dialog-cancel" onClick={handleRunNow} disabled={runningNow || saving}>
+                {runningNow ? 'Corriendo…' : 'Forzar corrida ahora'}
+              </button>
+              <p className="config-run-now-hint">
+                Corre el resumen ya mismo con la configuración de arriba (guardala primero si la cambiaste) — no hace falta esperar al lunes. El resultado se guarda como Doc en Contenidos/assets de Drive, no aparece en este chat.
+              </p>
+              {runNowResult && <p className="config-run-now-ok">{runNowResult}</p>}
+              {runNowError && <p className="config-error">{runNowError}</p>}
+            </div>
           </div>
         )}
 

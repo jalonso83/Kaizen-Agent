@@ -3,6 +3,7 @@ import { db } from '../db';
 import { requireAuth } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { audit } from '../services/audit';
+import { runWeeklySummary } from '../jobs/weeklySummary';
 
 // ─────────────────────────────────────────────────────────────────────────
 // /api/config/weekly-summary — el apartado de Configuración pedido junto con
@@ -57,6 +58,28 @@ router.put('/weekly-summary', asyncRoute(async (req, res) => {
   });
 
   res.json(updated);
+}));
+
+// Corrida manual — para no depender de acertarle a un lunes 8am RD exacto
+// (con el server despierto en ese momento) para poder probar el resumen.
+// Reusa exactamente la misma función que el cron (mismo guard anti-
+// concurrencia, misma conversación interna, mismo Doc en Drive) — esto NO es
+// un camino alternativo, es la misma corrida disparada a mano.
+router.post('/weekly-summary/run-now', asyncRoute(async (req, res) => {
+  const result = await runWeeklySummary();
+
+  await audit.log({
+    actor: `partner:${req.partner!.id}`,
+    action: 'config:weekly-summary-run-now',
+    resultSummary: result.ok ? `Semana ${result.from} a ${result.to}` : result.error,
+    isError: !result.ok,
+  });
+
+  if (result.ok) {
+    res.json(result);
+    return;
+  }
+  res.status(result.error.includes('en curso') ? 409 : 502).json({ message: result.error });
 }));
 
 export default router;

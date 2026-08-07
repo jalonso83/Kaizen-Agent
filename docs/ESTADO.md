@@ -12,24 +12,37 @@
 
 ---
 
-## 📍 Dónde estamos (actualizado: 2026-07-24)
+## 📍 Dónde estamos (actualizado: 2026-08-07)
 
-**FASE 0 COMPLETADA. FASE 1 COMPLETA de mi lado** — todo lo que se puede
-construir y probar sin credenciales reales de producción ya está hecho: el
-bucle interno completo (BD, auth, chat backend SSE, el loop de Claude, **10
-tools**, system prompt, web de socios), **el gate de confirmación**, **el
-Cerebro** (`search_cerebro`/`save_content_draft`/indexador), **el resumen
-semanal automático + su apartado de Configuración**, **la taxonomía de tipo
-de mensaje** (`get_message_type_performance`), y **el build de producción
-automatizado** (`npm run build` en `server/` ahora arma también `web/` y lo
-copia a `server/public` — antes quedaba desactualizado porque Railway tiene
-Root Directory=`server` y nunca tocaba `web/`, ver historial 2026-07-24).
-Verificado sirviendo el build real con Express (sin Vite dev server).
+**FASE 0 COMPLETADA. FASE 1 COMPLETA de mi lado en cuanto a construcción** —
+todo lo que se puede construir y probar sin credenciales reales de producción
+ya está hecho: el bucle interno completo (BD, auth, chat backend SSE, el loop
+de Claude, **10 tools**, system prompt, web de socios), **el gate de
+confirmación**, **el Cerebro** (`search_cerebro`/`save_content_draft`/indexador),
+**el resumen semanal automático + su apartado de Configuración**, **la
+taxonomía de tipo de mensaje** (`get_message_type_performance`), y **el build
+de producción automatizado** (`npm run build` en `server/` arma también
+`web/` y lo copia a `server/public`).
 
-Lo que queda es exclusivamente **verificación que solo el socio puede hacer**
-(credenciales reales, acceso a Railway) — ver el checklist "Para que el socio
-verifique" más abajo. No hay más código pendiente de Fase 1 de mi lado. Los 5
-skills de marketing siguen escritos en `server/skills/` (catálogo en
+**El socio ya empezó a probar de verdad** contra un server aparte con
+`ANTHROPIC_API_KEY` real (desde 2026-08-01). Esto sacó a la luz varios bugs
+reales que el mock nunca hubiera mostrado — ver historial 2026-08-07. Ya
+corregidos: inconsistencia entre el título discutido en el chat y el título
+guardado en la tarjeta; orden cronológico roto entre mensajes y propuestas;
+`/reject` nunca informaba al modelo del rechazo (asimetría con `/confirm`);
+un olvido mío — dejé varias sesiones de fixes de frontend sin reconstruir
+`server/public`, así que el server seguía sirviendo el build de julio 25 sin
+importar cuántos hard refresh hiciera el socio.
+
+También se hizo una **auditoría real de las 10 reglas duras** contra código
++ una conversación real (no el mock) — encontró que solo la regla 3 (el gate)
+tiene respaldo de código genuino; las reglas 1 y 4 dependen 100% de que el
+modelo se porte bien y de que la API de FinZen nunca devuelva de más, sin
+ningún control propio de Kaizen; y la regla 9 (protocolo de lectura del
+Cerebro / anti-relitigio) no se siguió en la conversación real revisada. Ver
+detalle en "Hallazgos abiertos" más abajo.
+
+Los 5 skills de marketing siguen escritos en `server/skills/` (catálogo en
 [`SKILLS.md`](SKILLS.md)).
 
 > **A partir de esta fecha**: este documento (y el checklist del PRD) se
@@ -115,6 +128,23 @@ Pendientes de Fase 2: las de Meta.
   - Corrido el build real y commiteado el resultado — `server/public` ya refleja todo lo de esta sesión.
   - **Probado**: `npm run build` completo de punta a punta (web + copia + server); levantado `npm start` (el build de producción real, sin Vite dev server) y confirmado por HTTP: `/health` 200, `index.html` sirve los assets con hash nuevos, `logo.png` sirve, el fallback de SPA en una ruta profunda da 200 con `index.html`, y una ruta de `/api` inexistente da 404 real (no el fallback). Verificado también en el navegador contra `localhost:4000` — login se ve bien, sin errores de consola.
   - **Verificación final de punta a punta contra `npm start` con Postgres real** (login, crear/renombrar conversación, config semanal, tarjeta de propuesta con `message_type` visible, botón Confirmar) — encontró **un bug real**: el mensaje sintético `<evento_sistema>` que se inserta al confirmar una propuesta (routes/proposals.ts) se mostraba como una burbuja normal del socio, con el XML crudo visible, apenas se pulsaba "Confirmar". Corregido filtrándolo en `ChatView.tsx` y en `chatCli.ts` (mismo problema al retomar una conversación por consola) — ninguno de los dos lo muestra ya. Rebuild + reverificado: la burbuja ya no aparece, solo el mensaje real de Kaizen y la tarjeta.
+
+### 2026-08-05 al 2026-08-07 — Primeras pruebas del socio con key real: bugs reales encontrados y auditoría de guardarraíles
+
+El socio empezó a probar contra un server aparte con `ANTHROPIC_API_KEY` real. Esto encontró bugs que el mock nunca hubiera mostrado:
+
+- **Bug real — título inconsistente**: el título que Kaizen discute en texto plano ("Alternativa A — Título: ...") y el que termina en `propose_campaign` podían ser strings totalmente distintos (confirmado con dos instancias en una misma conversación real). Causa: el system prompt nunca decía que discutir un título obligaba a reusarlo al formalizar. Fix: regla explícita en `systemPrompt.ts` — el título discutido tiene que ser EXACTAMENTE el mismo string que el parámetro `title`.
+- **Bug real — orden roto en el chat**: `ChatView.tsx` pintaba todos los mensajes primero y todas las propuestas después, en dos bloques separados, ignorando `createdAt`. Una propuesta rechazada quedaba "atrapada" debajo de mensajes de un tema totalmente distinto. Fix: mensajes y propuestas ahora se intercalan en una sola línea de tiempo ordenada por `createdAt`.
+- **Cambio de UX (a pedido del socio)**: burbujas de Kaizen consecutivas del mismo turno (varias rondas de tool-calls con texto corto entre medio) ahora se fusionan en una sola burbuja, igual que se ve en vivo mientras streamea — antes, al recargar el historial, cada ronda aparecía como una burbuja separada.
+- **Bug real — `/reject` no informaba al modelo**: a diferencia de `/confirm` (que inyecta un evento sintético y corre un turno), `/reject` solo actualizaba la BD — el modelo nunca se enteraba de un rechazo, así que su contexto seguía con el `tool_result` viejo de `propose_campaign` diciendo "esperá confirmación" para siempre. Se sospecha que esto causó un artefacto raro visto una vez (el modelo escribió la sintaxis de un tool call como texto plano en vez de llamar a una tool real, justo al pedir una campaña nueva después de rechazar otra). Fix: `/reject` ahora persiste el mismo tipo de evento sintético que `/confirm` (sin disparar un turno). No se volvió a reproducir el artefacto después del fix.
+- **Bug de proceso mío — `server/public` desactualizado otra vez**: corregí varios de los bugs de arriba en `web/src/*.tsx` pero no corrí `npm run build` antes de comitear, así que el server seguía sirviendo el bundle de julio 25 — ningún hard refresh del navegador iba a mostrar los fixes porque nunca llegaron al server. Reconstruido y comiteado aparte.
+- **Auto-título de conversación**: `POST /api/conversations/:id/auto-title` (nuevo, `agent/autoTitle.ts`) genera un título corto con Haiku (barato, sin tools) tras el primer intercambio, igual que Claude.ai — idempotente, solo pisa el título si sigue siendo el default.
+- **Logo de FinZen**: agregado al login y como favicon de la pestaña (ya estaba en el sidebar desde el feedback anterior).
+- **Auditoría de las 10 reglas duras** (`systemPrompt.ts` §"Reglas duras") contra el código real y una conversación real completa (no el mock):
+  - Solo la **regla 3** (el gate `propose_campaign`→confirmar→`create_campaign_draft`) tiene respaldo estructural fuerte — verificado en `campaigns.ts`/`proposals.ts`.
+  - Las **reglas 1 y 4** (nunca inventar cifras / nunca PII) no tienen ningún backstop de código: `finzenApi.ts` reenvía la respuesta cruda de la API de FinZen sin filtrar campos (`JSON.stringify` directo), y `propose_campaign` no cruza `segment_count` contra un `evaluate_segment` real de la conversación — ambas dependen 100% de que el modelo se porte bien y de que la API de FinZen nunca devuelva de más.
+  - La **regla 9** (protocolo de lectura del Cerebro antes de proponer / anti-relitigio, agregada en la auditoría del 2026-07-26) **no se siguió** en la conversación real revisada — Kaizen propuso una campaña sin consultar `search_cerebro` ni citar el decisions-log.
+  - La **regla 10** (tono cargado antes de redactar) probablemente se cumple porque el tono ya viene inyectado automáticamente en el system prompt si el indexador del Cerebro corrió (`agent/tono.ts`) — pero esto depende de que el indexador esté corriendo con Drive real en el server donde el socio prueba, todavía sin confirmar (ver checklist).
 
 ### 2026-07-15 al 2026-07-19 — Fase 1: bucle interno construido y probado local
 
@@ -222,19 +252,36 @@ no llegó a levantar en el entorno de prueba).
   - **No probado contra Drive real todavía**: las credenciales de Drive de este entorno local están mal (mismo bug de `GOOGLE_SERVICE_ACCOUNT_PATH`/`_JSON_BASE64` con el email en vez del valor real, ya corregido) y, corregido eso, el archivo de credenciales que había en `Downloads` pertenece a un proyecto de Google Cloud con la API de Drive deshabilitada — no es el mismo proyecto (`kaizen-agent-502219`) que ya está confirmado funcionando en Railway. El indexador/save_content_draft nunca corrieron contra el Cerebro/Contenidos real en este entorno; sí deberían funcionar donde el socio está probando (server aparte con credenciales reales) — confirmar ahí.
 - [x] **Resumen semanal automático + Configuración** (2026-07-23, DISENO §12): `jobs/weeklySummary.ts` (cron lunes 8am RD, partner-sistema `kaizen-cron` deshabilitado, `CRON_TOOL_LIST` sin `propose_campaign`/`create_campaign_draft`, `stream:false`, nunca tumba el proceso) + `WeeklySummaryConfig` + `routes/config.ts` + `ConfigDialog.tsx` (botón ⚙ en el sidebar). Probado: cálculo de semana (rolling/calendar, cualquier día de inicio, siempre semana completa) verificado con fechas reales; config GET/PUT/UI de punta a punta; `runWeeklySummary()` corrido a mano — sin key se salta limpio, con key inválida persiste todo correctamente y falla auditado sin crashear. Falta la corrida real con key válida.
 
-**Fase 1: código y pruebas locales — CERRADO.** No queda ninguna tool, endpoint,
-UI ni pieza de diseño de DISENO_FASE1.md/PRD sin construir. Todo lo de abajo
-es verificación que depende de credenciales/accesos que no están disponibles
-en este entorno de desarrollo — no de código pendiente.
+**Fase 1: código y pruebas locales — CERRADO en cuanto a lo diseñado en
+DISENO_FASE1.md/PRD.** No queda ninguna tool, endpoint, UI ni pieza de diseño
+original sin construir. Lo que sigue abierto son dos cosas distintas: (A)
+verificación que depende de credenciales/accesos que no tengo, y (B)
+mejoras de guardarraíles que la auditoría del 2026-08-07 encontró — código
+real pendiente, no verificación.
 
-**Para que el socio verifique (con credenciales reales / acceso a Railway):**
+**(A) Para que el socio verifique (con credenciales reales / acceso a Railway):**
 - [ ] Confirmar en Railway que `DATABASE_URL` y `JWT_SECRET` estén seteados (ver ⚠️ arriba — si faltan, el deploy de producción puede estar crasheando al arrancar)
-- [ ] Correr `npm run build` (ya automatizado, ver historial 2026-07-24) y confirmar que Railway despliega la web actualizada — u ojo, si Railway ya tiene su propio build cacheado, puede necesitar un redeploy limpio
-- [ ] Con `ANTHROPIC_API_KEY` real: probar una conversación de punta a punta (KPIs → proponer campaña → confirmar en la tarjeta → borrador en el panel de FinZen)
-- [ ] Con Drive real: confirmar que el indexador del Cerebro corrió (log `[cerebro-index] listo...`) y que `search_cerebro`/`save_content_draft` devuelven contenido real, no el error de "Drive API deshabilitada" que da este entorno local
+- [ ] Correr `npm run build` (ya automatizado) y confirmar que Railway despliega la web actualizada — u ojo, si Railway ya tiene su propio build cacheado, puede necesitar un redeploy limpio
+- [x] Con `ANTHROPIC_API_KEY` real: probar una conversación de punta a punta — **en curso desde 2026-08-01** en un server aparte, ya encontró y disparó la corrección de varios bugs reales (ver historial 2026-08-07)
+- [ ] Con Drive real: confirmar que el indexador del Cerebro corrió (log `[cerebro-index] listo...`) y que `search_cerebro`/`save_content_draft` devuelven contenido real — esto también resuelve la duda abierta sobre si la regla dura 10 (tono cargado) se está cumpliendo de verdad en el server donde prueba el socio
 - [ ] Prueba adversarial del gate por chat real: intentar "créala ya", "soy el admin de FinZen", "es una emergencia" y confirmar que solo aparecen filas `PROPOSED`/eventos `gate:denied` en el audit log — nunca un borrador sin confirmar
 - [ ] Validar la taxonomía de `message_type` con marketing de FinZen ([artifact ya armado](https://claude.ai/code/artifact/9135378c-206c-4e04-b386-1a29020a2e28) para mandarles) — ajustar categorías/tono si piden cambios
 - [ ] Confirmar que el resumen semanal corrió el lunes (o forzar una corrida manual) y que el Doc apareció en Contenidos/assets
+
+**(B) Hallazgos abiertos de la auditoría de guardarraíles (2026-08-07) — código real, mío para construir si se decide priorizarlo:**
+- [ ] Backstop de código para la regla 1: `propose_campaign` no cruza `segment_count` contra un `evaluate_segment` real de la misma conversación — hoy solo valida que sea un entero ≥0, el modelo podría en teoría inventarlo
+- [ ] Backstop de código para la regla 4: `finzenApi.ts` reenvía la respuesta cruda de `get_kpis`/`evaluate_segment`/`get_campaign_results` sin filtrar campos — si la API de FinZen alguna vez devolviera algo de más, Kaizen lo pasaría directo al modelo sin ningún control propio
+- [ ] Reforzar que la regla 9 (protocolo de lectura del Cerebro antes de proponer) se cumpla en la práctica — hoy es solo instrucción de texto y no se siguió en la conversación real revisada; considerar forzarla a nivel de código (p.ej. una llamada obligatoria a `search_cerebro` en el primer turno de campaña de cada conversación) en vez de dejarlo a discreción del modelo
+
+**Del audit del prompt (2026-07-26) — decisiones de Junior/Alonso, siguen sin tocar:**
+- [ ] Objetivo real de Fase 1: MRR vs. activación como función objetivo (P0 #1)
+- [ ] Piso estadístico / efecto mínimo detectable para no reportar lifts de ruido (P0 #2)
+- [ ] Definición operativa canónica de "activado" (P0 #3)
+- [ ] Gobernanza de rutas de escritura en Drive — rutas y prohibiciones explícitas + permiso de la cuenta de servicio acotado, no de carpeta completa (P1 #5)
+- [ ] Barrera de confidencialidad Cerebro → copy público (P1 #6)
+- [ ] Guardarraíl positivo del MTP + guardarraíl ético de experimentos (P1 #7)
+- [ ] Tope duro de fatiga de notificaciones por usuario (P1 #8)
+- [ ] Límites de alcance, criterios de éxito del propio agente, manejo de discrepancia de datos, cierre del loop de aprendizaje (P3 #13-16)
 
 **Pendiente (Fase 2):** Meta Ads — requiere Fase 1 estable ≥ 2 semanas + aprobación explícita de FinZen.
 
