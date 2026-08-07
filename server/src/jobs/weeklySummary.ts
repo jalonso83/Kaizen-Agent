@@ -1,5 +1,4 @@
 import cron from 'node-cron';
-import Anthropic from '@anthropic-ai/sdk';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 import { db } from '../db';
@@ -163,22 +162,19 @@ export async function runWeeklySummary(): Promise<WeeklySummaryResult> {
       max_iterations: 12,
     });
 
-    const assistants: Anthropic.Beta.BetaMessage[] = [];
+    // Persistir cada mensaje del assistant apenas está listo, ANTES de que el
+    // runner ejecute su tool_use — mismo fix que runner.ts (2026-08-07): si se
+    // acumula todo para persistir después del loop completo, una tool que
+    // escribe algo con su propio timestamp queda con un createdAt anterior al
+    // del mensaje que la generó.
     for await (const message of runner) {
-      assistants.push(message);
+      await persistAssistantMessage(conversationId, message);
     }
 
+    // Los tool_result ('user') que el runner generó entre rondas.
     const newMessages = runner.params.messages.slice(baseLen);
-    let assistantIdx = 0;
     for (const msg of newMessages) {
-      if (msg.role === 'assistant') {
-        const rich = assistants[assistantIdx++];
-        if (rich) {
-          await persistAssistantMessage(conversationId, rich);
-        } else {
-          await persistToolResultMessage(conversationId, msg.content);
-        }
-      } else {
+      if (msg.role === 'user') {
         await persistToolResultMessage(conversationId, msg.content);
       }
     }

@@ -112,8 +112,6 @@ export async function runAgentTurn(
       max_iterations: 12, // tope duro contra runaway loops (un flujo típico usa 3-5).
     });
 
-    const assistants: Anthropic.Beta.BetaMessage[] = [];
-
     for await (const messageStream of runner) {
       for await (const ev of messageStream) {
         if (ev.type === 'content_block_start') {
@@ -123,24 +121,24 @@ export async function runAgentTurn(
         }
       }
       const finalMessage = await messageStream.finalMessage();
-      assistants.push(finalMessage);
+      // Persistir CADA mensaje del assistant apenas está listo, ANTES de que el
+      // runner ejecute sus tool_use — no acumulado para persistir todo junto al
+      // final. Antes, toda la persistencia quedaba para después del loop
+      // completo, así que una tool que escribe algo con su propio timestamp
+      // (p.ej. propose_campaign creando la fila Proposal) terminaba con un
+      // createdAt ANTERIOR al del mensaje que la generó — la tarjeta se
+      // renderizaba arriba del texto "la paso a tarjeta" en vez de abajo (bug
+      // real, 2026-08-07). Persistir aquí garantiza que el createdAt del
+      // mensaje quede sellado antes de que la tool corra.
+      await persistAssistantMessage(conversationId, finalMessage);
       handleStopReason(finalMessage, sse);
     }
 
-    // Persistencia: los mensajes nuevos que el runner agregó al hilo, en orden.
-    // assistant → con usage/stop_reason del BetaMessage; user → tool_results crudos.
+    // Los tool_result ('user') que el runner generó entre rondas — los
+    // 'assistant' ya quedaron persistidos arriba, en orden correcto.
     const newMessages = runner.params.messages.slice(baseLen);
-    let assistantIdx = 0;
     for (const msg of newMessages) {
-      if (msg.role === 'assistant') {
-        const rich = assistants[assistantIdx++];
-        if (rich) {
-          await persistAssistantMessage(conversationId, rich);
-        } else {
-          // Fallback defensivo: sin el BetaMessage, guardar el contenido del param.
-          await persistToolResultMessage(conversationId, msg.content);
-        }
-      } else {
+      if (msg.role === 'user') {
         await persistToolResultMessage(conversationId, msg.content);
       }
     }
