@@ -22,6 +22,11 @@ Título (≤100):  el gancho — beneficio o momento, específico
 Mensaje (≤200): valor concreto + UNA llamada a la acción
 ```
 
+Estos dos SON los parámetros `title` y `message` de `propose_campaign` — no un
+concepto aparte. Lo que discutas acá como "Título" tiene que llegar intacto
+al parámetro `title` cuando formalices; no lo reinventes ni lo reemplaces por
+un nombre de campaña distinto.
+
 - **Las primeras 5 palabras deciden.** El usuario ve el título truncado en la
   pantalla bloqueada: el gancho va al inicio, no al final.
 - **Una idea, una acción.** Dos CTAs = cero clics.

@@ -108,10 +108,16 @@ export const proposeCampaignTool: KaizenTool = {
       title: {
         type: 'string',
         description:
-          'Nombre interno de la campaña, ≤100 caracteres, corto y directo (ej. "Reactivación dormidos 15d"). ' +
-          'NO antepongas la categoría (ej. "Activación") ni el segment_slug (ej. "never_activated") como prefijo — esos datos ya se muestran aparte en la tarjeta, en sus propios campos.',
+          'El TÍTULO REAL del push — lo que el usuario ve primero en la pantalla bloqueada (el "Título" del skill copy-push, la mitad corta de su Anatomía del mensaje: el gancho). ' +
+          'Debe ser EXACTAMENTE el mismo texto que discutiste con el socio como "Título" de la opción elegida — nunca un nombre distinto inventado al formalizar. ' +
+          'NO le antepongas la categoría (ej. "Activación") ni el segment_slug (ej. "never_activated") — esos datos ya se muestran aparte en la tarjeta, en sus propios campos; este campo es solo el gancho.',
       },
-      message: { type: 'string', description: 'Copy que ve el usuario final, ≤200 caracteres' },
+      message: {
+        type: 'string',
+        description:
+          'El CUERPO real del push — la otra mitad de la Anatomía del mensaje del skill copy-push (valor concreto + una llamada a la acción), ≤200 caracteres. ' +
+          'Va SEPARADO de title, no repitas el gancho acá adentro.',
+      },
       segment_slug: { type: 'string', description: 'slug del catálogo (ver list_segments)' },
       segment_params: { type: 'object', description: 'Filtros del segmento (plans, platforms, country, days) — opcional' },
       rationale: { type: 'string', description: 'Por qué este segmento, ahora, con este mensaje — con cifras (≥10 caracteres)' },
