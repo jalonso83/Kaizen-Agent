@@ -118,3 +118,35 @@ export const saveContentDraftTool: KaizenTool = {
     return `Guardado en Contenidos/${folder}: ${result.link}`;
   },
 };
+
+export const saveCerebroNoteTool: KaizenTool = {
+  name: 'save_cerebro_note',
+  description:
+    'Guarda una nota (Markdown) en 50-kaizen/, la ÚNICA carpeta del Cerebro donde vos tenés permiso de escritura. Úsala para el resumen semanal, propuestas de campaña en texto y discrepancias de datos contra el Cerebro — NUNCA para contenido de redes (eso es save_content_draft, va a Contenidos). ' +
+    'El archivo se nombra automáticamente "YYYY-MM-DD-<title>.md" (hoy). El hilo Cerebro revisa esta carpeta los lunes y rutea lo que corresponda al pipeline de ideas. Sin reintentos: si falla, no la reintentes automáticamente, avisa al socio.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      title: { type: 'string', description: 'Slug corto del archivo (se usa tal cual en el nombre, ej. "resumen-semanal"; se le antepone la fecha de hoy)' },
+      content: { type: 'string', description: 'Contenido en Markdown' },
+    },
+    required: ['title', 'content'],
+  },
+  async execute(input) {
+    const title = (input.title as string | undefined)?.trim();
+    const content = input.content as string | undefined;
+
+    if (!title) {
+      throw new Error('Falta "title".');
+    }
+    if (!content || content.trim().length === 0) {
+      throw new Error('Falta "content".');
+    }
+    if (!drive.isKaizenConfigured()) {
+      throw new Error('50-kaizen no está configurado en este ambiente (falta DRIVE_KAIZEN_FOLDER_ID o las credenciales de Drive) — no se puede guardar la nota. Avisa al socio.');
+    }
+
+    const result = await drive.saveCerebroNote(title, content);
+    return `Guardado en 50-kaizen: ${result.link}`;
+  },
+};

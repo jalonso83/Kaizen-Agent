@@ -59,6 +59,7 @@ en ventana de medición).
 
 ## 4. Entrega
 
-`save_content_draft` en la carpeta `assets`, título `Resumen semanal
-{YYYY-MM-DD}` (fecha del lunes de generación). Formato Markdown con la
-estructura de arriba.
+`save_cerebro_note` (título `resumen-semanal-{YYYY-MM-DD}`, fecha del lunes
+de generación) — va a `50-kaizen/`, la carpeta del Cerebro donde vos podés
+escribir, NUNCA a Contenidos/assets (esa es para piezas de redes ya
+terminadas, no para reportes). Formato Markdown con la estructura de arriba.

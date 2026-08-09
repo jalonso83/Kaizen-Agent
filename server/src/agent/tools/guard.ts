@@ -49,6 +49,7 @@ const LABELS: Record<string, string> = {
   load_skill: 'Cargando su método…',
   search_cerebro: 'Buscando en el Cerebro…',
   save_content_draft: 'Guardando contenido…',
+  save_cerebro_note: 'Guardando nota en el Cerebro…',
   propose_campaign: 'Preparando la propuesta…',
   create_campaign_draft: 'Creando el borrador en FinZen…',
   get_message_type_performance: 'Revisando qué tipo de mensaje funcionó mejor…',

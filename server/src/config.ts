@@ -56,6 +56,15 @@ export const config = {
     serviceAccountJsonBase64: optional('GOOGLE_SERVICE_ACCOUNT_JSON_BASE64'),
     cerebroFolderId: optional('DRIVE_CEREBRO_FOLDER_ID'),
     contenidosFolderId: optional('DRIVE_CONTENIDOS_FOLDER_ID'),
+    // 50-kaizen/ dentro del Cerebro: la ÚNICA carpeta donde Kaizen tiene
+    // permiso de ESCRITURA sobre el Cerebro (el resto es solo lectura vía
+    // cerebroFolderId) — resumen semanal, propuestas y discrepancias. Ya
+    // existe en Drive (creada 2026-07-11); falta el ID y que alguien con
+    // acceso le dé permiso de Editor a la service account sobre ESA
+    // subcarpeta puntual, no sobre el Cerebro entero. Sin esta var, la tool
+    // save_cerebro_note falla con un mensaje claro — nunca cae al Cerebro
+    // raíz (eso violaría la regla "lectura: todo, escritura: solo 50-kaizen").
+    kaizenFolderId: optional('DRIVE_KAIZEN_FOLDER_ID'),
     // Destino del CSV semanal de adquisición. Provisional (2026-07-28): sin
     // esta var cae en la raíz del Cerebro, que es la carpeta que la service
     // account ya tiene compartida. Cuando exista la carpeta definitiva basta

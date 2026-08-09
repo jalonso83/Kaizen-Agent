@@ -3,14 +3,16 @@ import { getKpisTool, getCampaignResultsTool } from './kpis';
 import { listSegmentsTool, evaluateSegmentTool } from './segments';
 import { loadSkillTool } from './skill';
 import { proposeCampaignTool, createCampaignDraftTool, getMessageTypePerformanceTool } from './campaigns';
-import { searchCerebroTool, saveContentDraftTool } from './cerebro';
+import { searchCerebroTool, saveContentDraftTool, saveCerebroNoteTool } from './cerebro';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Registro de tools de Kaizen — DISENO_FASE1.md §6. Las 9 originales +
-// get_message_type_performance (2026-07-24, taxonomía de tipo de mensaje):
+// get_message_type_performance (2026-07-24, taxonomía de tipo de mensaje) +
+// save_cerebro_note (2026-08-09, escritura en 50-kaizen/):
 //   get_kpis · get_campaign_results · list_segments · evaluate_segment ·
 //   load_skill · propose_campaign · create_campaign_draft (el gate, §7) ·
-//   search_cerebro · save_content_draft (el Cerebro, §9) ·
+//   search_cerebro · save_content_draft (Contenidos) · save_cerebro_note
+//   (50-kaizen/ — única carpeta del Cerebro con permiso de escritura) ·
 //   get_message_type_performance (aprendizaje por estadística acumulada real)
 //
 // El runner (único módulo que toca el SDK beta de Anthropic, §14) adapta esta
@@ -31,6 +33,7 @@ export const TOOL_LIST: KaizenTool[] = [
   createCampaignDraftTool,
   searchCerebroTool,
   saveContentDraftTool,
+  saveCerebroNoteTool,
   getMessageTypePerformanceTool,
 ];
 

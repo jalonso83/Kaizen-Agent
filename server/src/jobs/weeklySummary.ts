@@ -107,7 +107,7 @@ function buildCronPrompt(reportWeek: WeekRange, priorWeek: WeekRange): string {
     `2. get_campaign_results para la semana a reportar.\n` +
     `3. Escribí el resumen: 3-5 movimientos con cifras (comparando ambas semanas), los resultados de campañas medidas (lift y qué significa), y 2-3 recomendaciones accionables con el dato que las respalda.\n` +
     `4. Identificá la mejor oportunidad de campaña de la semana según los datos, y proponela EN TEXTO — mismo método que usás en el chat normal (evaluate_segment para el count real, carga los skills campanas-retencion/copy-push/diseno-experimentos, un mensaje principal + 1-2 alternativas con Título y Mensaje, racional con datos, qué se mediría). NO llames a propose_campaign ni generes ninguna tarjeta — no está disponible en esta corrida y no corresponde: esto es una recomendación escrita para que el socio la lea y, si le interesa, la pida por chat luego. Si de verdad ningún segmento muestra una oportunidad clara esta semana, decilo en vez de forzar una idea débil.\n` +
-    `5. Guardá el resumen COMPLETO —incluida la propuesta de campaña del paso 4, o la nota de que no hubo una oportunidad clara— con save_content_draft (folder="assets", title="Resumen semanal ${reportWeek.to}"). Es la única forma en que el socio va a ver esto: esta conversación es interna, nadie la lee por chat.\n` +
+    `5. Guardá el resumen COMPLETO —incluida la propuesta de campaña del paso 4, o la nota de que no hubo una oportunidad clara— con save_cerebro_note (title="resumen-semanal-${reportWeek.to}"). Es la única forma en que el socio va a ver esto: esta conversación es interna, nadie la lee por chat.\n` +
     `</evento_sistema>`
   );
 }
@@ -180,26 +180,26 @@ export async function runWeeklySummary(): Promise<WeeklySummaryResult> {
       }
     }
 
-    // El toolRunner convierte un error de save_content_draft en un tool_result
+    // El toolRunner convierte un error de save_cerebro_note en un tool_result
     // recuperable (is_error, no una excepción) — el modelo puede terminar su
     // respuesta igual sin haber guardado nada. Sin este chequeo, el loop de
     // arriba "completa" y devolveríamos ok:true aunque Drive nunca haya
-    // recibido el Doc. Se verifica contra el audit log, la única fuente que
-    // sabe con certeza si la tool corrió y si falló.
+    // recibido el archivo. Se verifica contra el audit log, la única fuente
+    // que sabe con certeza si la tool corrió y si falló.
     const draftCall = await db.auditLog.findFirst({
-      where: { conversationId, action: 'tool:save_content_draft', createdAt: { gte: new Date(startedAt) } },
+      where: { conversationId, action: 'tool:save_cerebro_note', createdAt: { gte: new Date(startedAt) } },
       orderBy: { createdAt: 'desc' },
     });
 
     if (!draftCall) {
       const message =
-        'Kaizen no llegó a guardar el resumen en Drive (nunca llamó a save_content_draft en esta corrida) — revisa el audit log de la conversación kaizen-cron para ver dónde se detuvo.';
+        'Kaizen no llegó a guardar el resumen en 50-kaizen/ (nunca llamó a save_cerebro_note en esta corrida) — revisa el audit log de la conversación kaizen-cron para ver dónde se detuvo.';
       console.error(`[weekly-summary] ${message}`);
       await audit.log({ conversationId, actor: 'cron', action: 'weekly-summary:error', resultSummary: message, isError: true, durationMs: Date.now() - startedAt });
       return { ok: false, error: message };
     }
     if (draftCall.isError) {
-      const message = `No se pudo guardar el resumen en Drive: ${draftCall.resultSummary ?? 'error desconocido'}`;
+      const message = `No se pudo guardar el resumen en 50-kaizen/: ${draftCall.resultSummary ?? 'error desconocido'}`;
       console.error(`[weekly-summary] ${message}`);
       await audit.log({ conversationId, actor: 'cron', action: 'weekly-summary:error', resultSummary: message, isError: true, durationMs: Date.now() - startedAt });
       return { ok: false, error: message };

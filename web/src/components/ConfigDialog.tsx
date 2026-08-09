@@ -65,7 +65,7 @@ export function ConfigDialog({ onClose }: Props) {
     setRunNowResult(null);
     try {
       const result = await api.runWeeklySummaryNow();
-      setRunNowResult(`Listo — resumen de ${result.from} a ${result.to} guardado en Contenidos/assets.`);
+      setRunNowResult(`Listo — resumen de ${result.from} a ${result.to} guardado en 50-kaizen/ del Cerebro.`);
     } catch (err) {
       setRunNowError(err instanceof ApiError ? err.message : 'No se pudo correr el resumen.');
     } finally {
@@ -138,7 +138,7 @@ export function ConfigDialog({ onClose }: Props) {
                 {runningNow ? 'Corriendo…' : 'Forzar corrida ahora'}
               </button>
               <p className="config-run-now-hint">
-                Corre el resumen ya mismo con la configuración de arriba (guardala primero si la cambiaste) — no hace falta esperar al lunes. El resultado se guarda como Doc en Contenidos/assets de Drive, no aparece en este chat.
+                Corre el resumen ya mismo con la configuración de arriba (guardala primero si la cambiaste) — no hace falta esperar al lunes. El resultado se guarda como nota en 50-kaizen/ del Cerebro, no aparece en este chat.
               </p>
               {runNowResult && <p className="config-run-now-ok">{runNowResult}</p>}
               {runNowError && <p className="config-error">{runNowError}</p>}

@@ -14,6 +14,27 @@ function isConfigured(): boolean {
   return hasCredentials && Boolean(config.drive.cerebroFolderId);
 }
 
+/** 50-kaizen/ es una carpeta distinta (con su propio permiso de Editor) — se chequea aparte. */
+function isKaizenConfigured(): boolean {
+  const hasCredentials = Boolean(config.drive.serviceAccountPath || config.drive.serviceAccountJsonBase64);
+  return hasCredentials && Boolean(config.drive.kaizenFolderId);
+}
+
+const MD_MIME = 'text/markdown';
+
+/** `YYYY-MM-DD-slug.md` — convención de 50-kaizen (README de la carpeta): fecha + slug, un archivo por nota. */
+function kaizenFilename(title: string): string {
+  const date = new Date().toISOString().slice(0, 10);
+  const slug = title
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // tildes (forma NFD: letra + marca combinante)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return `${date}-${slug || 'nota'}.md`;
+}
+
 function driveClient(): drive_v3.Drive {
   if (!isConfigured()) {
     throw new Error(
@@ -105,6 +126,7 @@ async function findFileIdByName(client: drive_v3.Drive, folderId: string, name: 
 
 export const drive = {
   isConfigured,
+  isKaizenConfigured,
 
   /** Lista los archivos de la carpeta Cerebro (smoke test — solo raíz, ver check.ts). */
   async listCerebroFiles(): Promise<Array<{ id: string; name: string; mimeType: string }>> {
@@ -189,6 +211,23 @@ export const drive = {
     const res = await client.files.create({
       requestBody: { name: title, mimeType: DOC_MIME, parents: [folderId] },
       media: { mimeType: 'text/plain', body: content },
+      fields: 'id, webViewLink',
+    });
+    return { id: res.data.id ?? '', link: res.data.webViewLink ?? '' };
+  },
+
+  /**
+   * Guarda una nota en 50-kaizen/ — la ÚNICA carpeta del Cerebro donde Kaizen
+   * puede escribir (README de la carpeta, 2026-07-11). Archivo .md plano
+   * directo en esa carpeta (sin subcarpetas, a diferencia de Contenidos), con
+   * el nombre `YYYY-MM-DD-slug.md` que exige esa misma convención.
+   */
+  async saveCerebroNote(title: string, content: string): Promise<{ id: string; link: string }> {
+    if (!config.drive.kaizenFolderId) throw new Error('Falta DRIVE_KAIZEN_FOLDER_ID.');
+    const client = driveClient();
+    const res = await client.files.create({
+      requestBody: { name: kaizenFilename(title), mimeType: MD_MIME, parents: [config.drive.kaizenFolderId] },
+      media: { mimeType: MD_MIME, body: content },
       fields: 'id, webViewLink',
     });
     return { id: res.data.id ?? '', link: res.data.webViewLink ?? '' };
