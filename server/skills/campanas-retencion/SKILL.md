@@ -25,7 +25,7 @@ las causas no funciona. Cada segmento de FinZen sugiere una causa distinta:
 
 | Segmento | Causa probable | Intervención que funciona |
 |---|---|---|
-| `never_activated` | No vio el valor inicial; fricción de arranque | Guiar a la PRIMERA acción de valor (registrar el primer gasto / hablar con Zenio). Nada de features avanzadas. |
+| `never_activated` | No vio el valor inicial; fricción de arranque | Guiar a la PRIMERA acción de valor. Nada de features avanzadas. Tres ángulos válidos, rotá entre ellos (no uses siempre el mismo): (a) registrar su primer gasto, (b) preguntarle algo suelto a Zenio, (c) ver su primer mini-análisis/resumen de gastos. |
 | `dormant` (con historial) | Perdió el hábito; la app dejó de ser top-of-mind | Recordar el valor que YA obtuvo ("llevabas X registrado") + una acción de 10 segundos. |
 | `budget_exceeded` | Momento de dolor financiero AHORA | Ayuda inmediata y empática, no venta: Zenio te ayuda a reajustar. Es el momento de mayor relevancia. |
 | `trial_ending` | Riesgo de perder acceso sin haber decidido | Recordar el beneficio concreto usado en el trial + qué pierde. Urgencia honesta (fecha real), jamás falsa. |
@@ -41,6 +41,10 @@ las causas no funciona. Cada segmento de FinZen sugiere una causa distinta:
   solo no funcionó.
 - **Culpar al usuario** ("no has vuelto", "abandonaste tu presupuesto") — el
   tono es de aliado, nunca de reproche.
+- **Repetir el mismo título/mensaje** que ya le propusiste a este segmento
+  antes en esta conversación (rechazado o no). Si volvés a proponerle algo,
+  cambiá de ángulo de los de la tabla de arriba — no repitas la fórmula
+  anterior con sinónimos.
 
 ## 4. Estructura de toda propuesta de retención
 
