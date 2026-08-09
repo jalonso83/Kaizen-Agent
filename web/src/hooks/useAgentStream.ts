@@ -120,5 +120,21 @@ export function useAgentStream(conversationId: string | null, onDone: () => void
     [runStream],
   );
 
-  return { ...state, sendMessage, confirmProposal };
+  const editMessage = useCallback(
+    (messageId: string, text: string) => {
+      if (!conversationId || !text.trim()) return;
+      void runStream(`/api/conversations/${conversationId}/messages/${messageId}/edit`, { text });
+    },
+    [conversationId, runStream],
+  );
+
+  const retryMessage = useCallback(
+    (messageId: string) => {
+      if (!conversationId) return;
+      void runStream(`/api/conversations/${conversationId}/messages/${messageId}/retry`, {});
+    },
+    [conversationId, runStream],
+  );
+
+  return { ...state, sendMessage, confirmProposal, editMessage, retryMessage };
 }

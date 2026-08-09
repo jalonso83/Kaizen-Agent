@@ -67,4 +67,9 @@ export const api = {
 
   runWeeklySummaryNow: () =>
     request<{ ok: true; from: string; to: string }>('/api/config/weekly-summary/run-now', { method: 'POST' }),
+
+  // Edit/retry SÍ disparan un turno del agente (SSE) — los maneja useAgentStream,
+  // no request(). Este solo "vuelve" a un punto anterior sin resend, sin stream.
+  rewindMessage: (conversationId: string, messageId: string) =>
+    request<void>(`/api/conversations/${conversationId}/messages/${messageId}/rewind`, { method: 'POST' }),
 };

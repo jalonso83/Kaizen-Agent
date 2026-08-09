@@ -253,6 +253,29 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .bubble-text a { color: inherit; text-decoration: underline; }
 .bubble-user .bubble-text code { background: rgba(0, 0, 0, 0.08); }
 
+/* Botones de editar/reintentar/volver: ocultos hasta hover, mismo patrón que
+   .conversation-actions (no ensuciar la burbuja por defecto). */
+.bubble { position: relative; }
+.bubble-actions {
+  display: flex; gap: 2px; margin-top: 6px; opacity: 0;
+}
+.bubble:hover .bubble-actions,
+.bubble:focus-within .bubble-actions { opacity: 1; }
+.bubble-action {
+  background: transparent; border: none; color: var(--text-muted);
+  font-size: 11.5px; padding: 3px 6px; border-radius: 6px; line-height: 1;
+}
+.bubble-action:hover { color: var(--navy); background: rgba(32, 66, 116, 0.12); }
+
+.bubble-edit { display: flex; flex-direction: column; gap: 8px; }
+.bubble-edit-input {
+  width: 100%; resize: vertical; font: inherit; font-size: 14.5px;
+  background: var(--bg); color: var(--text-primary);
+  border: 1px solid var(--signal); border-radius: 8px; padding: 8px 10px;
+}
+.bubble-edit-input:focus { outline: none; }
+.bubble-edit-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
 .cursor {
   display: inline-block; width: 2px; height: 14px; background: var(--text-primary);
   margin-left: 2px; vertical-align: -2px;

@@ -67,14 +67,16 @@ function handleStopReason(message: Anthropic.Beta.BetaMessage, sse?: SseWriter):
  */
 export async function runAgentTurn(
   conversationId: string,
-  userText: string,
+  userText: string | null,
   sse?: SseWriter,
 ): Promise<void> {
   // (1) commit del mensaje del socio SIEMPRE, incluso si Kaizen no puede
   // responder (kill switch / sin key) — antes esto pasaba después de los
   // guards de abajo, y el mensaje del socio se perdía sin dejar rastro
   // (bug real, encontrado 2026-07-19: "escribo algo y desaparece").
-  await persistUserText(conversationId, userText);
+  // userText null = "reintentar respuesta" (routes/chat.ts): no hay mensaje
+  // nuevo del socio, se corre sobre el historial tal cual quedó tras truncar.
+  if (userText !== null) await persistUserText(conversationId, userText);
 
   // Kill switch propio (§3 / DISENO §0). Ni tocamos Anthropic.
   if (!config.agentEnabled) {

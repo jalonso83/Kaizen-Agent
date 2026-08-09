@@ -150,6 +150,41 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
     }
   };
 
+  // Editar/reintentar truncan localmente al instante (mismo espíritu que el
+  // mensaje optimista de handleSend) — el turno real llega por SSE y
+  // handleDone() recarga la versión real de la BD cuando termina.
+  const handleEditMessage = (messageId: string, text: string) => {
+    setMessages((prev) => {
+      const idx = prev.findIndex((m) => m.id === messageId);
+      const kept = idx === -1 ? prev : prev.slice(0, idx);
+      return [
+        ...kept,
+        { id: `optimistic-${Date.now()}`, role: 'user', content: [{ type: 'text', text }], createdAt: new Date().toISOString() },
+      ];
+    });
+    setProposals((prev) => prev.filter((p) => p.status !== 'PROPOSED'));
+    stream.editMessage(messageId, text);
+  };
+
+  const handleRetryMessage = (messageId: string) => {
+    setMessages((prev) => {
+      const idx = prev.findIndex((m) => m.id === messageId);
+      return idx === -1 ? prev : prev.slice(0, idx);
+    });
+    setProposals((prev) => prev.filter((p) => p.status !== 'PROPOSED'));
+    stream.retryMessage(messageId);
+  };
+
+  const handleRewindMessage = async (messageId: string) => {
+    if (!activeId) return;
+    try {
+      await api.rewindMessage(activeId, messageId);
+      await loadConversation(activeId);
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : 'No se pudo volver a ese mensaje.');
+    }
+  };
+
   return (
     <div className="chat-page">
       <ConversationList
@@ -178,6 +213,9 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
               isStreaming={stream.isStreaming}
               onConfirmProposal={handleConfirmProposal}
               onRejectProposal={handleRejectProposal}
+              onEditMessage={handleEditMessage}
+              onRetryMessage={handleRetryMessage}
+              onRewindMessage={handleRewindMessage}
             />
             <AgentStatusBar toolLabel={stream.toolStatus?.label ?? null} isStreaming={stream.isStreaming} />
             <Composer disabled={stream.isStreaming} onSend={handleSend} />

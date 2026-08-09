@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Request, Response } from 'express';
 import { db } from '../db';
 import { requireAuth } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
@@ -144,26 +145,11 @@ router.get('/:id/messages', asyncRoute(async (req, res) => {
   res.json({ messages, proposals });
 }));
 
-router.post('/:id/messages', asyncRoute(async (req, res) => {
-  const conversation = await loadOwnedConversation(req.params.id, req.partner!.id);
-  if (!conversation) {
-    res.status(404).json({ message: 'Conversación no encontrada.' });
-    return;
-  }
-
-  const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
-  if (!text) {
-    res.status(400).json({ message: 'Falta "text".' });
-    return;
-  }
-
-  if (runningConversations.has(conversation.id)) {
-    res.status(409).json({ message: 'El agente ya está respondiendo en esta conversación.' });
-    return;
-  }
-
-  // La respuesta ES el stream (decisión cerrada §0.4): un fetch+POST directo,
-  // no EventSource — la cookie httpOnly viaja normal y no hay canal GET paralelo.
+// La respuesta ES el stream (decisión cerrada §0.4): un fetch+POST directo, no
+// EventSource — la cookie httpOnly viaja normal y no hay canal GET paralelo.
+// Compartido por el mensaje normal y por editar/reintentar (mismo protocolo
+// de eventos que ya consume useAgentStream en la web).
+async function streamAgentTurn(req: Request, res: Response, conversationId: string, userText: string | null): Promise<void> {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
@@ -182,15 +168,176 @@ router.post('/:id/messages', asyncRoute(async (req, res) => {
   const heartbeat = setInterval(() => res.write(': ping\n\n'), 15_000);
   req.on('close', () => clearInterval(heartbeat));
 
-  runningConversations.add(conversation.id);
+  runningConversations.add(conversationId);
   try {
-    await db.conversation.update({ where: { id: conversation.id }, data: { updatedAt: new Date() } });
-    await runAgentTurn(conversation.id, text, sse);
+    await db.conversation.update({ where: { id: conversationId }, data: { updatedAt: new Date() } });
+    await runAgentTurn(conversationId, userText, sse);
   } finally {
-    runningConversations.delete(conversation.id);
+    runningConversations.delete(conversationId);
     clearInterval(heartbeat);
     res.end();
   }
+}
+
+router.post('/:id/messages', asyncRoute(async (req, res) => {
+  const conversation = await loadOwnedConversation(req.params.id, req.partner!.id);
+  if (!conversation) {
+    res.status(404).json({ message: 'Conversación no encontrada.' });
+    return;
+  }
+
+  const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+  if (!text) {
+    res.status(400).json({ message: 'Falta "text".' });
+    return;
+  }
+
+  if (runningConversations.has(conversation.id)) {
+    res.status(409).json({ message: 'El agente ya está respondiendo en esta conversación.' });
+    return;
+  }
+
+  await streamAgentTurn(req, res, conversation.id, text);
+}));
+
+/**
+ * Borra los mensajes de `fromSeq` en adelante (inclusive) — la base de
+ * editar/reintentar/volver a un punto anterior de la conversación. Si en ese
+ * rango hay una Proposal que ya representa una acción real hacia FinZen
+ * (confirmada o creada), se rechaza: borrar los mensajes no deshace eso, y
+ * dejar la tarjeta huérfana sin su contexto sería confuso. Las que seguían
+ * PROPOSED (nunca confirmadas) se marcan SUPERSEDED — mismo estado que ya usa
+ * propose_campaign para una propuesta reemplazada.
+ */
+async function truncateFrom(conversationId: string, fromSeq: number): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
+  // El corte usa el createdAt del PRIMER mensaje que se borra, nunca el del
+  // mensaje que se conserva (relevante en "volver a este mensaje": si ese
+  // mensaje es el que anunció una propuesta, esa propuesta nace unos
+  // milisegundos DESPUÉS de su createdAt — usar el propio createdAt del
+  // mensaje conservado la marcaría como "posterior" y la de-propondría sin
+  // motivo, aunque el mensaje que la anunció siga ahí).
+  const firstToDelete = await db.message.findFirst({ where: { conversationId, seq: fromSeq } });
+  if (!firstToDelete) {
+    return { ok: true }; // fromSeq más allá del final — nada que borrar (no-op válido, p.ej. rewind al último mensaje).
+  }
+
+  const risky = await db.proposal.findFirst({
+    where: {
+      conversationId,
+      createdAt: { gte: firstToDelete.createdAt },
+      status: { in: ['CONFIRMED', 'EXECUTING', 'EXECUTED', 'UNKNOWN_OUTCOME'] },
+    },
+  });
+  if (risky) {
+    return {
+      ok: false,
+      status: 409,
+      message: 'No se puede: después de este punto hay una campaña ya confirmada o creada en FinZen — borrar el historial no deshace esa acción.',
+    };
+  }
+
+  await db.proposal.updateMany({
+    where: { conversationId, createdAt: { gte: firstToDelete.createdAt }, status: 'PROPOSED' },
+    data: { status: 'SUPERSEDED' },
+  });
+  await db.message.deleteMany({ where: { conversationId, seq: { gte: fromSeq } } });
+  return { ok: true };
+}
+
+router.post('/:id/messages/:messageId/edit', asyncRoute(async (req, res) => {
+  const conversation = await loadOwnedConversation(req.params.id, req.partner!.id);
+  if (!conversation) {
+    res.status(404).json({ message: 'Conversación no encontrada.' });
+    return;
+  }
+  const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+  if (!text) {
+    res.status(400).json({ message: 'Falta "text".' });
+    return;
+  }
+  if (runningConversations.has(conversation.id)) {
+    res.status(409).json({ message: 'El agente ya está respondiendo en esta conversación.' });
+    return;
+  }
+
+  const target = await db.message.findFirst({ where: { id: req.params.messageId, conversationId: conversation.id } });
+  if (!target) {
+    res.status(404).json({ message: 'Mensaje no encontrado.' });
+    return;
+  }
+  if (target.role !== 'user') {
+    res.status(400).json({ message: 'Solo se puede editar un mensaje del socio.' });
+    return;
+  }
+
+  // Reemplaza este mensaje y todo lo posterior por el texto editado.
+  const result = await truncateFrom(conversation.id, target.seq);
+  if (!result.ok) {
+    res.status(result.status).json({ message: result.message });
+    return;
+  }
+
+  await streamAgentTurn(req, res, conversation.id, text);
+}));
+
+router.post('/:id/messages/:messageId/retry', asyncRoute(async (req, res) => {
+  const conversation = await loadOwnedConversation(req.params.id, req.partner!.id);
+  if (!conversation) {
+    res.status(404).json({ message: 'Conversación no encontrada.' });
+    return;
+  }
+  if (runningConversations.has(conversation.id)) {
+    res.status(409).json({ message: 'El agente ya está respondiendo en esta conversación.' });
+    return;
+  }
+
+  const target = await db.message.findFirst({ where: { id: req.params.messageId, conversationId: conversation.id } });
+  if (!target) {
+    res.status(404).json({ message: 'Mensaje no encontrado.' });
+    return;
+  }
+  if (target.role !== 'assistant') {
+    res.status(400).json({ message: 'Solo se puede reintentar una respuesta de Kaizen.' });
+    return;
+  }
+
+  // Borra esta respuesta y todo lo posterior; el agente corre de nuevo sobre
+  // el historial tal cual quedó (sin mensaje nuevo del socio — userText null).
+  const result = await truncateFrom(conversation.id, target.seq);
+  if (!result.ok) {
+    res.status(result.status).json({ message: result.message });
+    return;
+  }
+
+  await streamAgentTurn(req, res, conversation.id, null);
+}));
+
+router.post('/:id/messages/:messageId/rewind', asyncRoute(async (req, res) => {
+  const conversation = await loadOwnedConversation(req.params.id, req.partner!.id);
+  if (!conversation) {
+    res.status(404).json({ message: 'Conversación no encontrada.' });
+    return;
+  }
+  if (runningConversations.has(conversation.id)) {
+    res.status(409).json({ message: 'El agente ya está respondiendo en esta conversación.' });
+    return;
+  }
+
+  const target = await db.message.findFirst({ where: { id: req.params.messageId, conversationId: conversation.id } });
+  if (!target) {
+    res.status(404).json({ message: 'Mensaje no encontrado.' });
+    return;
+  }
+
+  // A diferencia de editar/reintentar, este mensaje SE QUEDA — se borra solo
+  // lo posterior. No dispara una corrida del agente, es solo "volver aquí".
+  const result = await truncateFrom(conversation.id, target.seq + 1);
+  if (!result.ok) {
+    res.status(result.status).json({ message: result.message });
+    return;
+  }
+
+  res.status(204).end();
 }));
 
 export default router;

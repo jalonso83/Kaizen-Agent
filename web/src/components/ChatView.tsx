@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { ContentBlock, Proposal, StoredMessage } from '../types';
 import { ProposalCard } from './ProposalCard';
+import { ConfirmDialog } from './ConfirmDialog';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Burbujas de chat. Los bloques `thinking` NUNCA se muestran (DISENO §10);
@@ -41,6 +42,16 @@ function renderBlock(block: ContentBlock, key: string) {
   return null;
 }
 
+/** Texto plano de un mensaje (para precargar el textarea de "editar") — concatena
+ * los bloques de texto visibles, mismo filtro de <evento_sistema> que renderBlock. */
+function plainText(message: StoredMessage): string {
+  return message.content
+    .filter((b) => b.type === 'text' && typeof b.text === 'string')
+    .map((b) => (b as { text: string }).text)
+    .filter((t) => t.trim().length > 0 && !SYSTEM_EVENT_RE.test(t.trim()))
+    .join('\n\n');
+}
+
 interface Props {
   messages: StoredMessage[];
   proposals: Proposal[];
@@ -48,14 +59,41 @@ interface Props {
   isStreaming: boolean;
   onConfirmProposal: (proposalId: string) => void;
   onRejectProposal: (proposalId: string) => void;
+  onEditMessage: (messageId: string, text: string) => void;
+  onRetryMessage: (messageId: string) => void;
+  onRewindMessage: (messageId: string) => void;
 }
 
-export function ChatView({ messages, proposals, liveText, isStreaming, onConfirmProposal, onRejectProposal }: Props) {
+export function ChatView({
+  messages,
+  proposals,
+  liveText,
+  isStreaming,
+  onConfirmProposal,
+  onRejectProposal,
+  onEditMessage,
+  onRetryMessage,
+  onRewindMessage,
+}: Props) {
   const endRef = useRef<HTMLDivElement>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [rewindTarget, setRewindTarget] = useState<string | null>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' });
   }, [messages.length, liveText]);
+
+  const startEdit = (message: StoredMessage) => {
+    setEditingId(message.id);
+    setEditText(plainText(message));
+  };
+  const cancelEdit = () => setEditingId(null);
+  const submitEdit = () => {
+    const text = editText.trim();
+    if (editingId && text) onEditMessage(editingId, text);
+    setEditingId(null);
+  };
 
   if (messages.length === 0 && !isStreaming) {
     return (
@@ -71,6 +109,8 @@ export function ChatView({ messages, proposals, liveText, isStreaming, onConfirm
   // luego todas las propuestas), así que una propuesta rechazada quedaba
   // "atrapada" debajo de mensajes posteriores de otro tema en vez de aparecer
   // en su lugar cronológico (bug real, 2026-07-26).
+  const byId = new Map(messages.map((m) => [m.id, m]));
+
   type MessageEntry = { kind: 'message'; role: StoredMessage['role']; id: string; createdAt: string; blocks: ReactNode[] };
   type ProposalEntry = { kind: 'proposal'; id: string; createdAt: string; node: ReactNode };
   type SortedEntry = MessageEntry | ProposalEntry;
@@ -103,7 +143,12 @@ export function ChatView({ messages, proposals, liveText, isStreaming, onConfirm
   // crece continuo, sin cortes). Se fusionan burbujas de assistant
   // consecutivas (sin una propuesta ni un mensaje del socio entre medio) en
   // una sola burbuja, para que el historial recargado luzca igual que en vivo.
-  const merged: Array<{ key: string; role?: StoredMessage['role']; blocks?: ReactNode[]; node?: ReactNode }> = [];
+  // firstId/lastId: para reintentar (y editar, que nunca fusiona) el ancla es
+  // el PRIMER mensaje real de la burbuja — ahí es donde arranca la respuesta
+  // que se va a rehacer. Para "volver aquí" el ancla es el ÚLTIMO — si se
+  // usara el primero, volver a una burbuja fusionada borraría sus propias
+  // rondas siguientes junto con lo que viene después (bug que evitamos acá).
+  const merged: Array<{ key: string; role?: StoredMessage['role']; blocks?: ReactNode[]; firstId?: string; lastId?: string; node?: ReactNode }> = [];
   for (const entry of sorted) {
     if (entry.kind === 'proposal') {
       merged.push({ key: `proposal-${entry.id}`, node: entry.node });
@@ -112,23 +157,81 @@ export function ChatView({ messages, proposals, liveText, isStreaming, onConfirm
     const prev = merged[merged.length - 1];
     if (prev?.blocks && prev.role === 'assistant' && entry.role === 'assistant') {
       prev.blocks.push(...entry.blocks);
+      prev.lastId = entry.id;
     } else {
-      merged.push({ key: `message-${entry.id}`, role: entry.role, blocks: [...entry.blocks] });
+      merged.push({ key: `message-${entry.id}`, role: entry.role, blocks: [...entry.blocks], firstId: entry.id, lastId: entry.id });
     }
   }
 
   return (
     <div className="chat-view">
-      {merged.map((item) =>
-        item.blocks ? (
+      {merged.map((item) => {
+        if (!item.blocks) return item.node;
+
+        const isEditing = editingId === item.firstId;
+        return (
           <div key={item.key} className={`bubble bubble-${item.role}`}>
             {item.role === 'assistant' && <span className="bubble-who">Kaizen</span>}
-            {item.blocks}
+
+            {isEditing ? (
+              <div className="bubble-edit">
+                <textarea
+                  className="bubble-edit-input"
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  autoFocus
+                  rows={Math.min(10, Math.max(2, editText.split('\n').length))}
+                />
+                <div className="bubble-edit-actions">
+                  <button type="button" className="dialog-cancel" onClick={cancelEdit}>Cancelar</button>
+                  <button type="button" className="dialog-confirm" onClick={submitEdit} disabled={!editText.trim()}>Enviar</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {item.blocks}
+                {!isStreaming && (
+                  <span className="bubble-actions">
+                    {item.role === 'user' && item.firstId && (
+                      <button
+                        type="button"
+                        className="bubble-action"
+                        title="Editar mensaje"
+                        aria-label="Editar mensaje"
+                        onClick={() => { const m = byId.get(item.firstId!); if (m) startEdit(m); }}
+                      >
+                        ✎ Editar
+                      </button>
+                    )}
+                    {item.role === 'assistant' && item.firstId && (
+                      <button
+                        type="button"
+                        className="bubble-action"
+                        title="Reintentar respuesta"
+                        aria-label="Reintentar respuesta"
+                        onClick={() => onRetryMessage(item.firstId!)}
+                      >
+                        ↻ Reintentar
+                      </button>
+                    )}
+                    {item.lastId && (
+                      <button
+                        type="button"
+                        className="bubble-action"
+                        title="Volver a este mensaje"
+                        aria-label="Volver a este mensaje"
+                        onClick={() => setRewindTarget(item.lastId!)}
+                      >
+                        ↺ Volver aquí
+                      </button>
+                    )}
+                  </span>
+                )}
+              </>
+            )}
           </div>
-        ) : (
-          item.node
-        ),
-      )}
+        );
+      })}
 
       {isStreaming && (
         <div className="bubble bubble-assistant bubble-live">
@@ -141,6 +244,16 @@ export function ChatView({ messages, proposals, liveText, isStreaming, onConfirm
       )}
 
       <div ref={endRef} />
+
+      {rewindTarget && (
+        <ConfirmDialog
+          title="¿Volver a este mensaje?"
+          message="Se borra todo lo que viene después, sin poder deshacerlo."
+          confirmLabel="Volver aquí"
+          onConfirm={() => { onRewindMessage(rewindTarget); setRewindTarget(null); }}
+          onCancel={() => setRewindTarget(null)}
+        />
+      )}
     </div>
   );
 }
