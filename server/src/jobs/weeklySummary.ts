@@ -105,8 +105,9 @@ function buildCronPrompt(reportWeek: WeekRange, priorWeek: WeekRange): string {
     `Hacé esto, en orden:\n` +
     `1. get_kpis para la semana a reportar (from=${reportWeek.from}, to=${reportWeek.to}) y de nuevo para la semana anterior (from=${priorWeek.from}, to=${priorWeek.to}).\n` +
     `2. get_campaign_results para la semana a reportar.\n` +
-    `3. Escribí el resumen: 3-5 movimientos con cifras (comparando ambas semanas), los resultados de campañas medidas (lift y qué significa), y 2-3 recomendaciones accionables con el dato que las respalda. Si una recomendación implica una campaña, describila con el count real del segmento (evaluate_segment) pero NO la propongas ni la crees — esto es un reporte, no un propose_campaign.\n` +
-    `4. Guardá el resumen completo con save_content_draft (folder="assets", title="Resumen semanal ${reportWeek.to}").\n` +
+    `3. Escribí el resumen: 3-5 movimientos con cifras (comparando ambas semanas), los resultados de campañas medidas (lift y qué significa), y 2-3 recomendaciones accionables con el dato que las respalda.\n` +
+    `4. Identificá la mejor oportunidad de campaña de la semana según los datos, y proponela EN TEXTO — mismo método que usás en el chat normal (evaluate_segment para el count real, carga los skills campanas-retencion/copy-push/diseno-experimentos, un mensaje principal + 1-2 alternativas con Título y Mensaje, racional con datos, qué se mediría). NO llames a propose_campaign ni generes ninguna tarjeta — no está disponible en esta corrida y no corresponde: esto es una recomendación escrita para que el socio la lea y, si le interesa, la pida por chat luego. Si de verdad ningún segmento muestra una oportunidad clara esta semana, decilo en vez de forzar una idea débil.\n` +
+    `5. Guardá el resumen COMPLETO —incluida la propuesta de campaña del paso 4, o la nota de que no hubo una oportunidad clara— con save_content_draft (folder="assets", title="Resumen semanal ${reportWeek.to}"). Es la única forma en que el socio va a ver esto: esta conversación es interna, nadie la lee por chat.\n` +
     `</evento_sistema>`
   );
 }
