@@ -3,7 +3,7 @@ import { getKpisTool, getCampaignResultsTool } from './kpis';
 import { listSegmentsTool, evaluateSegmentTool } from './segments';
 import { loadSkillTool } from './skill';
 import { proposeCampaignTool, createCampaignDraftTool, getMessageTypePerformanceTool } from './campaigns';
-import { searchCerebroTool, saveContentDraftTool, saveCerebroNoteTool } from './cerebro';
+import { searchCerebroTool, saveContentDraftTool, saveCerebroNoteTool, listCerebroFoldersTool } from './cerebro';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Registro de tools de Kaizen — DISENO_FASE1.md §6. Las 9 originales +
@@ -34,6 +34,7 @@ export const TOOL_LIST: KaizenTool[] = [
   searchCerebroTool,
   saveContentDraftTool,
   saveCerebroNoteTool,
+  listCerebroFoldersTool,
   getMessageTypePerformanceTool,
 ];
 

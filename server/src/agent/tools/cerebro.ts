@@ -122,13 +122,15 @@ export const saveContentDraftTool: KaizenTool = {
 export const saveCerebroNoteTool: KaizenTool = {
   name: 'save_cerebro_note',
   description:
-    'Guarda una nota (Markdown) en 50-kaizen/, la ÚNICA carpeta del Cerebro donde vos tenés permiso de escritura. Úsala para el resumen semanal, propuestas de campaña en texto y discrepancias de datos contra el Cerebro — NUNCA para contenido de redes (eso es save_content_draft, va a Contenidos). ' +
-    'El archivo se nombra automáticamente "YYYY-MM-DD-<title>.md" (hoy). El hilo Cerebro revisa esta carpeta los lunes y rutea lo que corresponda al pipeline de ideas. Sin reintentos: si falla, no la reintentes automáticamente, avisa al socio.',
+    'Guarda una nota (Markdown) en el Cerebro. Por defecto va a 50-kaizen/, que es donde el socio revisa los lunes: úsala así para el resumen semanal, propuestas de campaña en texto y discrepancias de datos. ' +
+    'Si la nota pertenece claramente a otra sección del Cerebro, pasá "subcarpeta" con el nombre exacto de una subcarpeta existente (podés consultarlas con list_cerebro_folders). NUNCA la uses para contenido de redes: eso es save_content_draft, que va a Contenidos. ' +
+    'El archivo se nombra automáticamente "YYYY-MM-DD-<title>.md" (hoy). Sin reintentos: si falla, no la reintentes automáticamente, avisa al socio.',
   inputSchema: {
     type: 'object',
     properties: {
       title: { type: 'string', description: 'Slug corto del archivo (se usa tal cual en el nombre, ej. "resumen-semanal"; se le antepone la fecha de hoy)' },
       content: { type: 'string', description: 'Contenido en Markdown' },
+      subcarpeta: { type: 'string', description: 'Opcional. Nombre exacto de una subcarpeta EXISTENTE del Cerebro (ej. "10-decisiones"). Si se omite, la nota va a 50-kaizen/.' },
     },
     required: ['title', 'content'],
   },
@@ -142,11 +144,30 @@ export const saveCerebroNoteTool: KaizenTool = {
     if (!content || content.trim().length === 0) {
       throw new Error('Falta "content".');
     }
-    if (!drive.isKaizenConfigured()) {
+    const subcarpeta = (input.subcarpeta as string | undefined)?.trim() || undefined;
+
+    if (!subcarpeta && !drive.isKaizenConfigured()) {
       throw new Error('50-kaizen no está configurado en este ambiente (falta DRIVE_KAIZEN_FOLDER_ID o las credenciales de Drive) — no se puede guardar la nota. Avisa al socio.');
     }
 
-    const result = await drive.saveCerebroNote(title, content);
-    return `Guardado en 50-kaizen: ${result.link}`;
+    const result = await drive.saveCerebroNote(title, content, subcarpeta);
+    return `Guardado en ${result.carpeta}: ${result.link}`;
+  },
+};
+
+/**
+ * Sin esto, para escribir fuera de 50-kaizen el agente tendría que ADIVINAR el
+ * nombre de una subcarpeta, y `saveCerebroNote` rechaza las que no existen. Le
+ * damos la lista para que elija de verdad en vez de inventar.
+ */
+export const listCerebroFoldersTool: KaizenTool = {
+  name: 'list_cerebro_folders',
+  description:
+    'Lista las subcarpetas del Cerebro. Úsala ANTES de save_cerebro_note cuando quieras guardar algo fuera de 50-kaizen/, para pasar un nombre de carpeta que exista de verdad.',
+  inputSchema: { type: 'object', properties: {}, required: [] },
+  async execute() {
+    const carpetas = await drive.listCerebroSubfolders();
+    if (carpetas.length === 0) return 'El Cerebro no tiene subcarpetas.';
+    return `Subcarpetas del Cerebro: ${carpetas.join(', ')}`;
   },
 };

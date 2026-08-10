@@ -18,6 +18,7 @@
     "migrate:deploy": "prisma migrate deploy",
     "seed:partner": "tsx src/scripts/seedPartners.ts",
     "chat": "tsx src/scripts/chatCli.ts",
+    "drive:auth": "tsx src/scripts/driveAuth.ts",
     "mock:finzen": "tsx src/mock/finzenApiMock.ts",
     "test:tools": "tsx src/scripts/testTools.ts"
   },

@@ -52,6 +52,28 @@ export const config = {
   // Credenciales de la service account: por path a JSON (local) o por el JSON
   // en base64 (Railway, donde no hay filesystem para credenciales).
   drive: {
+    // ── OAuth de usuario (vía preferida para ESCRIBIR) ─────────────────────
+    //
+    // Una service account NO PUEDE CREAR archivos en un "Mi unidad" personal:
+    // los archivos ahí consumen la cuota de su dueño y una service account no
+    // tiene cuota propia. Google responde literalmente "Service Accounts do not
+    // have storage quota" por más permisos de Editor que se le den. Leer sí
+    // puede; crear no. Verificado contra Drive el 2026-08-09.
+    //
+    // Las salidas oficiales son unidades compartidas o delegación de dominio, y
+    // ambas exigen Google Workspace — finzenai.com está en GoDaddy, así que no
+    // aplican. La vía que sí funciona con una cuenta Gmail normal es esta:
+    // Kaizen se autentica COMO EL USUARIO con un refresh token, y entonces
+    // escribe con la cuota de esa persona.
+    //
+    // Para obtener el refresh token: `npm run drive:auth` (scripts/driveAuth.ts).
+    oauthClientId: optional('GOOGLE_OAUTH_CLIENT_ID'),
+    oauthClientSecret: optional('GOOGLE_OAUTH_CLIENT_SECRET'),
+    oauthRefreshToken: optional('GOOGLE_OAUTH_REFRESH_TOKEN'),
+
+    // ── Service account (respaldo, SOLO LECTURA) ───────────────────────────
+    // Se mantiene porque leer el Cerebro le funciona perfectamente. Si el OAuth
+    // de arriba está configurado, tiene prioridad y esto no se usa.
     serviceAccountPath: optional('GOOGLE_SERVICE_ACCOUNT_PATH'),
     serviceAccountJsonBase64: optional('GOOGLE_SERVICE_ACCOUNT_JSON_BASE64'),
     cerebroFolderId: optional('DRIVE_CEREBRO_FOLDER_ID'),

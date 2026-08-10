@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from './config';
 import { listSegments, FinzenApiError } from './clients/finzenApi';
-import { drive } from './clients/drive';
+import { drive, driveAuthMode } from './clients/drive';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Smoke tests de conexiones: `npm run check`
@@ -44,9 +44,9 @@ async function checkAnthropic(): Promise<Result> {
 }
 
 async function checkDrive(): Promise<Result> {
-  const name = 'Google Drive (Cerebro)';
+  const name = `Google Drive · LECTURA (${driveAuthMode()})`;
   if (!drive.isConfigured()) {
-    return { name, status: 'SKIP', detail: 'Sin configurar (GOOGLE_SERVICE_ACCOUNT_PATH / DRIVE_CEREBRO_FOLDER_ID) — pendiente para Fase 1' };
+    return { name, status: 'SKIP', detail: 'Sin configurar (GOOGLE_OAUTH_* o GOOGLE_SERVICE_ACCOUNT_* / DRIVE_CEREBRO_FOLDER_ID)' };
   }
   try {
     const files = await drive.listCerebroFiles();
@@ -56,9 +56,35 @@ async function checkDrive(): Promise<Result> {
   }
 }
 
+/**
+ * Escritura REAL en 50-kaizen/: crea un archivo de prueba y lo borra.
+ *
+ * Antes este smoke test solo listaba el Cerebro, y por eso pasó siete meses en
+ * verde mientras la escritura estaba rota de raíz: con una service account,
+ * crear archivos en un Drive personal es IMPOSIBLE (no tienen cuota). Listar
+ * funcionaba, así que nada avisaba. Comprobar lo que de verdad se usa —escribir—
+ * es lo único que cierra ese hueco.
+ */
+async function checkDriveEscritura(): Promise<Result> {
+  const name = 'Google Drive · ESCRITURA (50-kaizen/)';
+  if (!drive.isConfigured()) {
+    return { name, status: 'SKIP', detail: 'Drive sin configurar' };
+  }
+  try {
+    const res = await drive.saveCerebroNote(
+      'prueba-permisos-check',
+      'Archivo de prueba de `npm run check`. Si lo ves, bórralo.',
+    );
+    await drive.deleteFile(res.id);
+    return { name, status: 'PASS', detail: 'creó y borró un archivo de prueba' };
+  } catch (e) {
+    return { name, status: 'FAIL', detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main() {
   console.log('Kaizen · smoke tests de conexiones\n');
-  const results = await Promise.all([checkFinzen(), checkAnthropic(), checkDrive()]);
+  const results = await Promise.all([checkFinzen(), checkAnthropic(), checkDrive(), checkDriveEscritura()]);
 
   for (const r of results) {
     const icon = r.status === 'PASS' ? '✅' : r.status === 'SKIP' ? '⏭️ ' : '❌';

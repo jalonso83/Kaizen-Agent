@@ -18,6 +18,11 @@ endpoints). **No** se toca el código ni la base de datos de FinZen.
 > cualquier persona o agente que retome el trabajo, y se actualiza en el
 > mismo commit que cambie el estado.
 >
+> ⚠️ **Drive: la escritura NO está habilitada todavía.** La service account puede
+> leer pero no crear archivos (limitación de Google, no de permisos). Los pasos
+> para arreglarlo están en **[`docs/DRIVE_OAUTH.md`](docs/DRIVE_OAUTH.md)** —
+> hasta hacerlos, el resumen semanal y los borradores de contenido fallan.
+>
 > 🛠️ **Cómo funciona lo que ya está construido** (arquitectura, capa por
 > capa, cómo correrlo) está en **[`server/README.md`](server/README.md)** y
 > **[`web/README.md`](web/README.md)** — este README raíz es solo la

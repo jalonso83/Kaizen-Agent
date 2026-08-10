@@ -12,7 +12,7 @@
 
 ---
 
-## 📍 Dónde estamos (actualizado: 2026-08-07)
+## 📍 Dónde estamos (actualizado: 2026-08-09)
 
 **FASE 0 COMPLETADA. FASE 1 COMPLETA de mi lado en cuanto a construcción** —
 todo lo que se puede construir y probar sin credenciales reales de producción
@@ -71,6 +71,12 @@ los valores NUNCA se escriben aquí ni en el repo):
 `FINZEN_API_URL` · `FINZEN_AGENT_KEY` · `ANTHROPIC_API_KEY` · `AGENT_ENABLED` ·
 `DRIVE_CEREBRO_FOLDER_ID` · `DRIVE_CONTENIDOS_FOLDER_ID` · `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`
 
+**Agregadas 2026-08-09 (Drive por OAuth de usuario — imprescindibles para ESCRIBIR):**
+`GOOGLE_OAUTH_CLIENT_ID` · `GOOGLE_OAUTH_CLIENT_SECRET` · `GOOGLE_OAUTH_REFRESH_TOKEN`
+
+Las de la service account se conservan como respaldo de LECTURA. `DRIVE_KAIZEN_FOLDER_ID`
+es opcional: la carpeta `50-kaizen/` se resuelve por nombre dentro del Cerebro.
+
 > ⚠️ **Pendiente de verificar (encontrado 2026-07-18, auditoría de env vars):**
 > el código ahora **exige** `DATABASE_URL` y `JWT_SECRET` (`config.ts` los
 > pasó de `optional()` a `required()` al construirse la BD/auth de Fase 1) —
@@ -90,6 +96,81 @@ Pendientes de Fase 2: las de Meta.
 ---
 
 ## Historial de hitos
+
+### 2026-08-09 — Drive: la escritura NUNCA funcionó, y por qué
+
+**El hallazgo.** Al verificar los permisos de Drive se descubrió que Kaizen
+**jamás pudo escribir** — ni el resumen semanal, ni los borradores de contenido,
+ni el CSV de adquisición. No era un permiso mal puesto: el montaje con **service
+account no podía funcionar por diseño**.
+
+Cuando alguien crea un archivo en Drive, ese archivo pertenece a quien lo creó y
+ocupa espacio de la cuenta de su dueño. Una service account **no tiene cuenta de
+almacenamiento** — no es una persona, no tiene Drive propio. Google responde:
+
+```
+Service Accounts do not have storage quota.
+Leverage shared drives, or use OAuth delegation instead.
+```
+
+Comprobado contra las tres carpetas reales, con la service account autenticada:
+leía las tres (8, 1 y 5 elementos) y fallaba al escribir en las tres.
+
+**Por qué tardó meses en detectarse.** `npm run check` solo LISTABA archivos del
+Cerebro. Listar funcionaba perfectamente, así que el smoke test llevaba meses en
+verde mientras lo único que de verdad se usaba estaba muerto. **Una comprobación
+que no comprueba lo que importa es peor que no tenerla**, porque da falsa
+tranquilidad.
+
+**Lo que NO lo arregla** (se probó o se descartó con evidencia):
+- Dar permiso de Editor a la service account — ya lo tenía
+- Poner las carpetas con enlace público en modo Editor — mismo error, y expondría
+  el Cerebro a cualquiera con la URL
+- Compartir la carpeta padre — los permisos no eran el problema
+- Unidad compartida y delegación de dominio — las dos salidas oficiales de
+  Google, pero **ambas exigen Google Workspace** y `finzenai.com` tiene el correo
+  en GoDaddy (`MX → smtp.secureserver.net`), o sea que no hay Workspace
+
+**La solución: OAuth de usuario.** Kaizen se autentica **como el dueño del Drive**
+(`junior.urena15@gmail.com`) mediante un refresh token, y así crea archivos con la
+cuota de esa cuenta. Funciona con una cuenta Gmail normal, sin Workspace y sin
+costo. Verificado el mismo día: lee **y escribe** en Cerebro, 50-kaizen y
+Contenidos.
+
+**Cambios de código:**
+- `clients/drive.ts` — el cliente prefiere el OAuth de usuario y deja la service
+  account como respaldo de lectura. Toda escritura pasa por un envoltorio que, si
+  falla por la cuota, devuelve un mensaje que dice QUÉ hacer en vez del texto
+  críptico de Google.
+- `scripts/driveAuth.ts` + `npm run drive:auth` — obtiene el refresh token con un
+  servidor local en el puerto 53682 que captura el redirect de Google.
+- `check.ts` — ahora prueba **escritura real**: crea un archivo en `50-kaizen/` y
+  lo borra. Es el agujero que permitió que esto pasara desapercibido.
+- `config.ts`, `.env.example` — variables nuevas, documentadas con el porqué.
+
+**Escritura en el Cerebro COMPLETO (decisión del socio, mismo día).** Antes
+`saveCerebroNote` estaba atada a `50-kaizen/` por una regla del README de la
+carpeta. Ahora acepta un parámetro `subcarpeta` opcional y puede escribir en
+cualquier sección del Cerebro; sin ese parámetro sigue cayendo en `50-kaizen/`,
+que es donde el socio revisa los lunes. Se agregó la tool
+**`list_cerebro_folders`** para que el agente consulte qué carpetas existen en
+vez de adivinar nombres (`saveCerebroNote` rechaza las que no existen).
+
+También se eliminó la dependencia de `DRIVE_KAIZEN_FOLDER_ID`: la carpeta se
+resuelve por nombre, igual que `saveContentDraft` ya hacía con las subcarpetas de
+Contenidos. Esa variable nunca se había puesto en Railway — o sea que el resumen
+semanal habría fallado igual aunque los permisos hubieran estado bien.
+
+**El procedimiento completo está en [`docs/DRIVE_OAUTH.md`](DRIVE_OAUTH.md)**,
+con los pasos, los valores exactos y una tabla de errores típicos.
+
+⚠️ **La pantalla de consentimiento de Google DEBE estar publicada.** Si queda "En
+prueba", el refresh token **caduca a los 7 días** y Kaizen deja de escribir sin
+avisar — un fallo silencioso que aparecería un lunes cualquiera. Ya se publicó.
+
+⚠️ **Rotar la clave de la service account**: su JSON circuló por un chat el
+2026-08-09. Ahora solo sirve para leer, así que el impacto de rotarla es mínimo.
+
 
 ### 2026-07-20 al 2026-07-22 — Pulido de la web de socios + primer feedback del cliente
 
@@ -225,7 +306,10 @@ no llegó a levantar en el entorno de prueba).
 - [x] Agent API de FinZen implementada, encendida y validada E2E
 - [x] Deploy de Kaizen en Railway con `/health` OK
 - [x] Credenciales reales: FinZen key, Anthropic key, Service Account de Drive
-- [x] Acceso a Drive verificado (Cerebro lectura, Contenidos escritura)
+- [x] Acceso a Drive verificado — ⚠️ **esta línea fue FALSA hasta 2026-08-09**: se
+      dio por buena la escritura sin probarla nunca (el smoke test solo listaba
+      archivos). La escritura estaba rota de raíz. Corregido con OAuth de usuario
+      y verificado de verdad — ver historial 2026-08-09
 
 **Hecho — Fase 1 (construido y probado local; ver historial 2026-07-19):**
 - [x] BD propia (Postgres/Prisma): 6 tablas, migraciones, audit log append-only

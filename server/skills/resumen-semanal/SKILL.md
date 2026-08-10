@@ -60,6 +60,7 @@ en ventana de medición).
 ## 4. Entrega
 
 `save_cerebro_note` (título `resumen-semanal-{YYYY-MM-DD}`, fecha del lunes
-de generación) — va a `50-kaizen/`, la carpeta del Cerebro donde vos podés
-escribir, NUNCA a Contenidos/assets (esa es para piezas de redes ya
-terminadas, no para reportes). Formato Markdown con la estructura de arriba.
+de generación) — sin pasar `subcarpeta`, para que caiga en `50-kaizen/`, que es
+donde el socio revisa los lunes. NUNCA a Contenidos/assets (esa es para piezas
+de redes ya terminadas, no para reportes). Formato Markdown con la estructura de
+arriba.
