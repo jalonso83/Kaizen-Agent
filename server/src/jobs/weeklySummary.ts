@@ -7,6 +7,7 @@ import { audit } from '../services/audit';
 import { getClient, MODEL } from '../agent/runner';
 import { buildBetaTools } from '../agent/adapter';
 import { buildSystemPrompt } from '../agent/systemPrompt';
+import { injectDateContext } from '../agent/contexto';
 import { getTonoDeMarca } from '../agent/tono';
 import { CRON_TOOL_LIST } from '../agent/tools';
 import type { ToolContext } from '../agent/tools/guard';
@@ -150,6 +151,7 @@ export async function runWeeklySummary(): Promise<WeeklySummaryResult> {
 
     const messages = await buildHistory(conversationId);
     const baseLen = messages.length;
+    injectDateContext(messages);
     const ctx: ToolContext = { conversationId, sse: undefined };
     const tonoDeMarca = await getTonoDeMarca().catch(() => undefined);
 

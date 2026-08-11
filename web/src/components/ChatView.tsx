@@ -170,64 +170,67 @@ export function ChatView({
 
         const isEditing = editingId === item.firstId;
         return (
-          <div key={item.key} className={`bubble bubble-${item.role}`}>
-            {item.role === 'assistant' && <span className="bubble-who">Kaizen</span>}
+          // Los botones van FUERA de la burbuja (hermanos, no hijos) para que no
+          // ensucien el globo de texto; el grupo es quien detecta el hover.
+          <div key={item.key} className={`message-group message-group-${item.role}`}>
+            <div className={`bubble bubble-${item.role}`}>
+              {item.role === 'assistant' && <span className="bubble-who">Kaizen</span>}
 
-            {isEditing ? (
-              <div className="bubble-edit">
-                <textarea
-                  className="bubble-edit-input"
-                  value={editText}
-                  onChange={(e) => setEditText(e.target.value)}
-                  autoFocus
-                  rows={Math.min(10, Math.max(2, editText.split('\n').length))}
-                />
-                <div className="bubble-edit-actions">
-                  <button type="button" className="dialog-cancel" onClick={cancelEdit}>Cancelar</button>
-                  <button type="button" className="dialog-confirm" onClick={submitEdit} disabled={!editText.trim()}>Enviar</button>
+              {isEditing ? (
+                <div className="bubble-edit">
+                  <textarea
+                    className="bubble-edit-input"
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    autoFocus
+                    rows={Math.min(10, Math.max(2, editText.split('\n').length))}
+                  />
+                  <div className="bubble-edit-actions">
+                    <button type="button" className="dialog-cancel" onClick={cancelEdit}>Cancelar</button>
+                    <button type="button" className="dialog-confirm" onClick={submitEdit} disabled={!editText.trim()}>Enviar</button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <>
-                {item.blocks}
-                {!isStreaming && (
-                  <span className="bubble-actions">
-                    {item.role === 'user' && item.firstId && (
-                      <button
-                        type="button"
-                        className="bubble-action"
-                        title="Editar mensaje"
-                        aria-label="Editar mensaje"
-                        onClick={() => { const m = byId.get(item.firstId!); if (m) startEdit(m); }}
-                      >
-                        ✎ Editar
-                      </button>
-                    )}
-                    {item.role === 'assistant' && item.firstId && (
-                      <button
-                        type="button"
-                        className="bubble-action"
-                        title="Reintentar respuesta"
-                        aria-label="Reintentar respuesta"
-                        onClick={() => onRetryMessage(item.firstId!)}
-                      >
-                        ↻ Reintentar
-                      </button>
-                    )}
-                    {item.lastId && (
-                      <button
-                        type="button"
-                        className="bubble-action"
-                        title="Volver a este mensaje"
-                        aria-label="Volver a este mensaje"
-                        onClick={() => setRewindTarget(item.lastId!)}
-                      >
-                        ↺ Volver aquí
-                      </button>
-                    )}
-                  </span>
+              ) : (
+                item.blocks
+              )}
+            </div>
+
+            {!isStreaming && !isEditing && (
+              <span className="bubble-actions">
+                {item.role === 'user' && item.firstId && (
+                  <button
+                    type="button"
+                    className="bubble-action"
+                    title="Editar mensaje"
+                    aria-label="Editar mensaje"
+                    onClick={() => { const m = byId.get(item.firstId!); if (m) startEdit(m); }}
+                  >
+                    ✎
+                  </button>
                 )}
-              </>
+                {item.role === 'assistant' && item.firstId && (
+                  <button
+                    type="button"
+                    className="bubble-action"
+                    title="Reintentar respuesta"
+                    aria-label="Reintentar respuesta"
+                    onClick={() => onRetryMessage(item.firstId!)}
+                  >
+                    ↻
+                  </button>
+                )}
+                {item.lastId && (
+                  <button
+                    type="button"
+                    className="bubble-action"
+                    title="Volver a este mensaje"
+                    aria-label="Volver a este mensaje"
+                    onClick={() => setRewindTarget(item.lastId!)}
+                  >
+                    ↺
+                  </button>
+                )}
+              </span>
             )}
           </div>
         );

@@ -1,5 +1,6 @@
 import { google, drive_v3 } from 'googleapis';
 import { config } from '../config';
+import { todayInRD } from '../util/fecha';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Cliente de Google Drive.
@@ -67,7 +68,9 @@ const DEFAULT_KAIZEN_FOLDER = '50-kaizen';
 
 /** `YYYY-MM-DD-slug.md` — convención de 50-kaizen (README de la carpeta): fecha + slug, un archivo por nota. */
 function kaizenFilename(title: string): string {
-  const date = new Date().toISOString().slice(0, 10);
+  // En hora de RD, no UTC: toISOString() a partir de las 8pm RD ya devuelve el
+  // día siguiente, así que una nota guardada de noche quedaba fechada mañana.
+  const date = todayInRD();
   const slug = title
     .trim()
     .toLowerCase()

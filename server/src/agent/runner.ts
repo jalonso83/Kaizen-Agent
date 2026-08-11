@@ -4,6 +4,7 @@ import { audit } from '../services/audit';
 import type { SseWriter, ToolContext } from './tools/guard';
 import { buildBetaTools } from './adapter';
 import { buildSystemPrompt } from './systemPrompt';
+import { injectDateContext } from './contexto';
 import { getTonoDeMarca } from './tono';
 import {
   buildHistory,
@@ -99,6 +100,8 @@ export async function runAgentTurn(
   try {
     const messages = await buildHistory(conversationId);
     const baseLen = messages.length;
+    // La fecha va acá y no en el system prompt, y no se persiste — ver contexto.ts.
+    injectDateContext(messages);
     const ctx: ToolContext = { conversationId, sse };
     const tonoDeMarca = await getTonoDeMarca().catch(() => undefined); // nunca tumba el turno por esto
 
