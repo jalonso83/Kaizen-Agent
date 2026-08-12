@@ -4,6 +4,7 @@ import type { ConversationSummary, Partner } from '../types';
 import type { Theme } from '../hooks/useTheme';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ConfigDialog } from './ConfigDialog';
+import { GearIcon, MoonIcon, SunIcon } from './Icons';
 
 interface Props {
   conversations: ConversationSummary[];
@@ -120,21 +121,21 @@ export function ConversationList({
         <span className="sidebar-footer-actions">
           <button
             type="button"
-            className="theme-toggle"
+            className="icon-button"
             onClick={onToggleTheme}
             title={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
             aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
           >
-            {theme === 'dark' ? '☀' : '☾'}
+            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
           </button>
           <button
             type="button"
-            className="theme-toggle"
+            className="icon-button"
             onClick={() => setShowConfig(true)}
             title="Configuración"
             aria-label="Configuración"
           >
-            ⚙
+            <GearIcon />
           </button>
           <button type="button" className="logout" onClick={onLogout}>
             Salir
