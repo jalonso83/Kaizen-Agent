@@ -116,9 +116,14 @@ export function ConfigDialog({ onClose }: Props) {
     setReindexResult(null);
     try {
       const r = await api.reindexCerebro();
-      setReindexResult(
-        `Listo — ${r.updated} actualizados, ${r.unchanged} sin cambios, ${r.omitted} omitidos, ${r.deleted} borrados.`,
-      );
+      const resumen = `${r.updated} actualizados, ${r.unchanged} sin cambios, ${r.omitted} omitidos, ${r.deleted} borrados.`;
+      if (r.failed.length > 0) {
+        // No es un "listo": esos archivos quedaron FUERA del índice, así que
+        // Kaizen no los va a encontrar por más que existan en Drive.
+        setReindexError(`Terminó, pero ${r.failed.length} archivo(s) no se pudieron leer y quedaron fuera del índice: ${r.failed.join(' · ')}. ${resumen}`);
+      } else {
+        setReindexResult(`Listo — ${resumen}`);
+      }
     } catch (err) {
       setReindexError(err instanceof ApiError ? err.message : 'No se pudo reindexar el Cerebro.');
     } finally {

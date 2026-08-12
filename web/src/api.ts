@@ -71,7 +71,7 @@ export const api = {
     request<{ ok: true; from: string; to: string }>('/api/config/weekly-summary/run-now', { method: 'POST' }),
 
   reindexCerebro: () =>
-    request<{ ok: true; updated: number; unchanged: number; omitted: number; deleted: number }>(
+    request<{ ok: true; updated: number; unchanged: number; omitted: number; deleted: number; failed: string[] }>(
       '/api/config/cerebro/reindex',
       { method: 'POST' },
     ),

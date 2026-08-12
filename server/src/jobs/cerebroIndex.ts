@@ -16,7 +16,16 @@ import { drive } from '../clients/drive';
 const INDEX_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
 
 export type CerebroIndexResult =
-  | { ok: true; updated: number; unchanged: number; omitted: number; deleted: number; durationMs: number }
+  | {
+      ok: true;
+      updated: number;
+      unchanged: number;
+      omitted: number;
+      deleted: number;
+      /** Listados por Drive pero imposibles de descargar — quedan FUERA del índice. */
+      failed: string[];
+      durationMs: number;
+    }
   | { ok: false; error: string };
 
 // El indexado tarda (lista Drive entero y re-descarga lo que cambió), así que
@@ -42,6 +51,13 @@ export async function runCerebroIndex(): Promise<CerebroIndexResult> {
     let updated = 0;
     let unchanged = 0;
     let omitted = 0;
+    // Archivos que Drive listó pero no se pudieron descargar. Antes esto era un
+    // `continue` sin contador: el archivo desaparecía de los cuatro números y la
+    // corrida se veía perfecta mientras un documento quedaba fuera del índice en
+    // silencio (bug real, 2026-08-12 — una nota recién creada no aparecía en las
+    // búsquedas y nada en el resultado lo delataba). Se guardan los nombres para
+    // poder decir CUÁL falló sin tener que ir a los logs del server.
+    const fallidos: string[] = [];
 
     for (const entry of entries) {
       seenIds.add(entry.id);
@@ -56,7 +72,9 @@ export async function runCerebroIndex(): Promise<CerebroIndexResult> {
       try {
         text = await drive.fetchCerebroFileText(entry);
       } catch (err) {
-        console.warn(`[cerebro-index] No se pudo leer "${entry.path}/${entry.name}":`, err instanceof Error ? err.message : err);
+        const motivo = err instanceof Error ? err.message : String(err);
+        console.warn(`[cerebro-index] No se pudo leer "${entry.path}/${entry.name}":`, motivo);
+        fallidos.push(`${entry.name} (${motivo.slice(0, 120)})`);
         continue;
       }
       if (text === null) {
@@ -80,9 +98,15 @@ export async function runCerebroIndex(): Promise<CerebroIndexResult> {
     const durationMs = Date.now() - startedAt;
     console.log(
       `[cerebro-index] listo en ${durationMs}ms — ${updated} actualizados, ${unchanged} sin cambios, ` +
-        `${omitted} omitidos (tipo no soportado), ${staleIds.length} borrados.`,
+        `${omitted} omitidos (tipo no soportado), ${staleIds.length} borrados, ${fallidos.length} fallidos.`,
     );
-    return { ok: true, updated, unchanged, omitted, deleted: staleIds.length, durationMs };
+    // Chequeo de cuadre: si los contadores no suman lo que Drive listó, hay un
+    // camino que no está contando y volveríamos a tener archivos invisibles.
+    const contados = updated + unchanged + omitted + fallidos.length;
+    if (contados !== entries.length) {
+      console.warn(`[cerebro-index] Descuadre: Drive listó ${entries.length} archivos y se contaron ${contados}.`);
+    }
+    return { ok: true, updated, unchanged, omitted, deleted: staleIds.length, failed: fallidos, durationMs };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
     console.error('[cerebro-index] Falló la corrida:', error);

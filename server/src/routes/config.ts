@@ -112,9 +112,12 @@ router.post('/cerebro/reindex', asyncRoute(async (req, res) => {
     actor: `partner:${req.partner!.id}`,
     action: 'config:cerebro-reindex',
     resultSummary: result.ok
-      ? `${result.updated} actualizados, ${result.unchanged} sin cambios, ${result.omitted} omitidos, ${result.deleted} borrados`
+      ? `${result.updated} actualizados, ${result.unchanged} sin cambios, ${result.omitted} omitidos, ` +
+        `${result.deleted} borrados, ${result.failed.length} fallidos${result.failed.length ? `: ${result.failed.join(' · ')}` : ''}`
       : result.error,
-    isError: !result.ok,
+    // Un archivo que Drive listó y no se pudo descargar queda fuera del índice:
+    // la corrida "terminó", pero el resultado no es sano.
+    isError: !result.ok || result.failed.length > 0,
     durationMs: result.ok ? result.durationMs : undefined,
   });
 
