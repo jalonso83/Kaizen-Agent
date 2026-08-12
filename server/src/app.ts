@@ -57,8 +57,12 @@ app.listen(config.port, () => {
 // Async a propósito (DISENO §9) — nunca bloquea ni tumba el arranque de arriba.
 startCerebroIndexJob();
 
-// Solo agenda — no corre nada al boot (DISENO §12).
-startWeeklySummaryCron();
+// Solo agenda — no corre nada al boot (DISENO §12). Lee el horario de la BD,
+// así que es async; un fallo (BD caída al arrancar) no debe tumbar el server:
+// se loguea y el resto de la app sigue en pie, igual que el indexador.
+void startWeeklySummaryCron().catch((err) => {
+  console.error('[weekly-summary] No se pudo programar el cron:', err instanceof Error ? err.message : err);
+});
 
 // Export semanal de adquisición → Drive (lunes 1am RD). Solo agenda.
 startAcquisitionExportCron();

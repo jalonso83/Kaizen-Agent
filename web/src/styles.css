@@ -414,6 +414,18 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
   background: var(--surface); color: var(--text-primary); font-size: 13px;
 }
 .config-error { color: var(--danger); font-size: 13px; margin: 0 0 6px; }
+/* Bloque "cuándo corre" — separado de los radios de arriba con su propia
+   línea, porque es un eje distinto (cuándo se genera vs. qué semana cubre). */
+.config-schedule {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--border);
+}
+.config-schedule-title { font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0; }
+.config-schedule-row { display: flex; flex-wrap: wrap; gap: 14px; }
+/* Sin la sangría de 24px que .config-select-row usa para colgar de un radio. */
+.config-schedule-row .config-select-row { margin-left: 0; }
+.config-schedule-hint { font-size: 12px; color: var(--text-muted); margin: 0; line-height: 1.5; }
+
 .config-run-now { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--border); }
 .config-run-now-hint { font-size: 12px; color: var(--text-muted); margin: 0; line-height: 1.5; }
 .config-run-now-ok { color: var(--signal); font-size: 13px; margin: 0; }

@@ -74,7 +74,9 @@ export type WeekMode = 'rolling' | 'calendar';
 export interface WeeklySummaryConfig {
   id: number;
   weekMode: WeekMode;
-  weekStartDay: number; // 0=domingo..6=sábado (solo aplica si weekMode='calendar')
+  weekStartDay: number; // 0=domingo..6=sábado — qué semana se REPORTA (solo aplica si weekMode='calendar')
+  cronDay: number; // 0=domingo..6=sábado — cuándo CORRE el cron
+  cronHour: number; // 0-23, hora de República Dominicana
   updatedAt: string;
   updatedBy: string | null;
 }

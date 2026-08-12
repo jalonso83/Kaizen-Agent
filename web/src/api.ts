@@ -59,10 +59,12 @@ export const api = {
 
   getWeeklySummaryConfig: () => request<WeeklySummaryConfig>('/api/config/weekly-summary'),
 
-  updateWeeklySummaryConfig: (weekMode: WeeklySummaryConfig['weekMode'], weekStartDay: number) =>
+  // Objeto y no 4 argumentos posicionales: son dos pares (qué semana / cuándo
+  // corre) fáciles de confundir entre sí si van sueltos.
+  updateWeeklySummaryConfig: (cfg: Pick<WeeklySummaryConfig, 'weekMode' | 'weekStartDay' | 'cronDay' | 'cronHour'>) =>
     request<WeeklySummaryConfig>('/api/config/weekly-summary', {
       method: 'PUT',
-      body: JSON.stringify({ weekMode, weekStartDay }),
+      body: JSON.stringify(cfg),
     }),
 
   runWeeklySummaryNow: () =>

@@ -4,18 +4,30 @@ import type { WeekMode } from '../types';
 
 const DAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
+// "1:00 AM" … "12:00 PM" … "11:00 PM" — el resumen siempre corre en punto.
+const HOUR_LABELS = Array.from({ length: 24 }, (_, h) => {
+  const sufijo = h < 12 ? 'AM' : 'PM';
+  const doce = h % 12 === 0 ? 12 : h % 12;
+  return `${doce}:00 ${sufijo}`;
+});
+
 interface Props {
   onClose: () => void;
 }
 
-// Apartado de Configuración (DISENO_FASE1.md §12 addendum) — define qué
-// semana usa el resumen semanal automático: rolling (últimos 7 días) o
-// calendario (semana completa con día de inicio elegible, no necesariamente
-// lunes). El cron en sí corre lunes 8am RD; esto solo define QUÉ ventana
-// reporta, no cuándo corre.
+// Apartado de Configuración (DISENO_FASE1.md §12 addendum). Define dos cosas
+// INDEPENDIENTES, y por eso van en bloques separados en la UI:
+//  - QUÉ semana se reporta: rolling (últimos 7 días) o calendario (semana
+//    completa con día de inicio elegible).
+//  - CUÁNDO corre: día y hora (RD). Hasta 2026-08-11 esto estaba fijo en el
+//    código (lunes 8am); ahora lo elige el socio y el server reprograma el
+//    cron al guardar.
+// Se puede correr el lunes reportando miércoles→martes: son ejes distintos.
 export function ConfigDialog({ onClose }: Props) {
   const [weekMode, setWeekMode] = useState<WeekMode>('calendar');
   const [weekStartDay, setWeekStartDay] = useState(1);
+  const [cronDay, setCronDay] = useState(1);
+  const [cronHour, setCronHour] = useState(8);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +42,8 @@ export function ConfigDialog({ onClose }: Props) {
       .then((cfg) => {
         setWeekMode(cfg.weekMode);
         setWeekStartDay(cfg.weekStartDay);
+        setCronDay(cfg.cronDay);
+        setCronHour(cfg.cronHour);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'No se pudo cargar la configuración.'))
       .finally(() => setLoading(false));
@@ -48,7 +62,7 @@ export function ConfigDialog({ onClose }: Props) {
     setSaving(true);
     setError(null);
     try {
-      await api.updateWeeklySummaryConfig(weekMode, weekStartDay);
+      await api.updateWeeklySummaryConfig({ weekMode, weekStartDay, cronDay, cronHour });
       onClose();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo guardar la configuración.');
@@ -133,12 +147,41 @@ export function ConfigDialog({ onClose }: Props) {
               </span>
             </label>
 
+            <div className="config-schedule">
+              <p className="config-schedule-title">Cuándo se genera automáticamente</p>
+              <div className="config-schedule-row">
+                <label className="config-select-row">
+                  Día:
+                  <select value={cronDay} onChange={(e) => setCronDay(Number(e.target.value))}>
+                    {DAY_LABELS.map((label, day) => (
+                      <option key={day} value={day}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="config-select-row">
+                  Hora:
+                  <select value={cronHour} onChange={(e) => setCronHour(Number(e.target.value))}>
+                    {HOUR_LABELS.map((label, hour) => (
+                      <option key={hour} value={hour}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <p className="config-schedule-hint">
+                Hora de República Dominicana. Es cuándo <em>corre</em> el resumen, no qué semana reporta — eso lo define la opción de arriba. Si el server está apagado a esa hora, esa semana no se genera (podés generarla a mano abajo).
+              </p>
+            </div>
+
             <div className="config-run-now">
               <button type="button" className="dialog-cancel" onClick={handleRunNow} disabled={runningNow || saving}>
-                {runningNow ? 'Corriendo…' : 'Forzar corrida ahora'}
+                {runningNow ? 'Generando…' : 'Generar reporte'}
               </button>
               <p className="config-run-now-hint">
-                Corre el resumen ya mismo con la configuración de arriba (guardala primero si la cambiaste) — no hace falta esperar al lunes. El resultado se guarda como nota en 50-kaizen/ del Cerebro, no aparece en este chat.
+                Genera el reporte de la semana <strong>ahora mismo</strong>, sin esperar al día programado — para probar que todo funciona, o si necesitás el resumen antes de tiempo. Usa la configuración de arriba, así que guardala primero si la cambiaste. El resultado se guarda como nota en 50-kaizen/ del Cerebro; no aparece en este chat.
               </p>
               {runNowResult && <p className="config-run-now-ok">{runNowResult}</p>}
               {runNowError && <p className="config-error">{runNowError}</p>}

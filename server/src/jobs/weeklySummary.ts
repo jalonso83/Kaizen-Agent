@@ -1,4 +1,5 @@
 import cron from 'node-cron';
+import type { ScheduledTask } from 'node-cron';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 import { db } from '../db';
@@ -8,6 +9,7 @@ import { getClient, MODEL } from '../agent/runner';
 import { buildBetaTools } from '../agent/adapter';
 import { buildSystemPrompt } from '../agent/systemPrompt';
 import { injectDateContext } from '../agent/contexto';
+import { TZ_RD } from '../util/fecha';
 import { getTonoDeMarca } from '../agent/tono';
 import { CRON_TOOL_LIST } from '../agent/tools';
 import type { ToolContext } from '../agent/tools/guard';
@@ -15,7 +17,9 @@ import { buildHistory, persistUserText, persistAssistantMessage, persistToolResu
 
 // ─────────────────────────────────────────────────────────────────────────
 // Resumen semanal automático — DISENO_FASE1.md §12 (+ addendum de
-// configuración, 2026-07-22). Corre lunes 8am RD (`0 12 * * 1` UTC).
+// configuración, 2026-07-22). Día y hora los elige el socio desde
+// Configuración (por defecto lunes 8am RD, que es como estaba fijo en el
+// código hasta 2026-08-11).
 //
 // Reglas del diseño:
 //  - Corrida SIN usuario, sobre una conversación interna de un partner-sistema
@@ -27,8 +31,13 @@ import { buildHistory, persistUserText, persistAssistantMessage, persistToolResu
 //    fallo se audita y se loguea, la próxima corrida programada sigue en pie.
 // ─────────────────────────────────────────────────────────────────────────
 
-const CRON_SCHEDULE = '0 12 * * 1'; // lunes 12:00 UTC = 8:00am RD (UTC-4)
 const CRON_PARTNER_EMAIL = 'kaizen-cron@system.internal';
+
+// Día/hora por defecto si todavía no hay fila de config: lunes 8am RD — el
+// mismo horario que estaba fijo en el código hasta 2026-08-11.
+const DEFAULT_CRON_DAY = 1;
+const DEFAULT_CRON_HOUR = 8;
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
 interface WeekRange {
   from: string;
@@ -235,7 +244,38 @@ export async function runWeeklySummary(): Promise<WeeklySummaryResult> {
   }
 }
 
-/** Programa la corrida (lunes 8am RD). No corre nada al llamarla — solo agenda. */
-export function startWeeklySummaryCron(): void {
-  cron.schedule(CRON_SCHEDULE, () => void runWeeklySummary(), { timezone: 'UTC' });
+// La tarea viva, para poder reemplazarla cuando el socio cambie el horario
+// desde Configuración. node-cron no permite reprogramar una tarea en caliente:
+// hay que destruir la anterior y crear otra, y sin guardar la referencia
+// quedarían dos corridas agendadas (la vieja seguiría disparando).
+let scheduledTask: ScheduledTask | null = null;
+
+function cronExpression(day: number, hour: number): string {
+  return `0 ${hour} * * ${day}`;
+}
+
+/**
+ * Programa (o reprograma) la corrida según la config guardada. No corre nada
+ * al llamarla — solo agenda. Se llama al boot y cada vez que se guarda el
+ * horario desde la web.
+ *
+ * El timezone es el de RD y no UTC: la hora que elige el socio es su hora
+ * local, así que dejamos que node-cron haga la conversión en vez de
+ * calcularla nosotros (antes era '0 12 * * 1' en UTC, que era lo mismo pero
+ * solo mientras el horario estuviera fijo).
+ */
+export async function startWeeklySummaryCron(): Promise<void> {
+  const cfg = await db.weeklySummaryConfig.findUnique({ where: { id: 1 } });
+  const day = cfg?.cronDay ?? DEFAULT_CRON_DAY;
+  const hour = cfg?.cronHour ?? DEFAULT_CRON_HOUR;
+
+  if (scheduledTask) {
+    await scheduledTask.destroy();
+    scheduledTask = null;
+  }
+
+  scheduledTask = cron.schedule(cronExpression(day, hour), () => void runWeeklySummary(), {
+    timezone: TZ_RD,
+  });
+  console.log(`[weekly-summary] programado: ${DIAS[day]} a las ${String(hour).padStart(2, '0')}:00 hora RD.`);
 }

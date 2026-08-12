@@ -3,17 +3,28 @@ import { db } from '../db';
 import { requireAuth } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { audit } from '../services/audit';
-import { runWeeklySummary } from '../jobs/weeklySummary';
+import { runWeeklySummary, startWeeklySummaryCron } from '../jobs/weeklySummary';
 
 // ─────────────────────────────────────────────────────────────────────────
 // /api/config/weekly-summary — el apartado de Configuración pedido junto con
-// el resumen semanal (DISENO_FASE1.md §12 addendum, 2026-07-22): define qué
-// semana usa el cron (rolling: últimos 7 días; calendar: semana completa con
-// día de inicio elegible). Fila única (id=1) — cualquier socio logueado puede
-// verla y cambiarla, no hay roles distintos en Fase 1.
+// el resumen semanal (DISENO_FASE1.md §12 addendum, 2026-07-22). Define dos
+// cosas independientes:
+//  - QUÉ semana se reporta: weekMode (rolling: últimos 7 días; calendar:
+//    semana completa) + weekStartDay.
+//  - CUÁNDO corre: cronDay + cronHour (hora de RD). Antes era fijo en código.
+// Fila única (id=1) — cualquier socio logueado puede verla y cambiarla, no hay
+// roles distintos en Fase 1.
 // ─────────────────────────────────────────────────────────────────────────
 
 const WEEK_MODES = ['rolling', 'calendar'] as const;
+
+/** Valida un entero dentro de un rango; devuelve el mensaje de error o null. */
+function invalidInt(value: unknown, min: number, max: number, campo: string, ayuda: string): string | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max) {
+    return `"${campo}" debe ser un entero de ${min} a ${max} (${ayuda}).`;
+  }
+  return null;
+}
 
 const router = Router();
 router.use(requireAuth);
@@ -30,31 +41,38 @@ router.get('/weekly-summary', asyncRoute(async (_req, res) => {
 router.put('/weekly-summary', asyncRoute(async (req, res) => {
   const weekMode = req.body?.weekMode as string | undefined;
   const weekStartDay = req.body?.weekStartDay;
+  const cronDay = req.body?.cronDay;
+  const cronHour = req.body?.cronHour;
 
   if (!weekMode || !WEEK_MODES.includes(weekMode as (typeof WEEK_MODES)[number])) {
     res.status(400).json({ message: `"weekMode" debe ser uno de: ${WEEK_MODES.join(', ')}.` });
     return;
   }
-  if (
-    typeof weekStartDay !== 'number' ||
-    !Number.isInteger(weekStartDay) ||
-    weekStartDay < 0 ||
-    weekStartDay > 6
-  ) {
-    res.status(400).json({ message: '"weekStartDay" debe ser un entero de 0 (domingo) a 6 (sábado).' });
+  const error =
+    invalidInt(weekStartDay, 0, 6, 'weekStartDay', '0 = domingo, 6 = sábado') ??
+    invalidInt(cronDay, 0, 6, 'cronDay', '0 = domingo, 6 = sábado') ??
+    invalidInt(cronHour, 0, 23, 'cronHour', 'hora de RD, 0 = medianoche');
+  if (error) {
+    res.status(400).json({ message: error });
     return;
   }
 
+  const data = { weekMode, weekStartDay, cronDay, cronHour };
   const updated = await db.weeklySummaryConfig.upsert({
     where: { id: 1 },
-    update: { weekMode, weekStartDay, updatedBy: req.partner!.id },
-    create: { id: 1, weekMode, weekStartDay, updatedBy: req.partner!.id },
+    update: { ...data, updatedBy: req.partner!.id },
+    create: { id: 1, ...data, updatedBy: req.partner!.id },
   });
+
+  // Reprograma el cron con el horario nuevo. Sin esto el cambio solo tendría
+  // efecto en el siguiente reinicio del server — el socio guardaría "viernes
+  // 3pm" y el reporte le seguiría saliendo el lunes 8am sin ninguna señal.
+  await startWeeklySummaryCron();
 
   await audit.log({
     actor: `partner:${req.partner!.id}`,
     action: 'config:weekly-summary-updated',
-    input: { weekMode, weekStartDay },
+    input: data,
   });
 
   res.json(updated);
