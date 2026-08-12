@@ -9,7 +9,7 @@ import { getClient, MODEL } from '../agent/runner';
 import { buildBetaTools } from '../agent/adapter';
 import { buildSystemPrompt } from '../agent/systemPrompt';
 import { injectDateContext } from '../agent/contexto';
-import { TZ_RD } from '../util/fecha';
+import { TZ_RD, todayInRD } from '../util/fecha';
 import { getTonoDeMarca } from '../agent/tono';
 import { CRON_TOOL_LIST } from '../agent/tools';
 import type { ToolContext } from '../agent/tools/guard';
@@ -44,22 +44,38 @@ interface WeekRange {
   to: string;
 }
 
+/**
+ * El día civil de RD, como Date en UTC-mediodía.
+ *
+ * Toda la aritmética de abajo trabaja sobre este valor y con getters UTC, por
+ * dos motivos:
+ *  - `toISOString()` a secas es UTC, y RD es UTC-4: de 8pm en adelante ya está
+ *    en el día siguiente, así que el reporte cubría un día que todavía no pasó.
+ *    Antes no se notaba porque la hora del cron estaba fija en 8am; se volvió
+ *    alcanzable al hacerla configurable (2026-08-11).
+ *  - `getDay()`/`setHours()` usan la zona del server (UTC en Railway), no la de
+ *    RD, así que el "día de la semana" también podía salir corrido.
+ * Anclar a mediodía deja 12 horas de margen a cada lado: ningún corrimiento de
+ * huso mueve la fecha al sumar o restar días.
+ */
+function diaCivilRD(now: Date): Date {
+  const [y, m, d] = todayInRD(now).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 12));
+}
+
 function fmt(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
 function addDays(d: Date, n: number): Date {
   const copy = new Date(d);
-  copy.setDate(copy.getDate() + n);
+  copy.setUTCDate(copy.getUTCDate() + n);
   return copy;
 }
 
 function startOfCalendarWeek(reference: Date, weekStartDay: number): Date {
-  const d = new Date(reference);
-  const diff = (d.getDay() - weekStartDay + 7) % 7;
-  d.setDate(d.getDate() - diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const diff = (reference.getUTCDay() - weekStartDay + 7) % 7;
+  return addDays(reference, -diff);
 }
 
 /**
@@ -73,15 +89,17 @@ export function computeWeekRanges(
   weekStartDay: number,
   now: Date,
 ): { reportWeek: WeekRange; priorWeek: WeekRange } {
+  const hoy = diaCivilRD(now);
+
   if (weekMode === 'rolling') {
-    const reportTo = new Date(now);
+    const reportTo = hoy;
     const reportFrom = addDays(reportTo, -6);
     const priorTo = addDays(reportFrom, -1);
     const priorFrom = addDays(priorTo, -6);
     return { reportWeek: { from: fmt(reportFrom), to: fmt(reportTo) }, priorWeek: { from: fmt(priorFrom), to: fmt(priorTo) } };
   }
 
-  const startOfCurrent = startOfCalendarWeek(now, weekStartDay);
+  const startOfCurrent = startOfCalendarWeek(hoy, weekStartDay);
   const reportTo = addDays(startOfCurrent, -1);
   const reportFrom = addDays(reportTo, -6);
   const priorTo = addDays(reportFrom, -1);
