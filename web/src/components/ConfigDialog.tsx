@@ -100,7 +100,7 @@ export function ConfigDialog({ onClose }: Props) {
           Configuración
         </h2>
         <p className="dialog-message">
-          Definí qué semana usa el resumen semanal automático de Kaizen (corre los lunes).
+          Definí qué semana cubre el resumen semanal automático de Kaizen y cuándo se genera.
         </p>
 
         {loading ? (
@@ -172,7 +172,7 @@ export function ConfigDialog({ onClose }: Props) {
                 </label>
               </div>
               <p className="config-schedule-hint">
-                Hora de República Dominicana. Es cuándo <em>corre</em> el resumen, no qué semana reporta — eso lo define la opción de arriba. Si el server está apagado a esa hora, esa semana no se genera (podés generarla a mano abajo).
+                Horario UTC-4. Es cuándo <em>corre</em> el resumen, no qué semana reporta. Eso lo define la opción de arriba. Si el server está apagado a esa hora, esa semana no se genera.
               </p>
             </div>
 
@@ -181,7 +181,7 @@ export function ConfigDialog({ onClose }: Props) {
                 {runningNow ? 'Generando…' : 'Generar reporte'}
               </button>
               <p className="config-run-now-hint">
-                Genera el reporte de la semana <strong>ahora mismo</strong>, sin esperar al día programado — para probar que todo funciona, o si necesitás el resumen antes de tiempo. Usa la configuración de arriba, así que guardala primero si la cambiaste. El resultado se guarda como nota en 50-kaizen/ del Cerebro; no aparece en este chat.
+                Genera el reporte de la semana <strong>ahora mismo</strong>, sin esperar al día programado. La semana a evaluar depende de si elegiste los últimos 7 días o la semana de calendario, así que guardá la configuración primero si la cambiaste.
               </p>
               {runNowResult && <p className="config-run-now-ok">{runNowResult}</p>}
               {runNowError && <p className="config-error">{runNowError}</p>}
