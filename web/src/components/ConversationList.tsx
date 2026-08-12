@@ -63,12 +63,9 @@ export function ConversationList({
   return (
     <aside className={`sidebar${isOpen ? ' is-open' : ''}`}>
       <div className="sidebar-header">
-        <span className="brand-group">
-          {/* Isotipo real de FinZen (extraído de finzen-manual-de-marca.pdf) — a pedido del
-              socio, "por ahora" como logo de Kaizen hasta que definan uno propio. */}
-          <img src="/logo.png" alt="FinZen" className="brand-logo" />
-          <span className="brand">Kaizen</span>
-        </span>
+        {/* El wordmark ya dice "KAIZEN", así que reemplaza al par isotipo+texto
+            que había antes con el logo de FinZen. */}
+        <span className="wordmark brand-wordmark" role="img" aria-label="Kaizen" />
         <button type="button" className="new-conversation" onClick={onNew}>
           + Nueva
         </button>

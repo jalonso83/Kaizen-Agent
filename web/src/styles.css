@@ -5,8 +5,8 @@
    que el manual no cubre: variantes claras/oscuras de cada color de marca (verificado
    2026-07-20, a pedido del socio tras dudar del tono sólido del sidebar).
    Tipografía: Rubik (manual de marca) — pide semibold italic para títulos, pero eso es
-   para piezas de marketing; en este panel, denso en KPIs, la itálica se reserva solo
-   para el wordmark "Kaizen", nunca para cuerpo de texto ni títulos de reporte.
+   para piezas de marketing; en este panel, denso en KPIs, no se usa itálica en ningún
+   lado (el nombre "Kaizen" ya viene dibujado en el wordmark, ver .wordmark).
    --signal es la variante con contraste del verde de marca (#6cad7f da ~2.6:1 con texto
    blanco, insuficiente para botones — WCAG AA pide 4.5:1); --signal-brand es el hex
    exacto, para usos decorativos sin texto encima (el punto de estado). */
@@ -78,10 +78,6 @@ body {
 button, input, textarea { font-family: inherit; font-size: 14px; color: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: 0.55; }
-
-/* Único lugar de la UI con Rubik semibold italic (manual de marca) — el resto
-   del chat se queda en peso normal, la itálica no ayuda a leer KPIs rápido. */
-.brand { font-weight: 600; font-style: italic; font-size: 17px; letter-spacing: -0.01em; }
 
 button.primary {
   background: var(--signal);
@@ -194,10 +190,26 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
   display: flex; align-items: center; justify-content: space-between;
   padding: 4px 6px 14px;
 }
-.brand-group { display: flex; align-items: center; gap: 8px; }
-.brand-logo { width: 22px; height: 22px; border-radius: 6px; display: block; }
-.login-logo { width: 40px; height: 40px; border-radius: 10px; }
-.sidebar .brand { color: var(--navy); }
+/* El wordmark de Kaizen. Va como background y no como <img> para poder
+   cambiar de variante por tema con CSS: el texto del logo es azul marino y
+   sobre el fondo oscuro sería ilegible, así que hay dos archivos (el original
+   y uno recoloreado a blanco con la flecha aclarada). Un filtro CSS no servía:
+   también le habría alterado el color a la flecha. */
+.wordmark {
+  /* inline-block y no block: con block el ancho auto se estira al contenedor y
+     la aspect-ratio queda ignorada (el logo quedaba centrado en una caja mucho
+     más ancha). Como el elemento no tiene contenido, el ancho lo resuelve la
+     proporción a partir del alto. */
+  display: inline-block;
+  background: url('/kaizen-wordmark.png') no-repeat center / contain;
+  aspect-ratio: 976 / 219; /* proporción real del archivo */
+}
+:root[data-theme='dark'] .wordmark { background-image: url('/kaizen-wordmark-dark.png'); }
+.brand-wordmark { height: 20px; }
+/* align-self: la tarjeta de login es un flex en columna, y su `align-items:
+   stretch` por defecto estira el ancho del wordmark al del contenedor,
+   ignorando la proporción. */
+.login-wordmark { height: 34px; margin-bottom: 2px; align-self: flex-start; }
 .new-conversation {
   background: var(--surface); color: var(--navy);
   border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12.5px;
