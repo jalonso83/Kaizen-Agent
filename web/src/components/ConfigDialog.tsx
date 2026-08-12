@@ -1,15 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
 import type { WeekMode } from '../types';
+import { Select } from './Select';
 
 const DAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const DAY_OPTIONS = DAY_LABELS.map((label, value) => ({ value, label }));
 
-// "1:00 AM" … "12:00 PM" … "11:00 PM" — el resumen siempre corre en punto.
-const HOUR_LABELS = Array.from({ length: 24 }, (_, h) => {
-  const sufijo = h < 12 ? 'AM' : 'PM';
-  const doce = h % 12 === 0 ? 12 : h % 12;
-  return `${doce}:00 ${sufijo}`;
-});
+// La hora se elige en dos listas cortas (1-12 y AM/PM) en vez de una sola de
+// 24 combinaciones: se lee de un vistazo y ninguna de las dos necesita
+// scrollearse mucho. No se usa un campo de texto porque el cron solo corre EN
+// PUNTO (`0 <hora> * * <día>`): escribir "8:30" invitaría a minutos que no se
+// pueden cumplir y habría que rechazarlos o ignorarlos en silencio.
+const HOUR12_OPTIONS = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: String(i + 1) }));
+const MERIDIEM_OPTIONS = [
+  { value: 0, label: 'AM' },
+  { value: 1, label: 'PM' },
+];
+
+// Conversión entre la hora de 24h que guarda la BD (0-23, lo que espera el
+// cron) y el par 12h + AM/PM que se muestra. El caso raro es el 12: las 12 AM
+// son la hora 0 y las 12 PM son la 12, así que no se puede sumar 12 a secas.
+function to12h(hour24: number): { hour12: number; meridiem: number } {
+  return { hour12: hour24 % 12 === 0 ? 12 : hour24 % 12, meridiem: hour24 < 12 ? 0 : 1 };
+}
+function to24h(hour12: number, meridiem: number): number {
+  const base = hour12 % 12; // 12 → 0
+  return meridiem === 1 ? base + 12 : base;
+}
 
 interface Props {
   onClose: () => void;
@@ -120,19 +137,9 @@ export function ConfigDialog({ onClose }: Props) {
             </label>
 
             {weekMode === 'calendar' && (
-              <label className="config-select-row">
-                Empieza en:
-                <select
-                  value={weekStartDay}
-                  onChange={(e) => setWeekStartDay(Number(e.target.value))}
-                >
-                  {DAY_LABELS.map((label, day) => (
-                    <option key={day} value={day}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="config-select-row">
+                <Select label="Empieza en:" value={weekStartDay} options={DAY_OPTIONS} onChange={setWeekStartDay} />
+              </div>
             )}
 
             <label className="config-radio">
@@ -150,26 +157,30 @@ export function ConfigDialog({ onClose }: Props) {
             <div className="config-schedule">
               <p className="config-schedule-title">Cuándo se genera automáticamente</p>
               <div className="config-schedule-row">
-                <label className="config-select-row">
-                  Día:
-                  <select value={cronDay} onChange={(e) => setCronDay(Number(e.target.value))}>
-                    {DAY_LABELS.map((label, day) => (
-                      <option key={day} value={day}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="config-select-row">
-                  Hora:
-                  <select value={cronHour} onChange={(e) => setCronHour(Number(e.target.value))}>
-                    {HOUR_LABELS.map((label, hour) => (
-                      <option key={hour} value={hour}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <Select label="Día:" value={cronDay} options={DAY_OPTIONS} onChange={setCronDay} />
+                {/* cronHour (0-23) sigue siendo la única fuente de verdad; las dos
+                    listas se derivan de él y lo recomponen. Guardar hora12 y
+                    meridiano en estados aparte abriría la puerta a que queden
+                    desincronizados con lo que se envía al server. */}
+                <div className="select-field">
+                  <span className="select-label">Hora:</span>
+                  <div className="select-pair">
+                    <Select
+                      ariaLabel="Hora"
+                      compact
+                      value={to12h(cronHour).hour12}
+                      options={HOUR12_OPTIONS}
+                      onChange={(h12) => setCronHour(to24h(h12, to12h(cronHour).meridiem))}
+                    />
+                    <Select
+                      ariaLabel="AM o PM"
+                      compact
+                      value={to12h(cronHour).meridiem}
+                      options={MERIDIEM_OPTIONS}
+                      onChange={(m) => setCronHour(to24h(to12h(cronHour).hour12, m))}
+                    />
+                  </div>
+                </div>
               </div>
               <p className="config-schedule-hint">
                 Horario UTC-4. Es cuándo <em>corre</em> el resumen, no qué semana reporta. Eso lo define la opción de arriba. Si el server está apagado a esa hora, esa semana no se genera.
