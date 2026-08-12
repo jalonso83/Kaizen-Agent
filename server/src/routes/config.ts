@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { audit } from '../services/audit';
 import { runWeeklySummary, startWeeklySummaryCron } from '../jobs/weeklySummary';
+import { runCerebroIndex } from '../jobs/cerebroIndex';
 
 // ─────────────────────────────────────────────────────────────────────────
 // /api/config/weekly-summary — el apartado de Configuración pedido junto con
@@ -91,6 +92,30 @@ router.post('/weekly-summary/run-now', asyncRoute(async (req, res) => {
     action: 'config:weekly-summary-run-now',
     resultSummary: result.ok ? `Semana ${result.from} a ${result.to}` : result.error,
     isError: !result.ok,
+  });
+
+  if (result.ok) {
+    res.json(result);
+    return;
+  }
+  res.status(result.error.includes('en curso') ? 409 : 502).json({ message: result.error });
+}));
+
+// Reindexado manual del Cerebro. El job corre al boot y cada 6h, así que sin
+// esto un cambio en Drive puede tardar hasta 6 horas en verse y la única forma
+// de apurarlo es reiniciar el server. Misma función que el job, no un camino
+// alternativo.
+router.post('/cerebro/reindex', asyncRoute(async (req, res) => {
+  const result = await runCerebroIndex();
+
+  await audit.log({
+    actor: `partner:${req.partner!.id}`,
+    action: 'config:cerebro-reindex',
+    resultSummary: result.ok
+      ? `${result.updated} actualizados, ${result.unchanged} sin cambios, ${result.omitted} omitidos, ${result.deleted} borrados`
+      : result.error,
+    isError: !result.ok,
+    durationMs: result.ok ? result.durationMs : undefined,
   });
 
   if (result.ok) {

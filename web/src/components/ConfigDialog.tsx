@@ -51,6 +51,9 @@ export function ConfigDialog({ onClose }: Props) {
   const [runningNow, setRunningNow] = useState(false);
   const [runNowError, setRunNowError] = useState<string | null>(null);
   const [runNowResult, setRunNowResult] = useState<string | null>(null);
+  const [reindexing, setReindexing] = useState(false);
+  const [reindexError, setReindexError] = useState<string | null>(null);
+  const [reindexResult, setReindexResult] = useState<string | null>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -101,6 +104,25 @@ export function ConfigDialog({ onClose }: Props) {
       setRunNowError(err instanceof ApiError ? err.message : 'No se pudo correr el resumen.');
     } finally {
       setRunningNow(false);
+    }
+  };
+
+  // Misma función que el job que corre al arrancar y cada 6h. Sin esto, un
+  // cambio en el Cerebro puede tardar hasta 6 horas en verse y la única forma
+  // de apurarlo es reiniciar el server.
+  const handleReindex = async () => {
+    setReindexing(true);
+    setReindexError(null);
+    setReindexResult(null);
+    try {
+      const r = await api.reindexCerebro();
+      setReindexResult(
+        `Listo — ${r.updated} actualizados, ${r.unchanged} sin cambios, ${r.omitted} omitidos, ${r.deleted} borrados.`,
+      );
+    } catch (err) {
+      setReindexError(err instanceof ApiError ? err.message : 'No se pudo reindexar el Cerebro.');
+    } finally {
+      setReindexing(false);
     }
   };
 
@@ -196,6 +218,17 @@ export function ConfigDialog({ onClose }: Props) {
               </p>
               {runNowResult && <p className="config-run-now-ok">{runNowResult}</p>}
               {runNowError && <p className="config-error">{runNowError}</p>}
+            </div>
+
+            <div className="config-run-now">
+              <button type="button" className="dialog-cancel" onClick={handleReindex} disabled={reindexing || saving}>
+                {reindexing ? 'Reindexando…' : 'Reindexar el Cerebro'}
+              </button>
+              <p className="config-run-now-hint">
+                Vuelve a leer el Cerebro de Drive ahora mismo. Kaizen busca sobre una copia local que se actualiza al arrancar y cada 6 horas, así que un documento editado recién puede tardar en verse. Los omitidos son los PDF, que esta versión no indexa.
+              </p>
+              {reindexResult && <p className="config-run-now-ok">{reindexResult}</p>}
+              {reindexError && <p className="config-error">{reindexError}</p>}
             </div>
           </div>
         )}

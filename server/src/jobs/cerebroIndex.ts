@@ -15,11 +15,25 @@ import { drive } from '../clients/drive';
 
 const INDEX_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
 
-export async function runCerebroIndex(): Promise<void> {
+export type CerebroIndexResult =
+  | { ok: true; updated: number; unchanged: number; omitted: number; deleted: number; durationMs: number }
+  | { ok: false; error: string };
+
+// El indexado tarda (lista Drive entero y re-descarga lo que cambió), así que
+// dos corridas superpuestas —el intervalo de 6h justo cuando alguien pulsa
+// "Reindexar"— se pisarían escribiendo las mismas filas. Un booleano alcanza:
+// un solo proceso, igual que en el resumen semanal.
+let isRunning = false;
+
+export async function runCerebroIndex(): Promise<CerebroIndexResult> {
   if (!drive.isConfigured()) {
     console.warn('[cerebro-index] Drive no configurado — se omite el indexado.');
-    return;
+    return { ok: false, error: 'Drive no está configurado en este ambiente — no hay nada que indexar.' };
   }
+  if (isRunning) {
+    return { ok: false, error: 'Ya hay un indexado en curso — esperá a que termine.' };
+  }
+  isRunning = true;
 
   const startedAt = Date.now();
   try {
@@ -63,12 +77,18 @@ export async function runCerebroIndex(): Promise<void> {
       await db.cerebroDoc.deleteMany({ where: { id: { in: staleIds } } });
     }
 
+    const durationMs = Date.now() - startedAt;
     console.log(
-      `[cerebro-index] listo en ${Date.now() - startedAt}ms — ${updated} actualizados, ${unchanged} sin cambios, ` +
+      `[cerebro-index] listo en ${durationMs}ms — ${updated} actualizados, ${unchanged} sin cambios, ` +
         `${omitted} omitidos (tipo no soportado), ${staleIds.length} borrados.`,
     );
+    return { ok: true, updated, unchanged, omitted, deleted: staleIds.length, durationMs };
   } catch (err) {
-    console.error('[cerebro-index] Falló la corrida:', err instanceof Error ? err.message : err);
+    const error = err instanceof Error ? err.message : String(err);
+    console.error('[cerebro-index] Falló la corrida:', error);
+    return { ok: false, error };
+  } finally {
+    isRunning = false;
   }
 }
 

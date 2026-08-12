@@ -70,6 +70,12 @@ export const api = {
   runWeeklySummaryNow: () =>
     request<{ ok: true; from: string; to: string }>('/api/config/weekly-summary/run-now', { method: 'POST' }),
 
+  reindexCerebro: () =>
+    request<{ ok: true; updated: number; unchanged: number; omitted: number; deleted: number }>(
+      '/api/config/cerebro/reindex',
+      { method: 'POST' },
+    ),
+
   // Edit/retry SÍ disparan un turno del agente (SSE) — los maneja useAgentStream,
   // no request(). Este solo "vuelve" a un punto anterior sin resend, sin stream.
   rewindMessage: (conversationId: string, messageId: string) =>
