@@ -6,6 +6,7 @@ import { ConversationList } from '../components/ConversationList';
 import { ChatView } from '../components/ChatView';
 import { Composer } from '../components/Composer';
 import { AgentStatusBar } from '../components/AgentStatusBar';
+import { MenuIcon } from '../components/Icons';
 import type { ConversationSummary, Partner, Proposal, StoredMessage } from '../types';
 
 interface Props {
@@ -23,6 +24,9 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
   const [messages, setMessages] = useState<StoredMessage[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Cajón de conversaciones en móvil. En escritorio el sidebar es una columna
+  // fija y este estado no afecta nada.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const refreshConversations = useCallback(async () => {
     const { conversations: list } = await api.listConversations();
@@ -45,6 +49,16 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
       })
       .catch((err) => setLoadError(err instanceof ApiError ? err.message : 'No se pudieron cargar las conversaciones.'));
   }, [refreshConversations, loadConversation]);
+
+  // Escape cierra el cajón, como cualquier panel superpuesto.
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSidebarOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [sidebarOpen]);
 
   const handleNew = useCallback(async () => {
     const conversation = await api.createConversation();
@@ -185,22 +199,58 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
     }
   };
 
+  const activeTitle = conversations.find((c) => c.id === activeId)?.title ?? 'Kaizen';
+
   return (
     <div className="chat-page">
       <ConversationList
         conversations={conversations}
         activeId={activeId}
-        onSelect={(id) => loadConversation(id).catch(() => setLoadError('No se pudo abrir esa conversación.'))}
-        onNew={() => handleNew().catch(() => setLoadError('No se pudo crear la conversación.'))}
+        // Abrir una conversación o crear una nueva cierra el cajón: en móvil
+        // tapa el chat entero, así que dejarlo abierto esconde justo lo que el
+        // socio acaba de pedir ver. En escritorio la clase no hace nada.
+        onSelect={(id) => {
+          setSidebarOpen(false);
+          loadConversation(id).catch(() => setLoadError('No se pudo abrir esa conversación.'));
+        }}
+        onNew={() => {
+          setSidebarOpen(false);
+          handleNew().catch(() => setLoadError('No se pudo crear la conversación.'));
+        }}
         onRename={handleRename}
         onDelete={handleDelete}
         partner={partner}
         onLogout={handleLogout}
         theme={theme}
         onToggleTheme={toggleTheme}
+        isOpen={sidebarOpen}
+      />
+
+      {/* Siempre montado, con la clase controlando la opacidad: si se montara
+          solo al abrir, al cerrar desaparecería de golpe sin desvanecerse. */}
+      <div
+        className={`sidebar-backdrop${sidebarOpen ? ' is-open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+        aria-hidden="true"
       />
 
       <main className="chat-main">
+        {/* Solo visible en móvil (CSS): ahí el chat ocupa la pantalla entera y
+            este es el único acceso a las conversaciones. */}
+        <header className="chat-topbar">
+          <button
+            type="button"
+            className="icon-button"
+            onClick={() => setSidebarOpen(true)}
+            title="Mostrar conversaciones"
+            aria-label="Mostrar conversaciones"
+            aria-expanded={sidebarOpen}
+          >
+            <MenuIcon />
+          </button>
+          <span className="chat-topbar-title">{activeTitle}</span>
+        </header>
+
         {loadError && <div className="banner-error">{loadError}</div>}
         {stream.error && <div className="banner-error">{stream.error}</div>}
 

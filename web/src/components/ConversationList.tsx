@@ -17,6 +17,8 @@ interface Props {
   onLogout: () => void;
   theme: Theme;
   onToggleTheme: () => void;
+  /** Solo aplica en móvil, donde el panel es un cajón deslizable sobre el chat. */
+  isOpen: boolean;
 }
 
 export function ConversationList({
@@ -30,6 +32,7 @@ export function ConversationList({
   onLogout,
   theme,
   onToggleTheme,
+  isOpen,
 }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -58,7 +61,7 @@ export function ConversationList({
   };
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${isOpen ? ' is-open' : ''}`}>
       <div className="sidebar-header">
         <span className="brand-group">
           {/* Isotipo real de FinZen (extraído de finzen-manual-de-marca.pdf) — a pedido del

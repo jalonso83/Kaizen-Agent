@@ -125,13 +125,62 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
    2026-07-19). */
 .chat-page {
   height: 100vh;
+  /* dvh descuenta la barra de direcciones del navegador móvil, que con 100vh
+     deja el composer cortado abajo. Se deja 100vh arriba como respaldo. */
+  height: 100dvh;
   overflow: hidden;
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
 }
+
+/* Barra superior solo de móvil: en escritorio el sidebar está siempre a la
+   vista y no hace falta ningún botón para abrirlo. */
+.chat-topbar { display: none; }
+.sidebar-backdrop { display: none; }
+
+/* ---------- móvil: el chat ocupa la pantalla, el sidebar es un cajón ----------
+   Antes acá el sidebar era `display: none` a secas: en el teléfono no había
+   forma de cambiar de conversación ni de entrar a Configuración. Ahora se
+   desliza por encima del chat, como en la app de Claude. */
 @media (max-width: 720px) {
   .chat-page { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
+
+  .sidebar {
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 30;
+    width: min(84vw, 300px);
+    transform: translateX(-100%);
+    /* La curva arranca rápido y frena al final: se siente como algo que se
+       desliza y se asienta, no como una interpolación lineal. */
+    transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1), visibility 0.26s;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.28);
+    /* Cerrado queda fuera de pantalla; sin esto se puede tabular hacia adentro
+       de un panel invisible. La transición retrasa el hidden hasta el final. */
+    visibility: hidden;
+  }
+  .sidebar.is-open { transform: translateX(0); visibility: visible; }
+
+  .sidebar-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.26s ease;
+  }
+  .sidebar-backdrop.is-open { opacity: 1; pointer-events: auto; }
+
+  .chat-topbar {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 10px; border-bottom: 1px solid var(--border);
+    background: var(--surface); flex-shrink: 0;
+  }
+  .chat-topbar-title {
+    font-size: 14px; font-weight: 500; color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+}
+
+/* Quien pidió menos movimiento ve el cajón aparecer sin deslizamiento. */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar, .sidebar-backdrop { transition: none; }
 }
 
 .sidebar {
