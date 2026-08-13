@@ -58,6 +58,15 @@ router.put('/weekly-summary', asyncRoute(async (req, res) => {
     return;
   }
 
+  // El estado ANTES de tocarlo, para que el evento de auditoría diga de qué a
+  // qué se cambió sin tener que deducirlo del evento anterior (que puede caer
+  // fuera de la página cargada, o no existir). Se lee antes del upsert: después
+  // ya no está.
+  const previo = await db.weeklySummaryConfig.findUnique({ where: { id: 1 } });
+  const anterior = previo
+    ? { weekMode: previo.weekMode, weekStartDay: previo.weekStartDay, cronDay: previo.cronDay, cronHour: previo.cronHour }
+    : null;
+
   const data = { weekMode, weekStartDay, cronDay, cronHour };
   const updated = await db.weeklySummaryConfig.upsert({
     where: { id: 1 },
@@ -73,7 +82,7 @@ router.put('/weekly-summary', asyncRoute(async (req, res) => {
   await audit.log({
     actor: `partner:${req.partner!.id}`,
     action: 'config:weekly-summary-updated',
-    input: data,
+    input: { ...data, anterior },
   });
 
   res.json(updated);

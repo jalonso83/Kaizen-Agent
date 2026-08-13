@@ -126,10 +126,13 @@ export interface CambioConfig {
 }
 
 /**
- * Qué cambió en una edición de configuración. El log no guarda el estado
- * anterior, así que el "antes" se reconstruye del evento previo del mismo tipo
- * — que es exactamente para lo que sirve un registro cronológico. Si el previo
- * cayó fuera de la página cargada, se muestran solo los valores resultantes.
+ * Qué cambió en una edición de configuración.
+ *
+ * Desde 2026-08-13 el evento guarda el estado anterior en `input.anterior`, así
+ * que el diff es exacto. Para los eventos escritos ANTES de eso —el log es
+ * inmutable, no se pueden completar hacia atrás— se cae a reconstruir el
+ * "antes" del evento previo del mismo tipo, que falla si ese previo quedó fuera
+ * de la página cargada.
  */
 export function cambiosConfig(actual: Record<string, unknown>, previo?: Record<string, unknown>): CambioConfig[] {
   return CAMPOS_CONFIG.filter((c) => actual[c.key] !== undefined).map((c) => {
@@ -353,10 +356,18 @@ export function AuditPage() {
             const e0 = g.eventos[0];
             // Un cambio de config suelto TAMBIÉN se despliega, para mostrar qué
             // se modificó en vez de un resumen apretado al costado.
-            const cambios =
-              suelto && e0.action === 'config:weekly-summary-updated'
-                ? cambiosConfig((e0.input ?? {}) as Record<string, unknown>, previoPorId.get(e0.id)?.input as Record<string, unknown> | undefined)
-                : null;
+            const esConfig = suelto && e0.action === 'config:weekly-summary-updated';
+            const inputConfig = (e0.input ?? {}) as Record<string, unknown>;
+            // El estado anterior guardado en el propio evento manda; si no está
+            // (eventos previos a 2026-08-13) se deduce del evento anterior.
+            // `anterior: null` es información, no ausencia: significa que no
+            // había configuración previa. Por eso se mira si la clave EXISTE
+            // antes de caer al método viejo.
+            const previoConfig = ('anterior' in inputConfig
+              ? (inputConfig.anterior as Record<string, unknown> | null) ?? undefined
+              : (previoPorId.get(e0.id)?.input as Record<string, unknown> | undefined));
+            const cambios = esConfig ? cambiosConfig(inputConfig, previoConfig) : null;
+            const sinReferencia = esConfig && !previoConfig;
             const plegable = !suelto || Boolean(cambios?.length);
 
             return (
@@ -421,7 +432,9 @@ export function AuditPage() {
                     ))}
                     {cambios.every((c) => !c.cambio) && (
                       <li className="audit-muted audit-cambio-nota">
-                        Sin el ajuste anterior a mano no se puede decir qué cambió; estos son los valores que quedaron.
+                        {sinReferencia
+                          ? 'No hay registro del estado anterior, así que no se puede decir qué cambió; estos son los valores que quedaron.'
+                          : 'Se guardó sin modificar ningún valor.'}
                       </li>
                     )}
                   </ul>
