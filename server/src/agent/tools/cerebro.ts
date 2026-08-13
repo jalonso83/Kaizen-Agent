@@ -11,6 +11,10 @@ import type { KaizenTool } from './guard';
 // ─────────────────────────────────────────────────────────────────────────
 
 const FRAGMENT_CHARS = 1500;
+// 3 era muy poco margen: alcanzaba con que tres documentos grandes mencionaran
+// los términos de pasada para que el relevante quedara afuera, sin segunda
+// oportunidad. Cuesta ~1.900 tokens de contexto por búsqueda en vez de ~1.100.
+const MAX_RESULTS = 5;
 const FOLDERS = ['reels', 'guiones', 'carruseles', 'assets'] as const;
 type ContentFolder = (typeof FOLDERS)[number];
 
@@ -40,8 +44,10 @@ function extractFragment(text: string, query: string): string {
 export const searchCerebroTool: KaizenTool = {
   name: 'search_cerebro',
   description:
-    'Busca en el Cerebro de FinZen (Drive: marca, decisiones, análisis) por palabras clave. Devuelve hasta 3 documentos con un fragmento relevante y su nombre/ruta como fuente. ' +
-    'Úsala SIEMPRE antes de redactar el mensaje de una campaña o contenido (para el tono de marca) y ante preguntas sobre decisiones o contexto del negocio que no salen de los KPIs.',
+    'Busca en el Cerebro de FinZen (Drive: marca, decisiones, análisis) por palabras clave. Devuelve hasta 5 documentos con un fragmento relevante y su nombre/ruta como fuente. ' +
+    'Úsala SIEMPRE antes de redactar el mensaje de una campaña o contenido (para el tono de marca) y ante preguntas sobre decisiones o contexto del negocio que no salen de los KPIs. ' +
+    'Es una búsqueda por palabras clave, no una lista completa: si los resultados no tienen que ver con lo que buscabas, significa que la consulta no dio en el blanco, NO que el documento no exista. ' +
+    'Reformulá con otros términos (más específicos, o el nombre del archivo) antes de afirmarle al socio que algo no está en el Cerebro.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -55,22 +61,36 @@ export const searchCerebroTool: KaizenTool = {
       throw new Error('Falta "query".');
     }
 
-    let rows = await db.$queryRaw<CerebroRow[]>`
+    // El tercer argumento de ts_rank (1) divide el puntaje por 1+log(largo del
+    // documento). Sin él —el default— el ranking premia el VOLUMEN de
+    // coincidencias, así que un digest de 71 KB que menciona los términos de
+    // pasada le gana a la nota corta que trata justamente de eso. Junto con el
+    // setweight del nombre (manual.sql) es lo que hace que una búsqueda por el
+    // nombre del archivo encuentre el archivo.
+    const rows = await db.$queryRaw<CerebroRow[]>`
       SELECT name, path, text
       FROM "CerebroDoc"
       WHERE tsv @@ plainto_tsquery('spanish', ${query})
-      ORDER BY ts_rank(tsv, plainto_tsquery('spanish', ${query})) DESC
-      LIMIT 3
+      ORDER BY ts_rank(tsv, plainto_tsquery('spanish', ${query}), 1) DESC
+      LIMIT ${MAX_RESULTS}
     `;
 
-    if (rows.length === 0) {
-      // Fallback: el tsquery no matcheó nada (ej. una sola palabra rara) — probar ILIKE simple.
-      rows = await db.$queryRaw<CerebroRow[]>`
+    // El respaldo por ILIKE corre cuando la búsqueda principal quedó CORTA, no
+    // solo cuando devolvió cero. Antes exigía cero filas y por eso nunca se
+    // activaba en el caso que importa: tres resultados flojos lo desarmaban
+    // igual de bien que tres buenos.
+    if (rows.length < MAX_RESULTS) {
+      const yaEsta = new Set(rows.map((r) => `${r.path}/${r.name}`));
+      const extra = await db.$queryRaw<CerebroRow[]>`
         SELECT name, path, text
         FROM "CerebroDoc"
         WHERE name ILIKE ${`%${query}%`} OR text ILIKE ${`%${query}%`}
-        LIMIT 3
+        LIMIT ${MAX_RESULTS}
       `;
+      for (const r of extra) {
+        if (rows.length >= MAX_RESULTS) break;
+        if (!yaEsta.has(`${r.path}/${r.name}`)) rows.push(r);
+      }
     }
 
     if (rows.length === 0) {
