@@ -108,19 +108,44 @@ export function mensajeLegible(raw: string): string {
  * "cambió la configuración del resumen" y no A QUÉ la cambió, que es justo lo
  * que uno quiere saber al auditar.
  */
+const hora12 = (h: number) => `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? 'AM' : 'PM'}`;
+
+/** Campos de la config del resumen semanal, con cómo mostrarlos. */
+const CAMPOS_CONFIG: Array<{ key: string; label: string; fmt: (v: unknown) => string }> = [
+  { key: 'weekMode', label: 'Ventana', fmt: (v) => (v === 'rolling' ? 'últimos 7 días' : 'semana calendario') },
+  { key: 'weekStartDay', label: 'La semana empieza', fmt: (v) => (typeof v === 'number' ? DIAS[v] : String(v)) },
+  { key: 'cronDay', label: 'Corre el día', fmt: (v) => (typeof v === 'number' ? DIAS[v] : String(v)) },
+  { key: 'cronHour', label: 'A la hora', fmt: (v) => (typeof v === 'number' ? hora12(v) : String(v)) },
+];
+
+export interface CambioConfig {
+  label: string;
+  antes: string | null;
+  despues: string;
+  cambio: boolean;
+}
+
+/**
+ * Qué cambió en una edición de configuración. El log no guarda el estado
+ * anterior, así que el "antes" se reconstruye del evento previo del mismo tipo
+ * — que es exactamente para lo que sirve un registro cronológico. Si el previo
+ * cayó fuera de la página cargada, se muestran solo los valores resultantes.
+ */
+export function cambiosConfig(actual: Record<string, unknown>, previo?: Record<string, unknown>): CambioConfig[] {
+  return CAMPOS_CONFIG.filter((c) => actual[c.key] !== undefined).map((c) => {
+    const hayPrevio = previo && previo[c.key] !== undefined;
+    const cambio = Boolean(hayPrevio && previo![c.key] !== actual[c.key]);
+    return {
+      label: c.label,
+      antes: cambio ? c.fmt(previo![c.key]) : null,
+      despues: c.fmt(actual[c.key]),
+      cambio,
+    };
+  });
+}
+
+/** Resumen de una línea al costado. Los cambios de config NO lo usan: van desplegables. */
 function detalle(e: AuditEvent): string | null {
-  const input = (e.input ?? {}) as Record<string, unknown>;
-
-  if (e.action === 'config:weekly-summary-updated') {
-    const dia = typeof input.cronDay === 'number' ? DIAS[input.cronDay] : null;
-    const h = typeof input.cronHour === 'number' ? input.cronHour : null;
-    const hora12 = h === null ? null : `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? 'AM' : 'PM'}`;
-    const cuando = dia && hora12 ? `${dia} ${hora12}` : null;
-    const ventana = input.weekMode === 'rolling' ? 'últimos 7 días' : input.weekMode === 'calendar' ? 'semana calendario' : null;
-    return [cuando, ventana].filter(Boolean).join(' · ') || null;
-  }
-
-  // Para los jobs, el resumen que ya escribieron ES el detalle útil.
   if (['config:cerebro-reindex', 'config:weekly-summary-run-now', 'weekly-summary:done'].includes(e.action)) {
     return e.resultSummary;
   }
@@ -196,6 +221,18 @@ export function AuditPage() {
   if (cargando && !overview) return <div className="audit-loading">Cargando auditoría…</div>;
 
   const grupos = agrupar(eventos);
+
+  // Para cada cambio de config, el cambio ANTERIOR del mismo tipo. La lista
+  // viene de más nuevo a más viejo, así que el previo es el siguiente que
+  // aparece con la misma acción.
+  const previoPorId = new Map<string, AuditEvent>();
+  const ultimoVisto = new Map<string, AuditEvent>();
+  for (const e of eventos) {
+    if (e.action !== 'config:weekly-summary-updated') continue;
+    const yaVisto = ultimoVisto.get(e.action);
+    if (yaVisto) previoPorId.set(yaVisto.id, e);
+    ultimoVisto.set(e.action, e);
+  }
   const sinConfirmacion = overview ? overview.gate.sinConfirmacion > 0 : false;
 
   return (
@@ -314,16 +351,39 @@ export function AuditPage() {
             // como una fila directa, con su etiqueta en vez de "1 acción".
             const suelto = g.eventos.length === 1;
             const e0 = g.eventos[0];
+            // Un cambio de config suelto TAMBIÉN se despliega, para mostrar qué
+            // se modificó en vez de un resumen apretado al costado.
+            const cambios =
+              suelto && e0.action === 'config:weekly-summary-updated'
+                ? cambiosConfig((e0.input ?? {}) as Record<string, unknown>, previoPorId.get(e0.id)?.input as Record<string, unknown> | undefined)
+                : null;
+            const plegable = !suelto || Boolean(cambios?.length);
 
             return (
               <li key={g.key} className="audit-group">
                 <button
                   type="button"
-                  className="audit-group-head"
-                  onClick={() => !suelto && alternar(g.key)}
-                  aria-expanded={suelto ? undefined : abierto}
+                  className={plegable ? 'audit-group-head is-plegable' : 'audit-group-head'}
+                  onClick={() => plegable && alternar(g.key)}
+                  aria-expanded={plegable ? abierto : undefined}
                 >
-                  <span className="audit-group-caret">{suelto ? '·' : abierto ? '▾' : '▸'}</span>
+                  {plegable ? (
+                    <svg
+                      className={abierto ? 'audit-caret is-open' : 'audit-caret'}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path d="m9 18 6-6-6-6" />
+                    </svg>
+                  ) : (
+                    <span className="audit-caret-hueco" aria-hidden="true" />
+                  )}
                   <span className="audit-group-title">
                     {suelto ? etiqueta(e0.action) : g.titulo}
                     {suelto && <span className="audit-muted"> · {quien(e0)}</span>}
@@ -343,6 +403,28 @@ export function AuditPage() {
                     pero al auditar hay que poder ver lo que realmente llegó. */}
                 {suelto && e0.isError && e0.resultSummary && (
                   <p className="audit-error-detail" title={e0.resultSummary}>{mensajeLegible(e0.resultSummary)}</p>
+                )}
+
+                {cambios && abierto && (
+                  <ul className="audit-cambios">
+                    {cambios.map((c) => (
+                      <li key={c.label} className={c.cambio ? 'audit-cambio is-changed' : 'audit-cambio'}>
+                        <span className="audit-cambio-label">{c.label}</span>
+                        {c.antes && (
+                          <>
+                            <span className="audit-cambio-antes">{c.antes}</span>
+                            <span className="audit-cambio-flecha">→</span>
+                          </>
+                        )}
+                        <span className="audit-cambio-despues">{c.despues}</span>
+                      </li>
+                    ))}
+                    {cambios.every((c) => !c.cambio) && (
+                      <li className="audit-muted audit-cambio-nota">
+                        Sin el ajuste anterior a mano no se puede decir qué cambió; estos son los valores que quedaron.
+                      </li>
+                    )}
+                  </ul>
                 )}
 
                 {!suelto && abierto && (
