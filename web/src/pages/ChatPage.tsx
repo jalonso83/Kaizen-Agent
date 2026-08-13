@@ -7,6 +7,7 @@ import { ChatView } from '../components/ChatView';
 import { Composer } from '../components/Composer';
 import { AgentStatusBar } from '../components/AgentStatusBar';
 import { MenuIcon } from '../components/Icons';
+import { AuditPage } from './AuditPage';
 import type { ConversationSummary, Partner, Proposal, StoredMessage } from '../types';
 
 interface Props {
@@ -27,6 +28,9 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
   // Cajón de conversaciones en móvil. En escritorio el sidebar es una columna
   // fija y este estado no afecta nada.
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Sección activa. Sin router (DISENO §10): son dos vistas dentro del mismo
+  // layout, no dos rutas — el sidebar se queda donde está en ambas.
+  const [view, setView] = useState<'chat' | 'audit'>('chat');
 
   const refreshConversations = useCallback(async () => {
     const { conversations: list } = await api.listConversations();
@@ -235,12 +239,13 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
       />
 
       <main className="chat-main">
-        {/* Solo visible en móvil (CSS): ahí el chat ocupa la pantalla entera y
-            este es el único acceso a las conversaciones. */}
+        {/* Barra superior de la app. El botón de hamburguesa solo se ve en móvil
+            (CSS), donde el chat ocupa la pantalla entera y es el único acceso a
+            las conversaciones; las pestañas están siempre. */}
         <header className="chat-topbar">
           <button
             type="button"
-            className="icon-button"
+            className="icon-button chat-topbar-menu"
             onClick={() => setSidebarOpen(true)}
             title="Mostrar conversaciones"
             aria-label="Mostrar conversaciones"
@@ -248,13 +253,33 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
           >
             <MenuIcon />
           </button>
-          <span className="chat-topbar-title">{activeTitle}</span>
+          <nav className="app-tabs" aria-label="Secciones">
+            <button
+              type="button"
+              className={view === 'chat' ? 'app-tab is-active' : 'app-tab'}
+              onClick={() => setView('chat')}
+              aria-current={view === 'chat' ? 'page' : undefined}
+            >
+              Chat
+            </button>
+            <button
+              type="button"
+              className={view === 'audit' ? 'app-tab is-active' : 'app-tab'}
+              onClick={() => setView('audit')}
+              aria-current={view === 'audit' ? 'page' : undefined}
+            >
+              Auditoría
+            </button>
+          </nav>
+          {view === 'chat' && <span className="chat-topbar-title">{activeTitle}</span>}
         </header>
 
-        {loadError && <div className="banner-error">{loadError}</div>}
-        {stream.error && <div className="banner-error">{stream.error}</div>}
+        {view === 'audit' && <AuditPage />}
 
-        {activeId ? (
+        {view === 'chat' && loadError && <div className="banner-error">{loadError}</div>}
+        {view === 'chat' && stream.error && <div className="banner-error">{stream.error}</div>}
+
+        {view === 'chat' && (activeId ? (
           <>
             <ChatView
               messages={messages}
@@ -274,7 +299,7 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
           <div className="chat-empty">
             <p>Creá una conversación para empezar.</p>
           </div>
-        )}
+        ))}
       </main>
     </div>
   );

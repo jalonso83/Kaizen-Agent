@@ -68,6 +68,57 @@ export interface ConversationSummary {
   updatedAt: string;
 }
 
+// ── Auditoría (server/src/routes/audit.ts) ────────────────────────────────
+
+export interface JobHealth {
+  at: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface GateCampaign {
+  id: string;
+  titulo: string;
+  status: ProposalStatus;
+  confirmedAt: string | null;
+  confirmadaPor: string | null;
+  executedAt: string | null;
+  finzenCampaignId: string | null;
+  error: string | null;
+  /** Llegó a FinZen sin que ningún socio pulsara Confirmar. Nunca debería pasar. */
+  sinConfirmacion: boolean;
+}
+
+export interface AuditOverview {
+  health: {
+    resumenSemanal: JobHealth | null;
+    indexado: JobHealth | null;
+    errores24h: number;
+  };
+  gate: {
+    borradoresCreados: number;
+    sinConfirmacion: number;
+    bloqueados: number;
+    campanas: GateCampaign[];
+    denegados: Array<{ id: string; resultSummary: string | null; createdAt: string }>;
+  };
+}
+
+export interface AuditEvent {
+  id: string;
+  conversationId: string | null;
+  conversationTitle: string | null;
+  actor: string; // 'agent' | 'partner:<id>' | 'cron' | 'system'
+  /** Nombre del socio cuando actor es 'partner:<id>'; null en los demás casos. */
+  actorName: string | null;
+  action: string;
+  input: unknown;
+  resultSummary: string | null;
+  isError: boolean;
+  durationMs: number | null;
+  createdAt: string;
+}
+
 export type WeekMode = 'rolling' | 'calendar';
 
 // Calca server/prisma/schema.prisma → model WeeklySummaryConfig.

@@ -129,9 +129,31 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
   grid-template-columns: 260px minmax(0, 1fr);
 }
 
-/* Barra superior solo de móvil: en escritorio el sidebar está siempre a la
-   vista y no hace falta ningún botón para abrirlo. */
-.chat-topbar { display: none; }
+/* Barra superior de la app: pestañas siempre, hamburguesa solo en móvil (en
+   escritorio el sidebar está a la vista y no hace falta abrirlo). */
+.chat-topbar {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  padding: 0 16px; border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+/* Con el selector descendiente para ganarle a `.icon-button`, que define su
+   propio display y está más abajo en la hoja (misma especificidad, gana el
+   último). Sin esto la hamburguesa se colaba en escritorio. */
+.chat-topbar > .chat-topbar-menu { display: none; }
+.chat-topbar-title {
+  font-size: 13px; color: var(--text-muted); margin-left: auto;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.app-tabs { display: flex; gap: 2px; }
+.app-tab {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--text-secondary); font-size: 14px; padding: 12px 12px 10px;
+  margin-bottom: -1px; /* pisa el borde de la barra para que la pestaña activa lo continúe */
+}
+.app-tab:hover { color: var(--text-primary); }
+.app-tab.is-active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 500; }
+
 .sidebar-backdrop { display: none; }
 
 /* ---------- móvil: el chat ocupa la pantalla, el sidebar es un cajón ----------
@@ -163,15 +185,12 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
   }
   .sidebar-backdrop.is-open { opacity: 1; pointer-events: auto; }
 
-  .chat-topbar {
-    display: flex; align-items: center; gap: 6px;
-    padding: 6px 10px; border-bottom: 1px solid var(--border);
-    background: var(--surface); flex-shrink: 0;
-  }
-  .chat-topbar-title {
-    font-size: 14px; font-weight: 500; color: var(--text-primary);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
+  .chat-topbar { padding: 0 8px; gap: 4px; }
+  .chat-topbar > .chat-topbar-menu { display: inline-flex; }
+  /* En móvil el ancho no alcanza para pestañas + título de conversación; el
+     título se ve igual en el cajón. */
+  .chat-topbar-title { display: none; }
+  .app-tab { padding: 12px 10px 10px; font-size: 13.5px; }
 }
 
 /* Quien pidió menos movimiento ve el cajón aparecer sin deslizamiento. */
@@ -480,6 +499,126 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .dialog-confirm:hover { filter: brightness(1.08); }
 .dialog-confirm-danger { background: var(--danger); }
 .dialog-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ---------- auditoría ---------- */
+.audit-page {
+  flex: 1; overflow-y: auto; min-height: 0;
+  padding: 20px clamp(16px, 4vw, 48px) 40px;
+  display: flex; flex-direction: column; gap: 18px;
+  scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.audit-page::-webkit-scrollbar { width: 6px; }
+.audit-page::-webkit-scrollbar-track { background: transparent; }
+.audit-page::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+.audit-loading { padding: 24px; color: var(--text-muted); font-size: 13.5px; }
+
+.audit-ok { color: var(--signal); font-size: 13px; }
+.audit-bad { color: var(--danger); font-size: 13px; }
+.audit-muted { color: var(--text-muted); font-size: 12.5px; }
+
+/* Salud: lo primero de la pantalla. Responde "¿está todo corriendo?" antes de
+   que haga falta leer una sola fila del log. */
+.audit-health { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.audit-health-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 11px 13px; display: flex; flex-direction: column; gap: 3px; min-width: 0;
+}
+.audit-health-label { font-size: 11.5px; color: var(--text-muted); }
+
+/* El gate: una conclusión arriba y la evidencia debajo. */
+.audit-gate {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 15px;
+}
+.audit-gate.is-alert { border-color: var(--danger); }
+.audit-gate-title { font-size: 14.5px; font-weight: 600; margin: 0; color: var(--text-primary); }
+.audit-gate.is-alert .audit-gate-title { color: var(--danger); }
+.audit-gate-sub { font-size: 12.5px; color: var(--text-secondary); margin: 4px 0 0; }
+.audit-gate-empty { margin: 10px 0 0; }
+.audit-gate-list, .audit-denied-list, .audit-groups, .audit-events {
+  list-style: none; margin: 0; padding: 0;
+}
+.audit-gate-list { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.audit-gate-row { display: flex; align-items: center; gap: 9px; font-size: 12.5px; min-width: 0; }
+.audit-gate-check { color: var(--signal); flex-shrink: 0; width: 12px; }
+.audit-gate-row.is-alert .audit-gate-check { color: var(--danger); }
+.audit-gate-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.audit-gate-meta { color: var(--text-muted); font-size: 12px; flex-shrink: 0; }
+
+/* Los intentos bloqueados en ámbar y no en rojo: no son un fallo, son el
+   sistema haciendo su trabajo. */
+.audit-denied-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.audit-denied-row {
+  display: flex; align-items: center; gap: 9px; min-width: 0;
+  background: var(--amber-bg); border-radius: 6px; padding: 7px 9px; font-size: 12.5px;
+}
+.audit-denied-name { flex: 1; min-width: 0; color: var(--amber); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.audit-activity-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.audit-filters { display: flex; align-items: center; gap: 8px; }
+.audit-toggle { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.audit-toggle button {
+  background: none; border: none; color: var(--text-secondary); font-size: 12px; padding: 5px 11px;
+}
+.audit-toggle button.is-active { background: var(--navy); color: var(--bg); }
+.audit-chip {
+  background: none; border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text-secondary); font-size: 12px; padding: 5px 11px;
+}
+.audit-chip.is-active { border-color: var(--danger); color: var(--danger); }
+
+/* La actividad scrollea por dentro en vez de estirar la página: así salud y
+   gate —lo que responde las preguntas— quedan siempre a la vista, y la lista
+   larga no empuja el resto fuera de pantalla. */
+.audit-groups {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 52vh; overflow-y: auto;
+  /* El padding evita que el foco de la primera/última fila quede cortado por el
+     overflow; el margen negativo lo compensa para no desalinear. */
+  padding: 2px; margin: 0 -2px;
+  scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.audit-groups::-webkit-scrollbar { width: 6px; }
+.audit-groups::-webkit-scrollbar-track { background: transparent; }
+.audit-groups::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+.audit-groups::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+
+/* El dato concreto del evento ("martes 7 PM", los conteos del reindexado). */
+.audit-detail { color: var(--text-muted); font-weight: 400; }
+.audit-group { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+.audit-group-head {
+  width: 100%; display: flex; align-items: center; gap: 9px; text-align: left;
+  background: none; border: none; padding: 10px 13px; color: var(--text-primary); font-size: 13px;
+}
+.audit-group-caret { color: var(--text-muted); width: 10px; flex-shrink: 0; }
+.audit-group-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.audit-events { padding: 0 13px 11px 32px; display: flex; flex-direction: column; gap: 6px; }
+.audit-event {
+  display: grid; grid-template-columns: 46px 1fr auto auto; gap: 9px; align-items: baseline;
+  font-size: 12px; color: var(--text-secondary);
+}
+.audit-event.is-error { background: var(--danger-bg); border-radius: 6px; padding: 7px 8px; margin: 0 -8px; color: var(--danger); }
+.audit-event-time { color: var(--text-muted); }
+.audit-event-what { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.audit-event-who, .audit-event-ms { color: var(--text-muted); font-size: 11.5px; }
+.audit-event.is-error .audit-event-time,
+.audit-event.is-error .audit-event-who,
+.audit-event.is-error .audit-event-ms { color: inherit; opacity: 0.8; }
+/* El mensaje crudo del error es lo único que sirve para diagnosticar: se
+   muestra expandido y en monoespaciada, sin hacer clic. */
+.audit-error-detail {
+  grid-column: 1 / -1; margin: 4px 0 0; padding: 0 13px;
+  font-family: var(--mono); font-size: 11.5px; color: var(--danger); word-break: break-word;
+}
+.audit-events .audit-error-detail { padding: 0; }
+
+.audit-more {
+  align-self: flex-start; margin-top: 10px;
+  background: none; border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text-secondary); font-size: 12.5px; padding: 7px 13px;
+}
+.audit-more:hover { border-color: var(--navy); color: var(--navy); }
+.audit-immutable { font-size: 11.5px; color: var(--text-muted); margin: 16px 0 0; }
 
 /* ---------- config dialog ---------- */
 .config-loading { font-size: 13px; color: var(--text-muted); margin: 4px 0; }

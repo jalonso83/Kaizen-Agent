@@ -6,6 +6,7 @@ import authRoutes from './routes/auth';
 import chatRoutes from './routes/chat';
 import proposalsRoutes from './routes/proposals';
 import configRoutes from './routes/config';
+import auditRoutes from './routes/audit';
 import { startCerebroIndexJob } from './jobs/cerebroIndex';
 import { startWeeklySummaryCron } from './jobs/weeklySummary';
 import { startAcquisitionExportCron } from './jobs/acquisitionExport';
@@ -36,6 +37,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/conversations', chatRoutes);
 app.use('/api/proposals', proposalsRoutes);
 app.use('/api/config', configRoutes);
+app.use('/api/audit', auditRoutes);
 
 // ─── Web de socios (build de Vite) ───
 // Servida desde el MISMO Express que la API → mismo origen, sin CORS, la cookie

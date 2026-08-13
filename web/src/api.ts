@@ -1,4 +1,12 @@
-import type { ConversationSummary, Partner, Proposal, StoredMessage, WeeklySummaryConfig } from './types';
+import type {
+  AuditEvent,
+  AuditOverview,
+  ConversationSummary,
+  Partner,
+  Proposal,
+  StoredMessage,
+  WeeklySummaryConfig,
+} from './types';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Cliente HTTP de la API de Kaizen. Rutas relativas ("/api/...") — same-origin
@@ -75,6 +83,15 @@ export const api = {
       '/api/config/cerebro/reindex',
       { method: 'POST' },
     ),
+
+  getAuditOverview: () => request<AuditOverview>('/api/audit/overview'),
+
+  getAuditEvents: (opts: { level: 'important' | 'all'; onlyErrors: boolean; from?: string; cursor?: string }) => {
+    const qs = new URLSearchParams({ level: opts.level, onlyErrors: String(opts.onlyErrors) });
+    if (opts.from) qs.set('from', opts.from);
+    if (opts.cursor) qs.set('cursor', opts.cursor);
+    return request<{ events: AuditEvent[]; nextCursor: string | null }>(`/api/audit/events?${qs}`);
+  },
 
   // Edit/retry SÍ disparan un turno del agente (SSE) — los maneja useAgentStream,
   // no request(). Este solo "vuelve" a un punto anterior sin resend, sin stream.
