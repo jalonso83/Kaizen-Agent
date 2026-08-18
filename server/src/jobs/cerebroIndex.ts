@@ -1,5 +1,6 @@
 import { db } from '../db';
 import { drive } from '../clients/drive';
+import { audit } from '../services/audit';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Indexador del Cerebro — DISENO_FASE1.md §9. Listado recursivo de Drive,
@@ -106,10 +107,26 @@ export async function runCerebroIndex(): Promise<CerebroIndexResult> {
     if (contados !== entries.length) {
       console.warn(`[cerebro-index] Descuadre: Drive listó ${entries.length} archivos y se contaron ${contados}.`);
     }
+
+    // El job dejaba rastro SOLO en consola: la única fila de auditoría la
+    // escribía el botón manual, así que la pantalla de Auditoría mostraba la
+    // última vez que alguien pulsó "Reindexar" y nunca las corridas de cada 6h
+    // (bug real, 2026-08-17: parecía que el indexado automático no corría).
+    await audit.log({
+      actor: 'cron',
+      action: 'cerebro-index:done',
+      resultSummary: `${updated} actualizados, ${unchanged} sin cambios, ${omitted} omitidos, ${staleIds.length} borrados, ${fallidos.length} fallidos`,
+      isError: fallidos.length > 0,
+      durationMs,
+    });
+
     return { ok: true, updated, unchanged, omitted, deleted: staleIds.length, failed: fallidos, durationMs };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
     console.error('[cerebro-index] Falló la corrida:', error);
+    await audit
+      .log({ actor: 'cron', action: 'cerebro-index:error', resultSummary: error.slice(0, 2000), isError: true })
+      .catch(() => undefined);
     return { ok: false, error };
   } finally {
     isRunning = false;

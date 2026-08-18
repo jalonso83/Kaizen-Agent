@@ -136,5 +136,10 @@ export function useAgentStream(conversationId: string | null, onDone: () => void
     [conversationId, runStream],
   );
 
-  return { ...state, sendMessage, confirmProposal, editMessage, retryMessage };
+  // El error del turno sobrevive a propósito al final del stream (se preserva
+  // abajo del while), así que hace falta una forma explícita de descartarlo:
+  // sin esto la barra roja se quedaba hasta recargar la página.
+  const clearError = useCallback(() => setState((s) => ({ ...s, error: null })), []);
+
+  return { ...state, sendMessage, confirmProposal, editMessage, retryMessage, clearError };
 }

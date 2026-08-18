@@ -25,10 +25,10 @@ function serializable<T extends { id: bigint }>(row: T): Omit<T, 'id'> & { id: s
   return { ...row, id: row.id.toString() };
 }
 
-/** Última corrida de un job, mirando su par de acciones done/error. */
-async function ultimaCorrida(accionOk: string, accionError: string) {
+/** Última corrida de un job, mirando todas las acciones que la representan. */
+async function ultimaCorrida(...acciones: string[]) {
   const fila = await db.auditLog.findFirst({
-    where: { action: { in: [accionOk, accionError] } },
+    where: { action: { in: acciones } },
     orderBy: { createdAt: 'desc' },
     select: { action: true, resultSummary: true, isError: true, createdAt: true },
   });
@@ -41,9 +41,10 @@ router.get('/overview', asyncRoute(async (_req, res) => {
 
   const [resumenSemanal, indexado, errores24h, propuestas, denegados, socios] = await Promise.all([
     ultimaCorrida('weekly-summary:done', 'weekly-summary:error'),
-    // El reindexado manual y el del job dejan acciones distintas; para "cuándo
-    // se leyó el Cerebro por última vez" sirve cualquiera de las dos.
-    ultimaCorrida('config:cerebro-reindex', 'config:cerebro-reindex'),
+    // Tres acciones distintas para lo mismo: el job de cada 6h (done/error) y
+    // el botón manual. Mirar solo la del botón hacía que la tarjeta mostrara la
+    // última vez que alguien reindexó a mano y nunca las corridas automáticas.
+    ultimaCorrida('cerebro-index:done', 'cerebro-index:error', 'config:cerebro-reindex'),
     db.auditLog.count({ where: { isError: true, createdAt: { gte: hace24h } } }),
     // La reconciliación del gate sale de Proposal, que es la fuente de verdad
     // de quién confirmó qué (confirmedBy SOLO lo escribe el endpoint HTTP).

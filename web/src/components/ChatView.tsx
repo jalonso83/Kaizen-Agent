@@ -113,14 +113,32 @@ export function ChatView({
 
   type MessageEntry = { kind: 'message'; role: StoredMessage['role']; id: string; createdAt: string; blocks: ReactNode[] };
   type ProposalEntry = { kind: 'proposal'; id: string; createdAt: string; node: ReactNode };
-  type SortedEntry = MessageEntry | ProposalEntry;
+  // Frontera invisible: un mensaje que no se pinta pero que SÍ separa turnos.
+  type BoundaryEntry = { kind: 'boundary'; id: string; createdAt: string };
+  type SortedEntry = MessageEntry | ProposalEntry | BoundaryEntry;
 
-  const messageEntries: (MessageEntry | null)[] = messages.map((message) => {
+  /** ¿Es un <evento_sistema>? Son acciones REALES del socio (confirmar/rechazar
+   *  una tarjeta) que no se muestran, a diferencia de un tool_result, que es
+   *  continuación del mismo turno. */
+  const esEventoSistema = (m: StoredMessage) =>
+    m.role === 'user' &&
+    m.content.some(
+      (b) => b.type === 'text' && typeof b.text === 'string' && SYSTEM_EVENT_RE.test(b.text.trim()),
+    );
+
+  const messageEntries: (MessageEntry | BoundaryEntry | null)[] = messages.map((message) => {
     const blocks = message.content
       .map((block, i) => renderBlock(block, `${message.id}-${i}`))
       .filter((b) => b !== null);
 
-    if (blocks.length === 0) return null; // burbuja sin nada que mostrar (p.ej. tool_result)
+    if (blocks.length === 0) {
+      // Sin nada que pintar. Si además es un evento del sistema, se conserva
+      // como frontera: el socio hizo algo (pulsó Confirmar) y lo que viene
+      // después es otro turno, no la continuación del anterior.
+      return esEventoSistema(message)
+        ? { kind: 'boundary', id: message.id, createdAt: message.createdAt }
+        : null;
+    }
 
     return { kind: 'message', role: message.role, id: message.id, createdAt: message.createdAt, blocks };
   });
@@ -149,18 +167,28 @@ export function ChatView({
   // usara el primero, volver a una burbuja fusionada borraría sus propias
   // rondas siguientes junto con lo que viene después (bug que evitamos acá).
   const merged: Array<{ key: string; role?: StoredMessage['role']; blocks?: ReactNode[]; firstId?: string; lastId?: string; node?: ReactNode }> = [];
+  // Una frontera no se pinta, pero corta la racha: sin esto, "la paso a
+  // tarjeta", "confirmada, creo el borrador" y "borrador creado" —tres turnos
+  // separados por el clic del socio en Confirmar— caían en una sola burbuja, y
+  // la tarjeta quedaba visualmente por encima de todos (bug real, 2026-08-17).
+  let cortar = false;
   for (const entry of sorted) {
+    if (entry.kind === 'boundary') {
+      cortar = true;
+      continue;
+    }
     if (entry.kind === 'proposal') {
       merged.push({ key: `proposal-${entry.id}`, node: entry.node });
       continue;
     }
     const prev = merged[merged.length - 1];
-    if (prev?.blocks && prev.role === 'assistant' && entry.role === 'assistant') {
+    if (!cortar && prev?.blocks && prev.role === 'assistant' && entry.role === 'assistant') {
       prev.blocks.push(...entry.blocks);
       prev.lastId = entry.id;
     } else {
       merged.push({ key: `message-${entry.id}`, role: entry.role, blocks: [...entry.blocks], firstId: entry.id, lastId: entry.id });
     }
+    cortar = false;
   }
 
   return (

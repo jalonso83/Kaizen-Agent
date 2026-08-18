@@ -18,6 +18,19 @@ interface Props {
 // Calca server/prisma/schema.prisma → Conversation.title @default(...).
 const DEFAULT_CONVERSATION_TITLE = 'Nueva conversación';
 
+/** Barra de error descartable. Antes no había forma de cerrarla: se quedaba
+ *  hasta recargar la página, tapando el chat por un fallo ya superado. */
+function BannerError({ mensaje, onClose }: { mensaje: string; onClose: () => void }) {
+  return (
+    <div className="banner-error" role="alert">
+      <span className="banner-error-text">{mensaje}</span>
+      <button type="button" className="banner-error-close" onClick={onClose} title="Cerrar" aria-label="Cerrar aviso">
+        ✕
+      </button>
+    </div>
+  );
+}
+
 export function ChatPage({ partner, onLoggedOut }: Props) {
   const { theme, toggleTheme } = useTheme();
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -276,8 +289,12 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
 
         {view === 'audit' && <AuditPage />}
 
-        {view === 'chat' && loadError && <div className="banner-error">{loadError}</div>}
-        {view === 'chat' && stream.error && <div className="banner-error">{stream.error}</div>}
+        {view === 'chat' && loadError && (
+          <BannerError mensaje={loadError} onClose={() => setLoadError(null)} />
+        )}
+        {view === 'chat' && stream.error && (
+          <BannerError mensaje={stream.error} onClose={stream.clearError} />
+        )}
 
         {view === 'chat' && (activeId ? (
           <>
