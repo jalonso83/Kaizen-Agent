@@ -115,7 +115,6 @@ export function ChatView({
   type ProposalEntry = { kind: 'proposal'; id: string; createdAt: string; node: ReactNode };
   // Frontera invisible: un mensaje que no se pinta pero que SÍ separa turnos.
   type BoundaryEntry = { kind: 'boundary'; id: string; createdAt: string };
-  type SortedEntry = MessageEntry | ProposalEntry | BoundaryEntry;
 
   /** ¿Es un <evento_sistema>? Son acciones REALES del socio (confirmar/rechazar
    *  una tarjeta) que no se muestran, a diferencia de un tool_result, que es
@@ -143,15 +142,19 @@ export function ChatView({
     return { kind: 'message', role: message.role, id: message.id, createdAt: message.createdAt, blocks };
   });
 
-  const proposalEntries: ProposalEntry[] = proposals.map((proposal) => ({
-    kind: 'proposal',
-    id: proposal.id,
-    createdAt: proposal.createdAt,
-    node: <ProposalCard key={proposal.id} proposal={proposal} onConfirm={onConfirmProposal} onReject={onRejectProposal} />,
-  }));
+  const proposalEntries: ProposalEntry[] = proposals
+    .map((proposal): ProposalEntry => ({
+      kind: 'proposal',
+      id: proposal.id,
+      createdAt: proposal.createdAt,
+      node: <ProposalCard key={proposal.id} proposal={proposal} onConfirm={onConfirmProposal} onReject={onRejectProposal} />,
+    }))
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-  const sorted: SortedEntry[] = [...messageEntries, ...proposalEntries]
-    .filter((item): item is SortedEntry => item !== null)
+  // Las propuestas NO entran en este orden: se insertan después, al cierre del
+  // turno que las creó (ver más abajo).
+  const sorted: Array<MessageEntry | BoundaryEntry> = messageEntries
+    .filter((item): item is MessageEntry | BoundaryEntry => item !== null)
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   // Kaizen puede escribir varias rondas cortas de texto entre tool-calls
@@ -166,19 +169,26 @@ export function ChatView({
   // que se va a rehacer. Para "volver aquí" el ancla es el ÚLTIMO — si se
   // usara el primero, volver a una burbuja fusionada borraría sus propias
   // rondas siguientes junto con lo que viene después (bug que evitamos acá).
-  const merged: Array<{ key: string; role?: StoredMessage['role']; blocks?: ReactNode[]; firstId?: string; lastId?: string; node?: ReactNode }> = [];
+  type Grupo = {
+    key: string;
+    role?: StoredMessage['role'];
+    blocks?: ReactNode[];
+    firstId?: string;
+    lastId?: string;
+    node?: ReactNode;
+    /** createdAt del primer mensaje del grupo — para ubicar las tarjetas. */
+    desde?: string;
+  };
+
+  const merged: Grupo[] = [];
   // Una frontera no se pinta, pero corta la racha: sin esto, "la paso a
   // tarjeta", "confirmada, creo el borrador" y "borrador creado" —tres turnos
-  // separados por el clic del socio en Confirmar— caían en una sola burbuja, y
-  // la tarjeta quedaba visualmente por encima de todos (bug real, 2026-08-17).
+  // separados por el clic del socio en Confirmar— caían en una sola burbuja
+  // (bug real, 2026-08-17).
   let cortar = false;
   for (const entry of sorted) {
     if (entry.kind === 'boundary') {
       cortar = true;
-      continue;
-    }
-    if (entry.kind === 'proposal') {
-      merged.push({ key: `proposal-${entry.id}`, node: entry.node });
       continue;
     }
     const prev = merged[merged.length - 1];
@@ -186,9 +196,32 @@ export function ChatView({
       prev.blocks.push(...entry.blocks);
       prev.lastId = entry.id;
     } else {
-      merged.push({ key: `message-${entry.id}`, role: entry.role, blocks: [...entry.blocks], firstId: entry.id, lastId: entry.id });
+      merged.push({
+        key: `message-${entry.id}`,
+        role: entry.role,
+        blocks: [...entry.blocks],
+        firstId: entry.id,
+        lastId: entry.id,
+        desde: entry.createdAt,
+      });
     }
     cortar = false;
+  }
+
+  // La tarjeta va al CIERRE del turno que la creó, no en el instante exacto en
+  // que la tool la registró. Es el resultado del turno: ponerla en su timestamp
+  // exacto la dejaba en medio de la respuesta, antes de la frase que la anuncia
+  // ("listo, la tarjeta ya está en el chat"), que se lee al revés.
+  // Cada propuesta se inserta después del último grupo que ya había empezado
+  // cuando se creó.
+  for (const p of proposalEntries) {
+    const t = new Date(p.createdAt).getTime();
+    let idx = -1;
+    for (let i = 0; i < merged.length; i++) {
+      const desde = merged[i].desde;
+      if (desde && new Date(desde).getTime() <= t) idx = i;
+    }
+    merged.splice(idx + 1, 0, { key: `proposal-${p.id}`, node: p.node });
   }
 
   return (
