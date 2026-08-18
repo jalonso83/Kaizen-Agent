@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
+// GFM: las TABLAS no son Markdown estándar, son una extensión de GitHub. Sin
+// este plugin react-markdown las dejaba como texto plano con los pipes a la
+// vista — y Kaizen usa tablas seguido para comparar campañas o KPIs (bug real,
+// 2026-08-18). Trae además tachado, listas de tareas y autolinks.
+import remarkGfm from 'remark-gfm';
 import type { ContentBlock, Proposal, StoredMessage } from '../types';
 import { ProposalCard } from './ProposalCard';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -26,13 +32,26 @@ import { ConfirmDialog } from './ConfirmDialog';
 
 const SYSTEM_EVENT_RE = /^<evento_sistema>[\s\S]*<\/evento_sistema>$/;
 
+// La tabla va envuelta en un contenedor que scrollea en horizontal: las de
+// Kaizen suelen tener 5-6 columnas y sin esto estiran la burbuja y el chat.
+const MD_COMPONENTS: Components = {
+  // `node` se descarta a propósito: react-markdown lo pasa a cada componente y,
+  // si se vuelca con el resto de props, termina como atributo `node="[object
+  // Object]"` en el HTML y React avisa por consola en cada render.
+  table: ({ node: _node, children, ...props }) => (
+    <div className="tabla-scroll">
+      <table {...props}>{children}</table>
+    </div>
+  ),
+};
+
 function renderBlock(block: ContentBlock, key: string) {
   if (block.type === 'text' && typeof block.text === 'string' && block.text.trim().length > 0) {
     const trimmed = block.text.trim();
     if (SYSTEM_EVENT_RE.test(trimmed)) return null;
     return (
       <div key={key} className="bubble-text">
-        <ReactMarkdown>{block.text}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{block.text}</ReactMarkdown>
       </div>
     );
   }
@@ -301,7 +320,7 @@ export function ChatView({
         <div className="bubble bubble-assistant bubble-live">
           <span className="bubble-who">Kaizen</span>
           <div className="bubble-text">
-            <ReactMarkdown>{liveText}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{liveText}</ReactMarkdown>
             <span className="cursor" aria-hidden="true" />
           </div>
         </div>

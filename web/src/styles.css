@@ -350,6 +350,23 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
   background: var(--surface-2); padding: 1px 4px; border-radius: 4px;
 }
 .bubble-text a { color: inherit; text-decoration: underline; }
+
+/* Tablas (GFM). Kaizen las usa para comparar campañas y KPIs, así que suelen
+   ser anchas: el wrapper scrollea en horizontal para que una tabla larga no
+   estire la burbuja ni empuje el chat. */
+.bubble-text .tabla-scroll {
+  overflow-x: auto; margin: 0 0 8px;
+  scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.bubble-text .tabla-scroll::-webkit-scrollbar { height: 6px; }
+.bubble-text .tabla-scroll::-webkit-scrollbar-track { background: transparent; }
+.bubble-text .tabla-scroll::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+.bubble-text table { border-collapse: collapse; font-size: 13px; width: max-content; min-width: 100%; }
+.bubble-text th, .bubble-text td {
+  border: 1px solid var(--border); padding: 6px 9px; text-align: left; vertical-align: top;
+}
+.bubble-text th { background: var(--surface-2); font-weight: 600; white-space: nowrap; }
+.bubble-text td p, .bubble-text th p { margin: 0; }
 .bubble-user .bubble-text code { background: rgba(0, 0, 0, 0.08); }
 
 /* Botones de editar/reintentar/volver: ocultos hasta hover, mismo patrón que
