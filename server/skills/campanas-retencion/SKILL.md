@@ -16,7 +16,10 @@ cuesta una fracción de adquirir uno nuevo. Este es el método.
    con counts reales. Compara tamaños: un segmento de 40 usuarios no mueve el
    negocio aunque el mensaje sea perfecto.
 3. `get_campaign_results` — ¿qué se intentó antes con este segmento y qué lift
-   dio? No repitas un mensaje que ya demostró no funcionar.
+   dio? No repitas un mensaje que ya demostró no funcionar. Ojo: ahí solo están
+   las campañas **ya enviadas**, con `sent_at` como fecha real de publicación.
+   Un borrador tuyo en PENDING_APPROVAL todavía no salió y no cuenta como
+   intento — al citar antecedentes, di de cada uno si se publicó y cuándo.
 
 ## 2. Empareja la intervención con la CAUSA, no con el segmento
 

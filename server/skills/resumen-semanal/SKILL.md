@@ -49,6 +49,15 @@ en ventana de medición).
 
 - **Honestidad primero**: si la semana fue mala, la primera línea lo dice. Un
   resumen que maquilla es peor que no tener resumen.
+- **Pagar ≠ tener un plan.** `plan_distribution` incluye a los que están en
+  prueba gratis: no lo reportes como "usuarios de pago" ni sumes sus categorías.
+  Cruza siempre contra `mrr_usd` y `trials.active`; si el total no cuadra con
+  los precios de los planes, di el desglose por plan y cuántos están en prueba
+  en vez de inventar un número de pagos.
+- **Toda campaña que menciones lleva su estado y su fecha real.** Las del bloque
+  `campaigns` ya se enviaron (`sent_at` es la fecha de publicación, úsala tal
+  cual). Un borrador que creaste y sigue en PENDING_APPROVAL **no salió**:
+  dilo así, nunca lo reportes junto a las enviadas sin distinguirlo.
 - **Deltas con contexto**: "MRR $1,480 (+3.2%)" y no "$1,480". Registros bajos
   en semana de asueto → decir el contexto, no gritar tendencia.
 - **Ojo con muestras chicas**: cambios porcentuales grandes sobre números
