@@ -71,9 +71,17 @@ model Proposal {
   confirmedBy      String? // partnerId — SOLO lo escribe el endpoint HTTP, jamás el agente
   executedAt       DateTime?
   error            String?
+  // Bajo qué meta nació esta campaña. Se graba al proponer, desde la meta
+  // ACTIVE del momento — no se deduce después por fechas, porque una meta
+  // puede cambiar entre que se propone y que se ejecuta. Null en las
+  // propuestas anteriores a que existieran las metas: eso es un dato, no un
+  // hueco, y la pantalla lo dice tal cual.
+  goalId           String?
+  goal             Goal?        @relation(fields: [goalId], references: [id], onDelete: SetNull)
   createdAt        DateTime     @default(now())
 
   @@index([conversationId, status])
+  @@index([goalId])
 }
 
 model Goal {
@@ -104,6 +112,9 @@ model Goal {
   // "antes → después" en la tarjeta de confirmación.
   replacesGoalId String?
   createdAt      DateTime  @default(now())
+  // Las campañas que se propusieron persiguiendo esta meta. Es la evidencia de
+  // si la meta guió algo o quedó de adorno.
+  proposals      Proposal[]
 
   @@index([status, createdAt])
 }

@@ -1,6 +1,7 @@
 import type {
   AuditEvent,
   AuditOverview,
+  GoalHistory,
   ConversationSummary,
   Goal,
   Partner,
@@ -55,6 +56,8 @@ export const api = {
     request<{ messages: StoredMessage[]; proposals: Proposal[]; goals: Goal[]; replacedGoals: Goal[] }>(
       `/api/conversations/${conversationId}/messages`,
     ),
+
+  getGoalHistory: () => request<GoalHistory>('/api/goals/history'),
 
   confirmGoal: (goalId: string) => request<Goal>(`/api/goals/${goalId}/confirm`, { method: 'POST' }),
   rejectGoal: (goalId: string) => request<Goal>(`/api/goals/${goalId}/reject`, { method: 'POST' }),

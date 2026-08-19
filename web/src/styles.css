@@ -571,6 +571,73 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .dialog-confirm-danger { background: var(--danger); }
 .dialog-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* ---------- pantalla de Metas ----------
+   Mismo esqueleto de scroll que Auditoría; la jerarquía es distinta: acá hay
+   UNA cosa importante (la meta vigente) y todo lo demás es historia. */
+.metas-page {
+  flex: 1; overflow-y: auto; min-height: 0;
+  padding: 20px clamp(16px, 4vw, 48px) 40px;
+  display: flex; flex-direction: column; gap: 18px;
+  scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.metas-page::-webkit-scrollbar { width: 6px; }
+.metas-page::-webkit-scrollbar-track { background: transparent; }
+.metas-page::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+
+.metas-vigente {
+  background: var(--surface); border: 2px solid var(--navy); border-radius: 12px; padding: 16px 18px;
+}
+/* El tamaño es el mensaje: la meta se lee desde el otro lado del escritorio. */
+.metas-resumen { margin: 6px 0 0; font-size: 24px; font-weight: 600; line-height: 1.25; color: var(--text-primary); }
+.metas-sub { margin: 6px 0 0; font-size: 12.5px; color: var(--text-secondary); }
+.metas-porque { margin: 10px 0 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; }
+.metas-vacio { margin: 8px 0 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.55; }
+.metas-titulo { font-size: 14.5px; font-weight: 600; margin: 0 0 10px; color: var(--text-primary); }
+
+.metas-conteo {
+  margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--border);
+  font-size: 12.5px; color: var(--text-secondary);
+}
+.metas-campanas { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.metas-campana { display: flex; align-items: baseline; gap: 9px; font-size: 12.5px; min-width: 0; }
+/* Publicada en verde, el resto en gris: lo que llegó a FinZen es lo que cuenta. */
+.metas-campana-check { color: var(--text-muted); width: 12px; flex-shrink: 0; }
+.metas-campana.is-publicada .metas-campana-check { color: var(--signal); }
+.metas-campana-titulo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.metas-campana-tipo {
+  font-family: var(--mono); font-size: 10.5px; padding: 1px 7px; border-radius: 20px;
+  background: var(--surface-2); color: var(--text-muted); white-space: nowrap; flex-shrink: 0;
+}
+.metas-campana-estado { color: var(--text-muted); font-size: 12px; flex-shrink: 0; }
+
+.metas-pendientes, .metas-historial {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 15px;
+}
+.metas-pendiente { border-left: 2px solid var(--amber); padding-left: 12px; margin-bottom: 12px; }
+.metas-pendiente-resumen { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+
+.metas-linea { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.metas-hito { border-left: 2px solid var(--border); padding: 0 0 14px 14px; margin-left: 5px; }
+.metas-hito:last-child { padding-bottom: 0; }
+.metas-hito.status-achieved { border-left-color: var(--signal); }
+.metas-hito-head {
+  width: 100%; display: flex; align-items: center; gap: 9px; text-align: left;
+  background: none; border: none; padding: 4px 0; color: var(--text-primary); font-size: 13px;
+}
+.metas-hito-resumen { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.metas-hito-pill {
+  font-family: var(--mono); font-size: 10.5px; padding: 2px 8px; border-radius: 20px;
+  background: var(--surface-2); color: var(--text-muted); white-space: nowrap; flex-shrink: 0;
+}
+.metas-hito.status-achieved .metas-hito-pill { background: var(--signal-bg); color: var(--signal); }
+.metas-hito-meta { color: var(--text-muted); font-size: 12px; flex-shrink: 0; }
+.metas-hito-desenlace { margin: 0 0 0 24px; font-size: 12.5px; color: var(--text-secondary); }
+.metas-hito-cuerpo { margin-left: 24px; }
+.metas-nota {
+  margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--border);
+  font-size: 11.5px; color: var(--text-muted); line-height: 1.55;
+}
+
 /* ---------- auditoría ---------- */
 .audit-page {
   flex: 1; overflow-y: auto; min-height: 0;
@@ -596,31 +663,12 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 }
 .audit-health-label { font-size: 11.5px; color: var(--text-muted); }
 
-/* La meta vigente: en --navy, igual que la tarjeta del chat, para que se lean
-   como lo mismo visto desde dos lados. */
-.audit-meta {
-  background: var(--surface); border: 1px solid var(--navy); border-radius: 12px; padding: 15px;
+/* La meta vigente en la franja de salud: una línea, sin envolver. El detalle
+   completo vive en la pantalla de Metas. */
+.audit-meta-mini {
+  color: var(--navy); font-weight: 600; font-size: 12.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.audit-meta-resumen { margin: 8px 0 0; font-size: 18px; font-weight: 600; color: var(--text-primary); }
-.audit-meta-vacia { margin: 8px 0 0; }
-.audit-meta-reemplaza {
-  margin: 10px 0 0; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
-  font-size: 12.5px; padding: 8px 10px; border-radius: 8px; background: var(--surface-2);
-}
-.audit-meta-reemplaza .audit-cambio-despues { color: var(--navy); font-weight: 600; }
-.audit-meta-porque { margin: 10px 0 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; }
-
-/* Doble clase a propósito: .audit-group-head se define más abajo con la misma
-   especificidad y le ganaría el padding a una regla de una sola clase. */
-.audit-meta .audit-meta-toggle {
-  margin-top: 12px; border-top: 1px solid var(--border); padding-left: 0; padding-right: 0;
-}
-.audit-meta-historial { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.audit-meta-vieja { display: flex; align-items: center; gap: 9px; font-size: 12.5px; min-width: 0; }
-/* Una meta que se cambió sin lograrse no es un error, pero tampoco un logro:
-   el ✓ verde se reserva para las que sí se alcanzaron. */
-.audit-meta-vieja .audit-gate-check { color: var(--text-muted); }
-.audit-meta-vieja.is-lograda .audit-gate-check { color: var(--signal); }
 
 /* El gate: una conclusión arriba y la evidencia debajo. */
 .audit-gate {

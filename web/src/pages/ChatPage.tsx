@@ -8,6 +8,7 @@ import { Composer } from '../components/Composer';
 import { AgentStatusBar } from '../components/AgentStatusBar';
 import { MenuIcon } from '../components/Icons';
 import { AuditPage } from './AuditPage';
+import { MetasPage } from './MetasPage';
 import type { ConversationSummary, Goal, Partner, Proposal, StoredMessage } from '../types';
 
 interface Props {
@@ -45,7 +46,7 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Sección activa. Sin router (DISENO §10): son dos vistas dentro del mismo
   // layout, no dos rutas — el sidebar se queda donde está en ambas.
-  const [view, setView] = useState<'chat' | 'audit'>('chat');
+  const [view, setView] = useState<'chat' | 'metas' | 'audit'>('chat');
 
   const refreshConversations = useCallback(async () => {
     const { conversations: list } = await api.listConversations();
@@ -306,6 +307,14 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
             </button>
             <button
               type="button"
+              className={view === 'metas' ? 'app-tab is-active' : 'app-tab'}
+              onClick={() => setView('metas')}
+              aria-current={view === 'metas' ? 'page' : undefined}
+            >
+              Metas
+            </button>
+            <button
+              type="button"
               className={view === 'audit' ? 'app-tab is-active' : 'app-tab'}
               onClick={() => setView('audit')}
               aria-current={view === 'audit' ? 'page' : undefined}
@@ -316,6 +325,7 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
           {view === 'chat' && <span className="chat-topbar-title">{activeTitle}</span>}
         </header>
 
+        {view === 'metas' && <MetasPage />}
         {view === 'audit' && <AuditPage />}
 
         {view === 'chat' && loadError && (

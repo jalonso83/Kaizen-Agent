@@ -8,6 +8,7 @@ import proposalsRoutes from './routes/proposals';
 import configRoutes from './routes/config';
 import auditRoutes from './routes/audit';
 import goalsRoutes from './routes/goals';
+import goalsHistoryRoutes from './routes/goalsHistory';
 import { startCerebroIndexJob } from './jobs/cerebroIndex';
 import { startWeeklySummaryCron } from './jobs/weeklySummary';
 import { startAcquisitionExportCron } from './jobs/acquisitionExport';
@@ -39,6 +40,9 @@ app.use('/api/conversations', chatRoutes);
 app.use('/api/proposals', proposalsRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/audit', auditRoutes);
+// El historial va ANTES: /history es una ruta fija y no debe caer en el
+// /:id/... del gate de confirmación.
+app.use('/api/goals', goalsHistoryRoutes);
 app.use('/api/goals', goalsRoutes);
 
 // ─── Web de socios (build de Vite) ───

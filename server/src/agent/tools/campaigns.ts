@@ -3,6 +3,7 @@ import { config } from '../../config';
 import { audit } from '../../services/audit';
 import { createCampaignDraft, getKpis, FinzenApiError, type CampaignDraftInput } from '../../clients/finzenApi';
 import type { KaizenTool, ToolContext } from './guard';
+import { activeGoal } from './goals';
 
 // Taxonomía de tipo de mensaje (2026-07-24, a pedido del socio — pendiente de
 // validar con marketing de FinZen). Ver get_message_type_performance: cruza
@@ -141,6 +142,11 @@ export const proposeCampaignTool: KaizenTool = {
     }
     const { campaignInput, segmentCount, expectedMeasurement, messageType } = validateProposalInput(input);
 
+    // Bajo qué meta nace. Se lee ACÁ y no al ejecutar: entre proponer y crear
+    // el borrador el socio puede cambiar la meta, y lo que hay que registrar es
+    // la que estaba vigente cuando Kaizen decidió proponer esto.
+    const meta = await activeGoal();
+
     const proposal = await db.$transaction(async (tx) => {
       // Cualquier PROPOSED anterior de esta conversación queda reemplazado (§7).
       await tx.proposal.updateMany({
@@ -155,6 +161,7 @@ export const proposeCampaignTool: KaizenTool = {
           segmentCount,
           expectedMeasurement,
           messageType,
+          goalId: meta?.id ?? null,
         },
       });
     });

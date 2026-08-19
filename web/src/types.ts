@@ -113,21 +113,49 @@ export interface GateCampaign {
   sinConfirmacion: boolean;
 }
 
-/** Una meta vista desde la auditoría: el resumen ya armado, sin números sueltos. */
-export interface AuditGoal {
+// ── Metas (server/src/routes/goalsHistory.ts) ─────────────────────────────
+
+/** Una campaña vista desde la meta bajo la que se propuso. */
+export interface GoalCampaign {
   id: string;
-  /** "tasa de activación ≥ 35 %" — métrica, dirección, objetivo y unidad. */
+  titulo: string;
+  status: ProposalStatus;
+  messageType: string | null;
+  executedAt: string | null;
+  finzenCampaignId: string | null;
+  createdAt: string;
+  /** El borrador se creó de verdad en FinZen (no quedó en propuesta o rechazo). */
+  llegoAFinzen: boolean;
+}
+
+export interface GoalHistoryEntry {
+  id: string;
   resumen: string;
-  status: GoalStatus;
+  metricLabel: string;
+  target: number;
+  unit: string;
+  direction: 'gte' | 'lte';
   rationale: string;
+  status: GoalStatus;
   confirmedAt: string | null;
   confirmadaPor: string | null;
-  /** Resumen de la meta a la que reemplazó, si nació de un cambio. */
-  reemplazaA: string | null;
   achievedAt: string | null;
   achievedValue: number | null;
   achievedNote: string | null;
-  unit: string;
+  createdAt: string;
+  /** Cuándo dejó de estar vigente. Null si sigue activa o nunca lo estuvo. */
+  hasta: string | null;
+  reemplazaA: string | null;
+  conversacion: { id: string; title: string } | null;
+  campanas: GoalCampaign[];
+  propuestas: number;
+  publicadas: number;
+}
+
+export interface GoalHistory {
+  metas: GoalHistoryEntry[];
+  /** Campañas anteriores a que existieran las metas: no se les asigna ninguna. */
+  campanasSinMeta: number;
 }
 
 export interface AuditOverview {
@@ -136,13 +164,8 @@ export interface AuditOverview {
     indexado: JobHealth | null;
     errores24h: number;
   };
-  meta: {
-    vigente: AuditGoal | null;
-    /** Metas ya cerradas (logradas o reemplazadas), de la más nueva a la más vieja. */
-    anteriores: AuditGoal[];
-    /** Propuestas de campaña creadas desde que se confirmó la meta vigente. */
-    campanasDesde: number;
-  };
+  /** La meta vigente, como contexto. El historial completo vive en la pantalla de Metas. */
+  meta: { resumen: string; confirmedAt: string | null; confirmadaPor: string | null } | null;
   gate: {
     borradoresCreados: number;
     sinConfirmacion: number;
