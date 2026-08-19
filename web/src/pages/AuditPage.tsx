@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api';
-import type { AuditEvent, AuditOverview } from '../types';
+import type { AuditEvent, AuditGoal, AuditOverview } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Pantalla de Auditoría — criterio 6 del PRD.
@@ -25,6 +25,9 @@ const TOOL_LABELS: Record<string, string> = {
   propose_campaign: 'Preparó una propuesta',
   create_campaign_draft: 'Creó el borrador en FinZen',
   get_message_type_performance: 'Revisó qué tipo de mensaje funcionó',
+  get_active_goal: 'Consultó la meta vigente',
+  propose_goal: 'Propuso una meta',
+  mark_goal_achieved: 'Dio la meta por lograda',
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -32,6 +35,9 @@ const ACTION_LABELS: Record<string, string> = {
   logout: 'Cerró sesión',
   'proposal:confirmed': 'Confirmó una propuesta',
   'proposal:rejected': 'Rechazó una propuesta',
+  'goal:confirmed': 'Confirmó la meta',
+  'goal:changed': 'Cambió la meta',
+  'goal:rejected': 'Rechazó una meta propuesta',
   'gate:denied': 'Intento bloqueado por el gate',
   'run:error': 'Falló el turno del agente',
   'weekly-summary:done': 'Resumen semanal generado',
@@ -149,10 +155,25 @@ export function cambiosConfig(actual: Record<string, unknown>, previo?: Record<s
 
 /** Resumen de una línea al costado. Los cambios de config NO lo usan: van desplegables. */
 function detalle(e: AuditEvent): string | null {
-  if (['config:cerebro-reindex', 'config:weekly-summary-run-now', 'weekly-summary:done'].includes(e.action)) {
+  // En los eventos de meta el resultSummary ES el dato: "meta vieja → meta
+  // nueva". Sin esto la fila dice "Cambió la meta" y no a qué.
+  if (['config:cerebro-reindex', 'config:weekly-summary-run-now', 'weekly-summary:done',
+       'goal:confirmed', 'goal:changed', 'goal:rejected'].includes(e.action)) {
     return e.resultSummary;
   }
   return null;
+}
+
+const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-DO', { day: 'numeric', month: 'long' });
+
+/** Cómo se cerró una meta pasada: lograda con su número, o cambiada sin lograrse. */
+function cierre(g: AuditGoal): string {
+  if (g.status === 'ACHIEVED') {
+    // Coma decimal y unidad: "3.4" a secas se lee como un número suelto.
+    const valor = g.achievedValue !== null ? ` con ${g.achievedValue.toLocaleString('es-DO')} ${g.unit}`.trimEnd() : '';
+    return `lograda${valor}${g.achievedAt ? ` el ${fecha(g.achievedAt)}` : ''}`;
+  }
+  return 'reemplazada sin haberse logrado';
 }
 
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' });
@@ -271,6 +292,75 @@ export function AuditPage() {
                 {overview.health.errores24h}
               </span>
             </div>
+          </section>
+
+          {/* La meta va antes del gate a propósito: el gate audita CÓMO salió
+              cada campaña, y esto audita HACIA DÓNDE apuntan todas. */}
+          <section className="audit-meta">
+            <h2 className="audit-gate-title">Meta vigente</h2>
+            {overview.meta.vigente ? (
+              <>
+                <p className="audit-meta-resumen">{overview.meta.vigente.resumen}</p>
+                <p className="audit-gate-sub">
+                  {overview.meta.vigente.confirmadaPor && overview.meta.vigente.confirmedAt
+                    ? `Confirmada por ${overview.meta.vigente.confirmadaPor} el ${fecha(overview.meta.vigente.confirmedAt)}`
+                    : 'Sin registro de quién la confirmó'}
+                  {' · '}
+                  {overview.meta.campanasDesde} propuesta(s) de campaña desde entonces
+                </p>
+                {overview.meta.vigente.reemplazaA && (
+                  <p className="audit-meta-reemplaza">
+                    <span className="audit-cambio-antes">{overview.meta.vigente.reemplazaA}</span>
+                    <span className="audit-cambio-flecha">→</span>
+                    <span className="audit-cambio-despues">{overview.meta.vigente.resumen}</span>
+                  </p>
+                )}
+                <p className="audit-meta-porque">{overview.meta.vigente.rationale}</p>
+              </>
+            ) : (
+              <p className="audit-muted audit-meta-vacia">
+                No hay ninguna meta vigente. Kaizen va a proponer una junto a la próxima campaña.
+              </p>
+            )}
+
+            {overview.meta.anteriores.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  className="audit-group-head is-plegable audit-meta-toggle"
+                  onClick={() => alternar('metas-anteriores')}
+                  aria-expanded={abiertos.has('metas-anteriores')}
+                >
+                  <svg
+                    className={abiertos.has('metas-anteriores') ? 'audit-caret is-open' : 'audit-caret'}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                  <span className="audit-group-title">Metas anteriores</span>
+                  <span className="audit-muted">{overview.meta.anteriores.length}</span>
+                </button>
+
+                {abiertos.has('metas-anteriores') && (
+                  <ul className="audit-meta-historial">
+                    {overview.meta.anteriores.map((g) => (
+                      <li key={g.id} className={g.status === 'ACHIEVED' ? 'audit-meta-vieja is-lograda' : 'audit-meta-vieja'}>
+                        <span className="audit-gate-check">{g.status === 'ACHIEVED' ? '✓' : '→'}</span>
+                        <span className="audit-gate-name">{g.resumen}</span>
+                        <span className="audit-gate-meta">{cierre(g)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
           </section>
 
           <section className={`audit-gate${sinConfirmacion ? ' is-alert' : ''}`}>

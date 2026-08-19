@@ -113,11 +113,35 @@ export interface GateCampaign {
   sinConfirmacion: boolean;
 }
 
+/** Una meta vista desde la auditoría: el resumen ya armado, sin números sueltos. */
+export interface AuditGoal {
+  id: string;
+  /** "tasa de activación ≥ 35 %" — métrica, dirección, objetivo y unidad. */
+  resumen: string;
+  status: GoalStatus;
+  rationale: string;
+  confirmedAt: string | null;
+  confirmadaPor: string | null;
+  /** Resumen de la meta a la que reemplazó, si nació de un cambio. */
+  reemplazaA: string | null;
+  achievedAt: string | null;
+  achievedValue: number | null;
+  achievedNote: string | null;
+  unit: string;
+}
+
 export interface AuditOverview {
   health: {
     resumenSemanal: JobHealth | null;
     indexado: JobHealth | null;
     errores24h: number;
+  };
+  meta: {
+    vigente: AuditGoal | null;
+    /** Metas ya cerradas (logradas o reemplazadas), de la más nueva a la más vieja. */
+    anteriores: AuditGoal[];
+    /** Propuestas de campaña creadas desde que se confirmó la meta vigente. */
+    campanasDesde: number;
   };
   gate: {
     borradoresCreados: number;

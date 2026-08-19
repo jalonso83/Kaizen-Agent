@@ -1,7 +1,9 @@
 import { Router } from 'express';
+import type { Goal } from '@prisma/client';
 import { db } from '../db';
 import { requireAuth } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
+import { resumenMeta } from '../agent/tools/goals';
 
 // ─────────────────────────────────────────────────────────────────────────
 // /api/audit — la pantalla de Auditoría (criterio 6 del PRD: "audit log
@@ -39,7 +41,7 @@ async function ultimaCorrida(...acciones: string[]) {
 router.get('/overview', asyncRoute(async (_req, res) => {
   const hace24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  const [resumenSemanal, indexado, errores24h, propuestas, denegados, socios] = await Promise.all([
+  const [resumenSemanal, indexado, errores24h, propuestas, denegados, socios, vigente, cerradas] = await Promise.all([
     ultimaCorrida('weekly-summary:done', 'weekly-summary:error'),
     // Tres acciones distintas para lo mismo: el job de cada 6h (done/error) y
     // el botón manual. Mirar solo la del botón hacía que la tarjeta mostrara la
@@ -64,9 +66,49 @@ router.get('/overview', asyncRoute(async (_req, res) => {
       select: { id: true, resultSummary: true, createdAt: true },
     }),
     db.partner.findMany({ select: { id: true, name: true } }),
+    db.goal.findFirst({ where: { status: 'ACTIVE' }, orderBy: { confirmedAt: 'desc' } }),
+    // Las metas que ya se cerraron, para poder auditar el historial: cuáles se
+    // lograron y cuáles se cambiaron sin lograrse. Las PROPOSED y RECHAZADAS no
+    // van: nunca guiaron nada.
+    db.goal.findMany({
+      where: { status: { in: ['ACHIEVED', 'SUPERSEDED'] } },
+      orderBy: { confirmedAt: 'desc' },
+      take: 10,
+    }),
   ]);
 
   const nombrePorId = new Map(socios.map((p) => [p.id, p.name]));
+
+  // El "reemplaza a" se resuelve acá y no con un include anidado porque hace
+  // falta para la vigente Y para cada una del historial.
+  const idsReemplazadas = [vigente, ...cerradas].map((g) => g?.replacesGoalId).filter((v): v is string => Boolean(v));
+  const reemplazadas = idsReemplazadas.length
+    ? await db.goal.findMany({ where: { id: { in: idsReemplazadas } } })
+    : [];
+  const metaPorId = new Map(reemplazadas.map((g) => [g.id, g]));
+
+  const comoMeta = (g: Goal) => {
+    const anterior = g.replacesGoalId ? metaPorId.get(g.replacesGoalId) : null;
+    return {
+      id: g.id,
+      resumen: resumenMeta(g),
+      status: g.status,
+      rationale: g.rationale,
+      confirmedAt: g.confirmedAt,
+      confirmadaPor: g.confirmedBy ? (nombrePorId.get(g.confirmedBy) ?? 'socio eliminado') : null,
+      reemplazaA: anterior ? resumenMeta(anterior) : null,
+      achievedAt: g.achievedAt,
+      achievedValue: g.achievedValue,
+      achievedNote: g.achievedNote,
+      unit: g.unit,
+    };
+  };
+
+  // Cuántas campañas se propusieron ya apuntando a la meta vigente. Es la
+  // pregunta de auditoría real: no si la meta existe, sino si está guiando algo.
+  const campanasDesde = vigente?.confirmedAt
+    ? await db.proposal.count({ where: { createdAt: { gte: vigente.confirmedAt } } })
+    : 0;
 
   const campanas = propuestas.map((p) => {
     const payload = p.payload as { title?: string } | null;
@@ -90,6 +132,11 @@ router.get('/overview', asyncRoute(async (_req, res) => {
       resumenSemanal,
       indexado,
       errores24h,
+    },
+    meta: {
+      vigente: vigente ? comoMeta(vigente) : null,
+      anteriores: cerradas.map(comoMeta),
+      campanasDesde,
     },
     gate: {
       borradoresCreados: campanas.filter((c) => c.finzenCampaignId).length,

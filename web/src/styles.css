@@ -596,6 +596,32 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 }
 .audit-health-label { font-size: 11.5px; color: var(--text-muted); }
 
+/* La meta vigente: en --navy, igual que la tarjeta del chat, para que se lean
+   como lo mismo visto desde dos lados. */
+.audit-meta {
+  background: var(--surface); border: 1px solid var(--navy); border-radius: 12px; padding: 15px;
+}
+.audit-meta-resumen { margin: 8px 0 0; font-size: 18px; font-weight: 600; color: var(--text-primary); }
+.audit-meta-vacia { margin: 8px 0 0; }
+.audit-meta-reemplaza {
+  margin: 10px 0 0; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-size: 12.5px; padding: 8px 10px; border-radius: 8px; background: var(--surface-2);
+}
+.audit-meta-reemplaza .audit-cambio-despues { color: var(--navy); font-weight: 600; }
+.audit-meta-porque { margin: 10px 0 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; }
+
+/* Doble clase a propósito: .audit-group-head se define más abajo con la misma
+   especificidad y le ganaría el padding a una regla de una sola clase. */
+.audit-meta .audit-meta-toggle {
+  margin-top: 12px; border-top: 1px solid var(--border); padding-left: 0; padding-right: 0;
+}
+.audit-meta-historial { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.audit-meta-vieja { display: flex; align-items: center; gap: 9px; font-size: 12.5px; min-width: 0; }
+/* Una meta que se cambió sin lograrse no es un error, pero tampoco un logro:
+   el ✓ verde se reserva para las que sí se alcanzaron. */
+.audit-meta-vieja .audit-gate-check { color: var(--text-muted); }
+.audit-meta-vieja.is-lograda .audit-gate-check { color: var(--signal); }
+
 /* El gate: una conclusión arriba y la evidencia debajo. */
 .audit-gate {
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 15px;
