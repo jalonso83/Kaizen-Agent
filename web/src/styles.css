@@ -441,6 +441,53 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .composer textarea:focus { outline: 2px solid var(--signal); outline-offset: 1px; }
 
 /* ---------- proposal card ---------- */
+/* ---------- tarjeta de meta ----------
+   En --navy y no en ámbar como la propuesta: son dos decisiones distintas y
+   conviene distinguirlas de un vistazo cuando aparecen seguidas en el chat. */
+.goal-card {
+  align-self: flex-start; max-width: 68ch; width: 100%;
+  background: var(--surface); border: 1px solid var(--navy);
+  border-radius: 12px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.goal-card.status-active { border-width: 2px; }
+.goal-card.status-achieved { background: var(--signal-bg); border-color: var(--signal); }
+.goal-card.status-rejected,
+.goal-card.status-superseded { background: var(--surface-2); border-color: var(--border); opacity: 0.75; }
+
+.goal-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.goal-eyebrow {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--navy);
+}
+.goal-status-pill {
+  font-family: var(--mono); font-size: 10.5px; padding: 2px 8px; border-radius: 20px;
+  background: var(--sidebar-hover); color: var(--navy); white-space: nowrap;
+}
+
+/* El antes → después de un cambio: lo primero que hay que poder leer. */
+.goal-diff {
+  margin: 0; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-size: 12.5px; padding: 8px 10px; border-radius: 8px; background: var(--surface-2);
+}
+.goal-diff-antes { color: var(--text-muted); text-decoration: line-through; }
+.goal-diff-flecha { color: var(--text-muted); }
+.goal-diff-despues { color: var(--navy); font-weight: 600; }
+
+.goal-target { margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.goal-metric { font-size: 13px; color: var(--text-secondary); }
+.goal-number { font-size: 19px; font-weight: 600; color: var(--text-primary); }
+.goal-rationale { margin: 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; }
+.goal-note { margin: 0; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.goal-note-ok { color: var(--signal); }
+.goal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 2px; }
+.goal-actions button {
+  background: transparent; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 7px 14px; font-size: 13px; color: var(--text-primary);
+}
+.goal-actions button:hover { border-color: var(--navy); }
+.goal-actions button.primary { background: var(--navy); border-color: var(--navy); color: var(--bg); font-weight: 500; }
+
 .proposal-card {
   align-self: flex-start; max-width: 68ch; width: 100%;
   background: var(--amber-bg); border: 1px solid var(--amber);

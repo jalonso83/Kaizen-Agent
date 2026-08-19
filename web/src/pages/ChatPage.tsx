@@ -8,7 +8,7 @@ import { Composer } from '../components/Composer';
 import { AgentStatusBar } from '../components/AgentStatusBar';
 import { MenuIcon } from '../components/Icons';
 import { AuditPage } from './AuditPage';
-import type { ConversationSummary, Partner, Proposal, StoredMessage } from '../types';
+import type { ConversationSummary, Goal, Partner, Proposal, StoredMessage } from '../types';
 
 interface Props {
   partner: Partner;
@@ -37,6 +37,8 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<StoredMessage[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [replacedGoals, setReplacedGoals] = useState<Goal[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   // Cajón de conversaciones en móvil. En escritorio el sidebar es una columna
   // fija y este estado no afecta nada.
@@ -52,9 +54,11 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
   }, []);
 
   const loadConversation = useCallback(async (id: string) => {
-    const { messages: msgs, proposals: props } = await api.getMessages(id);
+    const { messages: msgs, proposals: props, goals: gs, replacedGoals: rgs } = await api.getMessages(id);
     setMessages(msgs);
     setProposals(props);
+    setGoals(gs);
+    setReplacedGoals(rgs);
     setActiveId(id);
   }, []);
 
@@ -82,6 +86,8 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
     await refreshConversations();
     setMessages([]);
     setProposals([]);
+    setGoals([]);
+    setReplacedGoals([]);
     setActiveId(conversation.id);
   }, [refreshConversations]);
 
@@ -156,6 +162,8 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
           setActiveId(null);
           setMessages([]);
           setProposals([]);
+          setGoals([]);
+          setReplacedGoals([]);
         }
       }
     } catch (err) {
@@ -170,6 +178,27 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
   // ya llama a onDone internamente vía runStream).
   const handleConfirmProposal = (proposalId: string) => {
     stream.confirmProposal(proposalId).catch(() => setLoadError('No se pudo confirmar la propuesta.'));
+  };
+
+  // Confirmar una meta es un POST simple (no dispara turno del agente): el
+  // evento sintético que deja routes/goals.ts alcanza para que el próximo
+  // mensaje ya llegue con el contexto correcto.
+  const handleConfirmGoal = async (goalId: string) => {
+    try {
+      await api.confirmGoal(goalId);
+      if (activeId) await loadConversation(activeId);
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : 'No se pudo confirmar la meta.');
+    }
+  };
+
+  const handleRejectGoal = async (goalId: string) => {
+    try {
+      await api.rejectGoal(goalId);
+      if (activeId) await loadConversation(activeId);
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : 'No se pudo rechazar la meta.');
+    }
   };
 
   const handleRejectProposal = async (proposalId: string) => {
@@ -301,6 +330,8 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
             <ChatView
               messages={messages}
               proposals={proposals}
+              goals={goals}
+              replacedGoals={replacedGoals}
               liveText={stream.liveText}
               isStreaming={stream.isStreaming}
               onConfirmProposal={handleConfirmProposal}
@@ -308,6 +339,8 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
               onEditMessage={handleEditMessage}
               onRetryMessage={handleRetryMessage}
               onRewindMessage={handleRewindMessage}
+              onConfirmGoal={handleConfirmGoal}
+              onRejectGoal={handleRejectGoal}
             />
             <AgentStatusBar toolLabel={stream.toolStatus?.label ?? null} isStreaming={stream.isStreaming} />
             <Composer disabled={stream.isStreaming} onSend={handleSend} />

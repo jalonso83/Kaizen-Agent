@@ -61,6 +61,30 @@ export interface Proposal {
   createdAt: string;
 }
 
+// Calca server/prisma/schema.prisma → model Goal.
+export type GoalStatus = 'PROPOSED' | 'ACTIVE' | 'ACHIEVED' | 'REJECTED' | 'SUPERSEDED';
+
+export interface Goal {
+  id: string;
+  conversationId: string | null;
+  metric: string;
+  metricLabel: string;
+  target: number;
+  unit: string;
+  /** 'gte': se logra al alcanzar o superar. 'lte': al bajar de él (churn, CAC). */
+  direction: 'gte' | 'lte';
+  rationale: string;
+  status: GoalStatus;
+  confirmedAt: string | null;
+  confirmedBy: string | null;
+  achievedAt: string | null;
+  achievedValue: number | null;
+  achievedNote: string | null;
+  /** Si esta meta nace para reemplazar a otra, cuál — para el "antes → después". */
+  replacesGoalId: string | null;
+  createdAt: string;
+}
+
 export interface ConversationSummary {
   id: string;
   title: string;

@@ -34,6 +34,7 @@ model Conversation {
   updatedAt      DateTime   @updatedAt
   messages       Message[]
   proposals      Proposal[]
+  goals          Goal[]
 
   @@index([partnerId, updatedAt])
 }
@@ -73,6 +74,38 @@ model Proposal {
   createdAt        DateTime     @default(now())
 
   @@index([conversationId, status])
+}
+
+model Goal {
+  // La meta vigente del negocio: qué métrica se persigue y con qué número.
+  // Mismo principio que Proposal (DISENO §7): el estado ACTIVE lo escribe SOLO
+  // el endpoint HTTP del botón, nunca el agente. Kaizen puede *proponer* una
+  // meta o su cambio, pero no puede activarla ni reemplazarla por su cuenta.
+  id             String    @id @default(cuid())
+  conversationId String? // dónde se propuso, para pintar la tarjeta
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  metric         String // identificador corto, ej. 'lift_pts'
+  metricLabel    String // cómo se lee, ej. "lift en tasa de transacción vs holdout"
+  target         Float // meta numérica
+  unit           String // 'pts' | '%' | 'usuarios' | 'usd' | ...
+  // 'gte' = se logra al alcanzar o superar el target; 'lte' = al bajar de él
+  // (para métricas donde menos es mejor, como churn o CAC).
+  direction      String    @default("gte")
+  rationale      String
+  status         String    @default("PROPOSED")
+  // PROPOSED → ACTIVE → ACHIEVED
+  //          ↘ REJECTED (botón Rechazar) · SUPERSEDED (la reemplazó otra meta confirmada)
+  confirmedAt    DateTime?
+  confirmedBy    String? // partnerId — SOLO lo escribe el endpoint HTTP
+  achievedAt     DateTime?
+  achievedValue  Float? // valor medido con el que se dio por lograda
+  achievedNote   String? // de dónde salió ese valor (campaña, tool)
+  // Si esta meta nace para reemplazar a otra, cuál. Permite mostrar el
+  // "antes → después" en la tarjeta de confirmación.
+  replacesGoalId String?
+  createdAt      DateTime  @default(now())
+
+  @@index([status, createdAt])
 }
 
 model AuditLog {

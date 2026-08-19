@@ -4,6 +4,7 @@ import { listSegmentsTool, evaluateSegmentTool } from './segments';
 import { loadSkillTool } from './skill';
 import { proposeCampaignTool, createCampaignDraftTool, getMessageTypePerformanceTool } from './campaigns';
 import { searchCerebroTool, saveContentDraftTool, saveCerebroNoteTool, listCerebroFoldersTool } from './cerebro';
+import { proposeGoalTool, getActiveGoalTool, markGoalAchievedTool } from './goals';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Registro de tools de Kaizen — DISENO_FASE1.md §6. Las 9 originales +
@@ -36,6 +37,9 @@ export const TOOL_LIST: KaizenTool[] = [
   saveCerebroNoteTool,
   listCerebroFoldersTool,
   getMessageTypePerformanceTool,
+  proposeGoalTool,
+  getActiveGoalTool,
+  markGoalAchievedTool,
 ];
 
 /**
@@ -43,9 +47,8 @@ export const TOOL_LIST: KaizenTool[] = [
  * tools de escritura hacia FinZen — un cron no debe *poder* crear borradores,
  * ni siquiera por un bug de prompt. Solo lecturas + Drive.
  */
-export const CRON_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter(
-  (t) => t.name !== 'propose_campaign' && t.name !== 'create_campaign_draft',
-);
+const SOLO_CON_SOCIO = ['propose_campaign', 'create_campaign_draft', 'propose_goal', 'mark_goal_achieved'];
+export const CRON_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter((t) => !SOLO_CON_SOCIO.includes(t.name));
 
 /** Registro por nombre, para despachar una llamada del modelo. */
 export const TOOLS: Record<string, KaizenTool> = Object.fromEntries(

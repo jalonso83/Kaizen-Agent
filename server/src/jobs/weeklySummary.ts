@@ -9,6 +9,7 @@ import { getClient, MODEL } from '../agent/runner';
 import { buildBetaTools } from '../agent/adapter';
 import { buildSystemPrompt } from '../agent/systemPrompt';
 import { injectDateContext } from '../agent/contexto';
+import { activeGoal, resumenMeta } from '../agent/tools/goals';
 import { TZ_RD, todayInRD } from '../util/fecha';
 import { getTonoDeMarca } from '../agent/tono';
 import { CRON_TOOL_LIST } from '../agent/tools';
@@ -178,7 +179,8 @@ export async function runWeeklySummary(): Promise<WeeklySummaryResult> {
 
     const messages = await buildHistory(conversationId);
     const baseLen = messages.length;
-    injectDateContext(messages);
+    const meta = await activeGoal();
+    injectDateContext(messages, new Date(), meta && { id: meta.id, resumen: resumenMeta(meta), desde: meta.confirmedAt });
     const ctx: ToolContext = { conversationId, sse: undefined };
     const tonoDeMarca = await getTonoDeMarca().catch(() => undefined);
 

@@ -5,6 +5,7 @@ import type { SseWriter, ToolContext } from './tools/guard';
 import { buildBetaTools } from './adapter';
 import { buildSystemPrompt } from './systemPrompt';
 import { injectDateContext } from './contexto';
+import { activeGoal, resumenMeta } from './tools/goals';
 import { getTonoDeMarca } from './tono';
 import {
   buildHistory,
@@ -100,8 +101,11 @@ export async function runAgentTurn(
   try {
     const messages = await buildHistory(conversationId);
     const baseLen = messages.length;
-    // La fecha va acá y no en el system prompt, y no se persiste — ver contexto.ts.
-    injectDateContext(messages);
+    // La fecha y la META VIGENTE van acá y no en el system prompt, y no se
+    // persisten — ver contexto.ts. La meta se inyecta en cada turno para que el
+    // modelo no pueda perderla de vista entre mensajes.
+    const meta = await activeGoal();
+    injectDateContext(messages, new Date(), meta && { id: meta.id, resumen: resumenMeta(meta), desde: meta.confirmedAt });
     const ctx: ToolContext = { conversationId, sse };
     const tonoDeMarca = await getTonoDeMarca().catch(() => undefined); // nunca tumba el turno por esto
 

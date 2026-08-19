@@ -7,8 +7,9 @@ import type { Components } from 'react-markdown';
 // vista — y Kaizen usa tablas seguido para comparar campañas o KPIs (bug real,
 // 2026-08-18). Trae además tachado, listas de tareas y autolinks.
 import remarkGfm from 'remark-gfm';
-import type { ContentBlock, Proposal, StoredMessage } from '../types';
+import type { ContentBlock, Goal, Proposal, StoredMessage } from '../types';
 import { ProposalCard } from './ProposalCard';
+import { GoalCard } from './GoalCard';
 import { ConfirmDialog } from './ConfirmDialog';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -74,6 +75,9 @@ function plainText(message: StoredMessage): string {
 interface Props {
   messages: StoredMessage[];
   proposals: Proposal[];
+  goals: Goal[];
+  /** Metas reemplazadas por un cambio, para pintar el "antes → después". */
+  replacedGoals: Goal[];
   liveText: string;
   isStreaming: boolean;
   onConfirmProposal: (proposalId: string) => void;
@@ -81,11 +85,15 @@ interface Props {
   onEditMessage: (messageId: string, text: string) => void;
   onRetryMessage: (messageId: string) => void;
   onRewindMessage: (messageId: string) => void;
+  onConfirmGoal: (goalId: string) => void;
+  onRejectGoal: (goalId: string) => void;
 }
 
 export function ChatView({
   messages,
   proposals,
+  goals,
+  replacedGoals,
   liveText,
   isStreaming,
   onConfirmProposal,
@@ -93,6 +101,8 @@ export function ChatView({
   onEditMessage,
   onRetryMessage,
   onRewindMessage,
+  onConfirmGoal,
+  onRejectGoal,
 }: Props) {
   const endRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -161,14 +171,32 @@ export function ChatView({
     return { kind: 'message', role: message.role, id: message.id, createdAt: message.createdAt, blocks };
   });
 
-  const proposalEntries: ProposalEntry[] = proposals
-    .map((proposal): ProposalEntry => ({
+  const porId = new Map(replacedGoals.map((g) => [g.id, g]));
+
+  // Metas y propuestas comparten tratamiento: son el resultado de un turno, así
+  // que se ubican al cierre del turno que las creó (ver más abajo).
+  const proposalEntries: ProposalEntry[] = [
+    ...proposals.map((proposal): ProposalEntry => ({
       kind: 'proposal',
       id: proposal.id,
       createdAt: proposal.createdAt,
       node: <ProposalCard key={proposal.id} proposal={proposal} onConfirm={onConfirmProposal} onReject={onRejectProposal} />,
-    }))
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    })),
+    ...goals.map((goal): ProposalEntry => ({
+      kind: 'proposal',
+      id: goal.id,
+      createdAt: goal.createdAt,
+      node: (
+        <GoalCard
+          key={goal.id}
+          goal={goal}
+          reemplaza={goal.replacesGoalId ? porId.get(goal.replacesGoalId) : undefined}
+          onConfirm={onConfirmGoal}
+          onReject={onRejectGoal}
+        />
+      ),
+    })),
+  ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   // Las propuestas NO entran en este orden: se insertan después, al cierre del
   // turno que las creó (ver más abajo).

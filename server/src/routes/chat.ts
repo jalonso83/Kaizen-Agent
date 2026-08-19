@@ -134,15 +134,23 @@ router.get('/:id/messages', asyncRoute(async (req, res) => {
     return;
   }
 
-  const [messages, proposals] = await Promise.all([
+  const [messages, proposals, goals] = await Promise.all([
     db.message.findMany({ where: { conversationId: conversation.id }, orderBy: { seq: 'asc' } }),
     db.proposal.findMany({ where: { conversationId: conversation.id }, orderBy: { createdAt: 'asc' } }),
+    db.goal.findMany({ where: { conversationId: conversation.id }, orderBy: { createdAt: 'asc' } }),
   ]);
+
+  // Para pintar el "antes → después" de un cambio de meta hace falta la meta
+  // que se reemplaza, que puede haberse propuesto en OTRA conversación.
+  const reemplazadasIds = goals.map((g) => g.replacesGoalId).filter((v): v is string => Boolean(v));
+  const reemplazadas = reemplazadasIds.length
+    ? await db.goal.findMany({ where: { id: { in: reemplazadasIds } } })
+    : [];
 
   // Se devuelven los bloques crudos (incluye thinking) — es la fuente de
   // verdad guardada. Filtrar bloques thinking del render es responsabilidad
   // de la web (DISENO §10), no de esta API.
-  res.json({ messages, proposals });
+  res.json({ messages, proposals, goals, replacedGoals: reemplazadas });
 }));
 
 // La respuesta ES el stream (decisión cerrada §0.4): un fetch+POST directo, no

@@ -53,6 +53,9 @@ const LABELS: Record<string, string> = {
   propose_campaign: 'Preparando la propuesta…',
   create_campaign_draft: 'Creando el borrador en FinZen…',
   get_message_type_performance: 'Revisando qué tipo de mensaje funcionó mejor…',
+  get_active_goal: 'Revisando la meta vigente…',
+  propose_goal: 'Preparando la meta…',
+  mark_goal_achieved: 'Cerrando la meta…',
 };
 
 function truncate(s: string, n = 2000): string {

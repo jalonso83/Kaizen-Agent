@@ -21,14 +21,29 @@ import { todayInRD, todayInRDLegible } from '../util/fecha';
 // señal de que algo salió mal.
 // ─────────────────────────────────────────────────────────────────────────
 
+/** Meta vigente resumida, o null. Se inyecta en cada turno a propósito: si
+ *  dependiera de que el modelo llame a get_active_goal, podría "olvidarla" y
+ *  proponer campañas que no apuntan a nada. */
+export interface MetaVigente {
+  id: string;
+  resumen: string;
+  desde: Date | null;
+}
+
 /** El bloque <contexto> listo para pegar en el turno de usuario. */
-export function buildContextBlock(now: Date = new Date()): string {
-  return (
-    `<contexto>Hoy es ${todayInRDLegible(now)} (${todayInRD(now)}), hora de República Dominicana. ` +
+export function buildContextBlock(now: Date = new Date(), meta?: MetaVigente | null): string {
+  const fecha =
+    `Hoy es ${todayInRDLegible(now)} (${todayInRD(now)}), hora de República Dominicana. ` +
     `Usa esta fecha para cualquier rango from/to que le pases a las tools y para cualquier ` +
     `referencia temporal ("esta semana", "el mes pasado"). No la deduzcas por tu cuenta: ` +
-    `esta línea es la única fuente de la fecha.</contexto>`
-  );
+    `esta línea es la única fuente de la fecha.`;
+
+  const metaTexto = meta
+    ? ` META VIGENTE (id ${meta.id}): ${meta.resumen}. Toda campaña que propongas debe apuntar a ella, y seguís experimentando hasta lograrla. ` +
+      `No podés cambiarla ni darla por cerrada por tu cuenta: cambiarla exige que el socio lo pida Y confirme la tarjeta; cerrarla exige un número medido que la cumpla (mark_goal_achieved lo verifica).`
+    : ' NO hay meta vigente. Si proponés una campaña, proponé también la meta con propose_goal.';
+
+  return `<contexto>${fecha}${metaTexto}</contexto>`;
 }
 
 /**
@@ -41,11 +56,15 @@ export function buildContextBlock(now: Date = new Date()): string {
  * turno de usuario nuevo solo para la fecha haría que el modelo lo tomara como
  * un mensaje al que responder; mejor no tocar nada.
  */
-export function injectDateContext(messages: Anthropic.Beta.BetaMessageParam[], now: Date = new Date()): void {
+export function injectDateContext(
+  messages: Anthropic.Beta.BetaMessageParam[],
+  now: Date = new Date(),
+  meta?: MetaVigente | null,
+): void {
   const last = messages[messages.length - 1];
   if (!last || last.role !== 'user') return;
 
-  const bloque = { type: 'text' as const, text: buildContextBlock(now) };
+  const bloque = { type: 'text' as const, text: buildContextBlock(now, meta) };
 
   if (typeof last.content === 'string') {
     last.content = [{ type: 'text', text: last.content }, bloque];
