@@ -11,13 +11,13 @@
 
 ---
 
-## 📍 Dónde estamos (actualizado: 2026-08-20)
+## 📍 Dónde estamos (actualizado: 2026-08-21)
 
 **Fase 2 arrancó el 2026-08-18**, con aprobación explícita del equipo el
 2026-08-17. La precondición del PRD (Fase 1 estable en producción ≥2 semanas +
 aprobación de FinZen) está cumplida.
 
-Lo hecho hasta ahora se parte en dos bloques que no se parecen entre sí:
+Lo hecho hasta ahora se parte en tres bloques que no se parecen entre sí:
 
 1. **La meta (goal) del negocio** — construida y probada. Es la pieza que hace
    que las campañas dejen de ser sueltas y persigan un número. Terminada y en
@@ -25,7 +25,10 @@ Lo hecho hasta ahora se parte en dos bloques que no se parecen entre sí:
 2. **La integración con Meta** — el cableado y los guardarraíles están; falta lo
    que solo puede aportar FinZen (token, cuenta, tope) y probar contra la API
    real. Nada de esto se ha ejecutado nunca contra Meta de verdad: todo lo
-   verificado hasta hoy es contra un mock local.
+   verificado hasta hoy es contra un simulador local.
+3. **La capa de lectura** — los cuatro skills de método que entregó Junior el
+   2026-08-20, adoptados con correcciones. Funcionan a medias hasta que sus
+   notas estén en el Cerebro.
 
 **El riesgo dominante de esta fase es distinto al de la Fase 1.** Acá hay dinero
 real: lo peor que podía pasar antes era mandar un push malo; ahora es gastar.
@@ -88,16 +91,12 @@ confirmar una meta ajena recibe 404 y la meta queda intacta.
 
 ### Qué se construyó (2026-08-20)
 
-> ⚠️ **Al 2026-08-21 este bloque todavía NO está en `main`.** El código existe y
-> está probado contra el mock, pero espera revisión antes de mergearse. Si
-> clonaste el repo y no encontrás estos archivos, es por eso y no por un error.
-
 | Pieza | Dónde |
 |---|---|
 | Cliente de la Graph API v21 | `server/src/clients/metaApi.ts` |
-| Mock local (`npm run mock:meta`, puerto 4600) | `server/src/mock/metaApiMock.ts` |
+| Simulador local de la Graph API | *no está en el repo — decisión del socio, 2026-08-21* |
 | Tools `get_meta_campaigns` · `get_meta_spend` | `server/src/agent/tools/meta.ts` |
-| Skill `adquisicion-pagada` (el método para leer pauta paga) | `server/skills/adquisicion-pagada/SKILL.md` |
+| Skill `adquisicion-pagada` (mecánica de la integración) | `server/skills/adquisicion-pagada/SKILL.md` |
 | Config `META_*` | `server/src/config.ts` · `server/.env.example` |
 
 ### Los tres guardarraíles
@@ -116,7 +115,7 @@ confirmar una meta ajena recibe 404 y la meta queda intacta.
    preferible que alguien tenga que definir el tope en la moneda correcta a que
    Kaizen gaste con un tipo de cambio que nadie revisó.
 
-### Verificación (2026-08-20, contra el mock)
+### Verificación (2026-08-20, contra el simulador local)
 
 25 chequeos del cliente + 22 de las tools. Los que importan son los que deben
 fallar: presupuesto de 500 con tope de 50, presupuesto 0 y negativo, escritura
@@ -124,10 +123,92 @@ sin habilitar, cuenta inhabilitada (`account_status ≠ 1`), token inválido,
 cuenta inexistente, un `status: 'ACTIVE'` colado en el input (se ignora, el POST
 igual lleva `PAUSED`).
 
-**Nada de esto se probó contra Meta real todavía.** El mock imita a propósito
+**Nada de esto se probó contra Meta real todavía.** El simulador imita a propósito
 las rarezas de Graph —números como string, presupuestos en centavos, errores con
-`{error:{code, fbtrace_id}}`— porque un mock más prolijo que la realidad hace que
+`{error:{code, fbtrace_id}}`— porque un simulador más prolijo que la realidad hace que
 el código funcione en pruebas y falle el día del token.
+
+---
+
+## Bloque 3 — La capa de lectura (skills de Junior) · ADOPTADA
+
+El 2026-08-20 Junior entregó su método de análisis de reportes convertido a
+cuatro skills y tres notas de Cerebro. Copia intacta de lo recibido en
+`docs/recibido/2026-08-20-junior-metodo-de-lectura/`.
+
+**Qué llenaba:** los seis skills que había eran casi todos de *acción* (qué
+campaña proponer, cómo redactarla, cómo reportar). Ninguno cubría la capa de
+*lectura*: qué se puede afirmar a partir de un número. Los suyos documentan seis
+trampas verificadas del tablero donde leer el dato tal cual es directamente
+falso.
+
+| Skill | Cubre |
+|---|---|
+| `lectura-kpis-finzen` | Las seis trampas del tablero, cohorte contra período, márgenes de error por tamaño de muestra |
+| `lectura-adquisicion-finzen` | CAC en tres niveles, la ambigüedad de atribución, el test de la restricción vinculante |
+| `lectura-retencion-cohortes` | Sobrevida D1→D7 como la métrica que gobierna, madurez de ventana, bandas |
+| `verificar-comparabilidad` | El chequeo antes de decir "subió" o "bajó" |
+
+### Qué se corrigió al adoptarlos
+
+Junior escribió sin acceso al repo, así que tres cosas no podían estar bien:
+
+- **`lectura-adquisicion-finzen` §0 llamaba a la tool equivocada.** Mandaba usar
+  `get_campaign_results` para campañas pagadas, y esa tool devuelve los
+  *broadcasts internos* con holdout y lift. Se apuntó a
+  `acquisition.by_source[]` de `get_kpis`, con el aviso de que es lifetime.
+- **`lectura-retencion-cohortes` no es ejecutable entero.** `get_kpis` devuelve
+  `retention_d1/d7/d30_pct` como agregados del período, **sin dimensión de
+  cohorte**. La sobrevida D1→D7, la madurez de ventana y la separación
+  orgánico/pagado no salen con las tools de hoy. Se marcó qué sí y qué no se
+  puede, con la prohibición de estimar la sobrevida dividiendo D7 entre D1
+  (son poblaciones distintas y ese cociente no es una sobrevida).
+- **`adquisicion-pagada` (nuestro) se solapaba con el suyo.** Se redujo a la
+  mecánica de la integración con Meta y delega todo el método de lectura al de
+  Junior. Decisión del socio (2026-08-21): ante un solape, manda el material de
+  Junior.
+
+### El conflicto del holdout
+
+`diseno-experimentos` §4 afirmaba que un `lift_pts` con holdout de ≥30 usuarios
+era "señal real". La tabla de márgenes de `lectura-kpis-finzen` §3 dice que con
+n=40 el margen al 95% es de ±12 puntos — y la propia tabla de dimensionamiento
+del §2 produce holdouts de 30 a 60. La regla habilitaba justo el caso donde el
+margen es de dos dígitos.
+
+**Manda Junior.** Se quitó la afirmación y §4 ahora obliga a mirar el margen del
+brazo más chico antes de leer el signo. Se agregó una distinción que faltaba: un
+lift negativo por debajo del margen no significa que el mensaje no funcionó,
+significa que no se pudo medir.
+
+**Consecuencia a verificar:** los lifts medidos en este proyecto son del orden
+de un punto, muy por debajo de esos márgenes. Probablemente ninguna campaña
+interna tiene todavía una medición que signifique algo — y una meta de "lift ≥ 3
+pts" no sería medible con los tamaños de cohorte actuales.
+
+### Lo que falta para que funcionen
+
+Los cuatro abren con `search_cerebro`. **Las tres notas de Junior todavía no
+están en el Cerebro** (verificado en Drive el 2026-08-21): mientras no estén, los
+skills buscan, no encuentran y siguen de largo en silencio. Las sube él, que es
+el dueño de la carpeta.
+
+Además, de las cinco consultas que ejecutan, **`"experimentos activos FinZen"`
+no tiene nota que la responda**: ninguna de las tres lista experimentos vivos.
+`lectura-retencion-cohortes` §5 depende de eso para decidir si lee por brazo.
+
+### Pendiente con Junior
+
+1. La tabla de márgenes es para **una** tasa; el lift es una **diferencia** entre
+   dos. Falta la versión para diferencias, o una regla de bolsillo.
+2. ¿Dimensionar el holdout por **lift mínimo detectable** en vez de por
+   porcentaje del segmento?
+3. `verificar-comparabilidad` dice "Úsalo SIEMPRE", pero un skill se carga porque
+   el modelo decide cargarlo. Si de verdad aplica siempre, su lugar es el system
+   prompt.
+4. En su nota de umbrales, **el MRR no reconcilia con la mezcla de planes**:
+   $43.29 con 1 Plus ($4.99) y 4 Pro ($9.99) da $44.95. El ARPU sí cuadra con el
+   MRR, así que los dos números concuerdan entre sí pero no con los planes.
 
 ---
 
@@ -205,7 +286,7 @@ Dos detalles del arreglo que conviene no perder:
 Es el segundo bug de la misma familia que el de `translate()` del 2026-08-12: la
 búsqueda no fallaba, devolvía menos de lo que debía y nadie lo notaba.
 
-### El frontmatter de los skills se rompía con CRLF (resuelto 2026-08-20, sin mergear)
+### El frontmatter de los skills se rompía con CRLF (resuelto 2026-08-20)
 
 Encontrado de casualidad al probar el catálogo. En JavaScript `.` no matchea
 `\r` y `$` sin flag `m` solo matchea el final del string, así que un `SKILL.md`

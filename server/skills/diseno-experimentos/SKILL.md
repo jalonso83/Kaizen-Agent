@@ -26,14 +26,31 @@ Regla de FinZen (ya validada en campañas anteriores):
 
 | Tamaño del segmento (count real) | Holdout | Por qué |
 |---|---|---|
-| ≥ 300 usuarios | 10-20% | Hay masa para detectar lifts de pocos puntos |
-| 100-299 | 20% | El holdout necesita mínimo ~30-50 usuarios para no ser ruido |
+| ≥ 300 usuarios | 10-20% | Deja masa expuesta sin renunciar del todo al control |
+| 100-299 | 20% | Por debajo de ~30 el brazo de control deja de existir en la práctica |
 | < 100 | 0% (sin holdout) | Un holdout de 10 personas no mide nada; FinZen usará la métrica pre/post (descriptiva, no causal) |
+
+> **Esta tabla reparte alcance, NO garantiza poder estadístico.** Se eligió para
+> no perder demasiados usuarios expuestos, no para poder detectar un lift chico.
+> Un holdout de 30-60 personas produce márgenes de error de dos dígitos: casi
+> ningún lift que midas con esos tamaños va a ser distinguible de cero.
+>
+> Antes de interpretar el resultado, consulta el margen que corresponde al brazo
+> más chico en el skill **`lectura-kpis-finzen` §3**. Esa tabla manda sobre
+> cualquier intuición de esta sección.
+>
+> *(Pendiente con Junior, 2026-08-20: dimensionar el holdout por lift mínimo
+> detectable en vez de por porcentaje del segmento. Hasta que llegue esa
+> respuesta, esta tabla se usa para elegir el reparto y la de él para decidir si
+> el resultado se puede leer.)*
 
 - El default del API es 10%. Ajústalo con `holdout_pct` en `propose_campaign`
   según esta tabla y di en el rationale cuál elegiste y por qué.
 - Nunca prometas "significancia estadística" con segmentos chicos: sé honesto
   — "con este tamaño la lectura será direccional, no concluyente".
+- **Di el margen esperado ANTES de lanzar**, no después de ver el resultado. Si
+  el lift que esperas es más chico que el margen del holdout, la campaña no se
+  va a poder evaluar: eso hay que decirlo al proponerla, no al reportarla.
 
 ## 3. Un cambio por experimento
 
@@ -46,10 +63,18 @@ no sabrás qué causó la diferencia — dilo al proponer.
 
 - **Espera la ventana completa (7 días)** antes de declarar éxito o fracaso.
   Un lift a día 2 puede evaporarse.
-- `lift_pts` positivo y estable con holdout decente (≥ 30 usuarios) → señal
-  real. Repórtalo como "X puntos de lift sobre el control".
-- Lift ~0 o negativo → el mensaje no movió; NO lo maquilles. Di qué aprendimos
-  y qué cambiarías (causa, gancho, momento).
+- **Antes de leer el signo, mira el tamaño del brazo más chico** y busca su
+  margen de error en `lectura-kpis-finzen` §3. Si el lift no supera ese margen,
+  la lectura correcta es *"sin cambio distinguible de ruido"*, no *"leve
+  mejora"* ni *"leve caída"*. Un `lift_pts` positivo con un holdout de 30
+  personas no es señal: el margen a ese tamaño es de más de diez puntos.
+- Solo cuando el lift supera el margen, repórtalo como "X puntos de lift sobre
+  el control", y di igualmente cuál era el margen.
+- Lift ~0 o negativo **y por encima del margen** → el mensaje no movió; NO lo
+  maquilles. Di qué aprendimos y qué cambiarías (causa, gancho, momento).
+- Lift ~0 o negativo **por debajo del margen** → no aprendiste que no funcionó,
+  aprendiste que no se pudo medir. Son cosas distintas y hay que decirlas
+  distinto.
 - Campañas con `holdout_pct: 0` → la métrica pre/post es **descriptiva**: puede
   estar contaminada por estacionalidad (quincena, fin de mes). Preséntala
   siempre con ese disclaimer.
