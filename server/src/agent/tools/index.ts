@@ -5,6 +5,7 @@ import { loadSkillTool } from './skill';
 import { proposeCampaignTool, createCampaignDraftTool, getMessageTypePerformanceTool } from './campaigns';
 import { searchCerebroTool, saveContentDraftTool, saveCerebroNoteTool, listCerebroFoldersTool } from './cerebro';
 import { proposeGoalTool, getActiveGoalTool, markGoalAchievedTool } from './goals';
+import { getMetaCampaignsTool, getMetaSpendTool } from './meta';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Registro de tools de Kaizen — DISENO_FASE1.md §6. Las 9 originales +
@@ -15,6 +16,10 @@ import { proposeGoalTool, getActiveGoalTool, markGoalAchievedTool } from './goal
 //   search_cerebro · save_content_draft (Contenidos) · save_cerebro_note
 //   (50-kaizen/ — única carpeta del Cerebro con permiso de escritura) ·
 //   get_message_type_performance (aprendizaje por estadística acumulada real)
+//
+// Fase 2 (2026-08-20) suma las de Meta, SOLO LECTURA: get_meta_campaigns ·
+// get_meta_spend. La de escritura entra cuando FinZen habilite ads_management,
+// y va a pasar por el mismo gate de confirmación que las de Fase 1.
 //
 // El runner (único módulo que toca el SDK beta de Anthropic, §14) adapta esta
 // lista a `toolRunner`; withGuard queda del lado nuestro (audit + timeout + SSE).
@@ -40,6 +45,9 @@ export const TOOL_LIST: KaizenTool[] = [
   proposeGoalTool,
   getActiveGoalTool,
   markGoalAchievedTool,
+  // Fase 2 — Meta, solo lectura (PRD §2.1: ads_read primero).
+  getMetaCampaignsTool,
+  getMetaSpendTool,
 ];
 
 /**

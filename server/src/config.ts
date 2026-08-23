@@ -94,6 +94,25 @@ export const config = {
     acquisitionExportFolderId: optional('DRIVE_ACQUISITION_EXPORT_FOLDER_ID'),
   },
 
+  // ── Meta Marketing API (Fase 2) ─────────────────────────────────────────
+  // Todo opcional: sin credenciales el server arranca igual y las tools de
+  // Meta fallan con un mensaje claro, igual que pasa con las de FinZen.
+  //
+  // writeEnabled arranca en FALSE a propósito y hay que activarlo a mano. El
+  // PRD §2.1 manda ads_read primero y ads_management recién tras ≥1 semana de
+  // lecturas estables; esto convierte esa secuencia en algo que el código
+  // hace cumplir, no en una nota que alguien tiene que recordar.
+  meta: {
+    baseUrl: (optional('META_API_BASE_URL') ?? 'https://graph.facebook.com/v21.0').replace(/\/+$/, ''),
+    systemToken: optional('META_SYSTEM_TOKEN') ?? '',
+    adAccountId: optional('META_AD_ACCOUNT_ID') ?? '',
+    // Tope de gasto diario por campaña. El default es deliberadamente bajo:
+    // si alguien despliega sin definirlo, el error tiene que ser "no me deja
+    // gastar", nunca "gastó de más".
+    maxDailyBudgetUsd: Number(process.env.META_MAX_DAILY_BUDGET_USD) || 20,
+    writeEnabled: process.env.META_WRITE_ENABLED === 'true',
+  },
+
   // BD propia de Kaizen — ya se usa (audit log, historial, auth): requerida.
   databaseUrl: required('DATABASE_URL'),
 
