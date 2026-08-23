@@ -67,11 +67,15 @@ export const searchCerebroTool: KaizenTool = {
     // pasada le gana a la nota corta que trata justamente de eso. Junto con el
     // setweight del nombre (manual.sql) es lo que hace que una búsqueda por el
     // nombre del archivo encuentre el archivo.
+    // 'es_kaizen' y no 'spanish': es la configuración con unaccent que define la
+    // migración 20260821120000. TIENE que ser la misma con la que se construyó
+    // la columna tsv — si el índice normaliza acentos y la consulta no, buscar
+    // "activación" no encuentra un documento que dice "activacion".
     const rows = await db.$queryRaw<CerebroRow[]>`
       SELECT name, path, text
       FROM "CerebroDoc"
-      WHERE tsv @@ plainto_tsquery('spanish', ${query})
-      ORDER BY ts_rank(tsv, plainto_tsquery('spanish', ${query}), 1) DESC
+      WHERE tsv @@ plainto_tsquery('es_kaizen', ${query})
+      ORDER BY ts_rank(tsv, plainto_tsquery('es_kaizen', ${query}), 1) DESC
       LIMIT ${MAX_RESULTS}
     `;
 

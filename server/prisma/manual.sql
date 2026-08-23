@@ -30,13 +30,27 @@ CREATE TRIGGER audit_immutable
 -- Se DROPEA y se recrea porque la expresión de una columna generada no se puede
 -- alterar; el índice cae con la columna, por eso se recrea después. La tabla la
 -- repuebla el indexador, no hay datos que perder.
+--
+-- 'es_kaizen' (migración 20260821120000) es 'spanish' + unaccent: el stemmer de
+-- Postgres solo recorta el sufijo -ción cuando viene acentuado, así que sin esto
+-- "atribución" y "atribucion" son lexemas distintos y no unen. unaccent va en la
+-- configuración y NO en la expresión porque la columna generada exige IMMUTABLE
+-- y unaccent() es STABLE; to_tsvector(regconfig, text) sí es IMMUTABLE.
+CREATE EXTENSION IF NOT EXISTS unaccent;
+
+DROP TEXT SEARCH CONFIGURATION IF EXISTS es_kaizen;
+CREATE TEXT SEARCH CONFIGURATION es_kaizen (COPY = spanish);
+ALTER TEXT SEARCH CONFIGURATION es_kaizen
+  ALTER MAPPING FOR hword, hword_part, word
+  WITH unaccent, spanish_stem;
+
 ALTER TABLE "CerebroDoc" DROP COLUMN IF EXISTS tsv;
 
 ALTER TABLE "CerebroDoc"
   ADD COLUMN tsv tsvector
   GENERATED ALWAYS AS (
-    setweight(to_tsvector('spanish', translate(coalesce(name, ''), '-_.', '   ')), 'A') ||
-    setweight(to_tsvector('spanish', coalesce(text, '')), 'B')
+    setweight(to_tsvector('es_kaizen', translate(coalesce(name, ''), '-_.', '   ')), 'A') ||
+    setweight(to_tsvector('es_kaizen', coalesce(text, '')), 'B')
   ) STORED;
 
 CREATE INDEX IF NOT EXISTS cerebro_tsv_idx ON "CerebroDoc" USING GIN (tsv);
