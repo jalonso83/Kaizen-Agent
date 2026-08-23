@@ -24,13 +24,22 @@ export interface SkillEntry {
 
 let cache: Map<string, SkillEntry> | null = null;
 
-/** Extrae `name` y `description` del frontmatter `--- ... ---` del inicio. */
+/**
+ * Extrae `name` y `description` del frontmatter `--- ... ---` del inicio.
+ *
+ * El \r? de la línea NO es decorativo (bug encontrado 2026-08-20): en
+ * JavaScript `.` no matchea `\r`, y `$` sin flag `m` solo matchea el final del
+ * string. Así que en un archivo guardado con CRLF —cosa que pasa sola editando
+ * en Windows— `name: x\r` no matcheaba, el skill se omitía con un warning en
+ * consola que nadie mira, y quedaba invisible para el agente. Le pasó a
+ * resumen-semanal, el único de los seis con CRLF.
+ */
 function parseFrontmatter(raw: string): { name?: string; description?: string } {
-  const match = raw.match(/^---\s*\n([\s\S]*?)\n---/);
+  const match = raw.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
   if (!match) return {};
   const out: { name?: string; description?: string } = {};
   for (const line of match[1].split('\n')) {
-    const kv = line.match(/^(name|description):\s*(.+)$/);
+    const kv = line.match(/^(name|description):\s*(.+?)\r?$/);
     if (kv) out[kv[1] as 'name' | 'description'] = kv[2].trim();
   }
   return out;
