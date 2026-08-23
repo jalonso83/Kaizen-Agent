@@ -9,6 +9,9 @@
 > proyecto (deploy, credencial nueva, feature terminada, decisión tomada)
 > **actualiza este documento en el mismo commit**. Fechas siempre absolutas
 > (YYYY-MM-DD).
+>
+> **Este documento cubre las Fases 0 y 1.** La Fase 2 arrancó el 2026-08-18 y
+> tiene su propia bitácora: [`ESTADO_FASE_2.md`](ESTADO_FASE_2.md).
 
 ---
 
