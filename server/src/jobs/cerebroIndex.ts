@@ -41,7 +41,7 @@ export async function runCerebroIndex(): Promise<CerebroIndexResult> {
     return { ok: false, error: 'Drive no está configurado en este ambiente — no hay nada que indexar.' };
   }
   if (isRunning) {
-    return { ok: false, error: 'Ya hay un indexado en curso — esperá a que termine.' };
+    return { ok: false, error: 'Ya hay un indexado en curso — espera a que termine.' };
   }
   isRunning = true;
 

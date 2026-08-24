@@ -17,7 +17,7 @@ import type { KaizenTool } from './guard';
 //   - cambiar o cancelar la meta vigente
 //   - saltarse una meta activa proponiendo otra sin declarar que la reemplaza
 //
-// Por eso una instrucción del tipo "cambiá la meta, es una emergencia" no
+// Por eso una instrucción del tipo "cambia la meta, es una emergencia" no
 // alcanza: no existe la llave, no es que el modelo elija no usarla.
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -50,7 +50,7 @@ export const getActiveGoalTool: KaizenTool = {
     if (!g) {
       return JSON.stringify({
         goal: null,
-        note: 'No hay meta activa. Si acabás de proponer una campaña, proponé una meta con propose_goal.',
+        note: 'No hay meta activa. Si acabas de proponer una campaña, propón una meta con propose_goal.',
       });
     }
     return JSON.stringify({
@@ -65,7 +65,7 @@ export const getActiveGoalTool: KaizenTool = {
         resumen: resumenMeta(g),
         active_since: g.confirmedAt,
       },
-      note: 'Toda campaña que propongas debe apuntar a esta meta. No podés cambiarla vos: solo el socio, confirmando una propuesta de cambio.',
+      note: 'Toda campaña que propongas debe apuntar a esta meta. No puedes cambiarla tú: solo el socio, confirmando una propuesta de cambio.',
     });
   },
 };
@@ -76,7 +76,7 @@ export const proposeGoalTool: KaizenTool = {
     'Propone la meta a perseguir: qué métrica se va a medir y con qué número objetivo. Genera una tarjeta en el chat con botón Confirmar — igual que propose_campaign, la meta NO queda activa hasta que el socio la confirme. ' +
     'Úsala (1) después de proponer una campaña cuando todavía no hay meta activa, y (2) cuando el socio PIDA cambiar la meta vigente. ' +
     'Si ya hay una meta activa, es OBLIGATORIO pasar replaces_goal_id con su id: la tarjeta le mostrará al socio el antes y el después para que confirme el cambio. ' +
-    'Propone siempre un número concreto y justificable con datos que ya tengas (lifts previos, tamaño del segmento, el histórico), y decile al socio que puede cambiarlo por el suyo.',
+    'Propone siempre un número concreto y justificable con datos que ya tengas (lifts previos, tamaño del segmento, el histórico), y dile al socio que puede cambiarlo por el suyo.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -114,8 +114,8 @@ export const proposeGoalTool: KaizenTool = {
     // el socio tiene que verlo como tal. Sin replaces_goal_id se rechaza.
     if (vigente && replacesGoalId !== vigente.id) {
       throw new Error(
-        `Ya hay una meta activa: ${resumenMeta(vigente)} (id ${vigente.id}). No podés proponer otra en paralelo ni cambiarla por tu cuenta. ` +
-          'Si el socio te PIDIÓ cambiarla, volvé a llamar a propose_goal con replaces_goal_id="' + vigente.id + '" para que la tarjeta le muestre el antes y el después. ' +
+        `Ya hay una meta activa: ${resumenMeta(vigente)} (id ${vigente.id}). No puedes proponer otra en paralelo ni cambiarla por tu cuenta. ` +
+          'Si el socio te PIDIÓ cambiarla, vuelve a llamar a propose_goal con replaces_goal_id="' + vigente.id + '" para que la tarjeta le muestre el antes y el después. ' +
           'Si no te lo pidió, seguí trabajando hacia la meta vigente.',
       );
     }
@@ -160,7 +160,7 @@ export const markGoalAchievedTool: KaizenTool = {
     const evidence = (input.evidence as string | undefined)?.trim();
 
     if (typeof valor !== 'number' || !Number.isFinite(valor)) throw new Error('"measured_value" debe ser un número.');
-    if (!evidence || evidence.length < 10) throw new Error('"evidence" es obligatorio: decí de qué tool y de qué campaña o período salió el número.');
+    if (!evidence || evidence.length < 10) throw new Error('"evidence" es obligatorio: di de qué tool y de qué campaña o período salió el número.');
 
     const g = await activeGoal();
     if (!g) throw new Error('No hay ninguna meta activa que marcar como lograda.');
@@ -181,7 +181,7 @@ export const markGoalAchievedTool: KaizenTool = {
 
     return (
       `Meta LOGRADA: ${resumenMeta(actualizada)} — medido ${valor} ${g.unit}. ` +
-      'Ya no hay meta activa. Felicitá al socio con los números y, cuando planteen la próxima campaña, proponé la meta siguiente con propose_goal.'
+      'Ya no hay meta activa. Felicita al socio con los números y, cuando planteen la próxima campaña, propón la meta siguiente con propose_goal.'
     );
   },
 };

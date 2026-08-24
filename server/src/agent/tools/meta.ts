@@ -33,15 +33,15 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const CRUCE_NOTE =
   'PARA CRUZAR CON FINZEN: el gasto de acá se une con acquisition.by_source[] de get_kpis por el NOMBRE de campaña ' +
   'contra utm_campaign. NADIE confirmó todavía que esos nombres coincidan. Antes de afirmar un CAC combinado, ' +
-  'compará los nombres y decí explícitamente si unieron o no. Si no unen, decí "no puedo cruzarlo" — nunca estimes el CAC a ojo.';
+  'compara los nombres y di explícitamente si unieron o no. Si no unen, di "no puedo cruzarlo" — nunca estimes el CAC a ojo.';
 
 const MONEDA_NOTE =
-  'OJO con la moneda y la zona horaria: los importes están en la moneda de la CUENTA de Meta (mirá account.currency, no asumas USD) ' +
+  'OJO con la moneda y la zona horaria: los importes están en la moneda de la CUENTA de Meta (mira account.currency, no asumas USD) ' +
   'y las fechas son días de la zona horaria de la cuenta, que puede no ser la de FinZen. Si difieren, el "ayer" de Meta no es el mismo día.';
 
 const ESTADO_NOTE =
   'OJO con status vs effective_status: status es lo que se pidió, effective_status es lo que Meta realmente aplica. ' +
-  'Una campaña con status ACTIVE y effective_status CAMPAIGN_PAUSED NO está gastando. Al reportar, mandá effective_status.';
+  'Una campaña con status ACTIVE y effective_status CAMPAIGN_PAUSED NO está gastando. Al reportar, manda effective_status.';
 
 /** Presupuestos: Graph los da en unidades menores (centavos). 1500 => 15.00. */
 function aMoneda(menores: number | null): number | null {
@@ -53,7 +53,7 @@ function verificarConfig(): void {
   if (!config.meta.systemToken || !config.meta.adAccountId) {
     throw new Error(
       'La integración con Meta todavía no está configurada (faltan META_SYSTEM_TOKEN y/o META_AD_ACCOUNT_ID). ' +
-        'NO reintentes: decile al socio que las credenciales de Meta las tiene que cargar FinZen en Railway.',
+        'NO reintentes: dile al socio que las credenciales de Meta las tiene que cargar FinZen en Railway.',
     );
   }
 }
@@ -114,7 +114,7 @@ export const getMetaSpendTool: KaizenTool = {
     'Gasto y rendimiento de las campañas de Meta en un rango de fechas: spend, impresiones, clics, CPM, CPC y CTR por campaña. ' +
     'LLÁMALA SIEMPRE antes de afirmar cuánto se gastó en publicidad; nunca respondas cifras de gasto de memoria. ' +
     'Para responder "¿a qué CAC?" hace falta cruzar esto con acquisition.by_source[] de get_kpis, uniendo por nombre de campaña contra utm_campaign — ' +
-    'y ese cruce todavía NO está validado, así que verificá que los nombres coincidan antes de dar un CAC combinado. ' +
+    'y ese cruce todavía NO está validado, así que verifica que los nombres coincidan antes de dar un CAC combinado. ' +
     'Los importes están en la moneda de la cuenta de Meta y las fechas en su zona horaria.',
   inputSchema: {
     type: 'object',
@@ -157,7 +157,7 @@ export const getMetaSpendTool: KaizenTool = {
       };
 
       const vacio = filas.length === 0
-        ? 'No hubo gasto en esa ventana. Eso puede significar que no había campañas activas o que la ventana está fuera del historial de la cuenta: decilo así, no lo interpretes como que la publicidad no funcionó.'
+        ? 'No hubo gasto en esa ventana. Eso puede significar que no había campañas activas o que la ventana está fuera del historial de la cuenta: dilo así, no lo interpretes como que la publicidad no funcionó.'
         : '';
 
       return [MONEDA_NOTE, CRUCE_NOTE, vacio, JSON.stringify(payload)].filter(Boolean).join('\n');

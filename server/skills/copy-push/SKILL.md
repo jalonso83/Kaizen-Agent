@@ -46,6 +46,28 @@ un nombre de campaña distinto.
 \* Solo si el dato viene de un tool o del propio sistema de FinZen — nunca
 inventar cifras en el copy (regla dura #1).
 
+**Cifra del usuario sí; cifra del negocio no.** "Tu presupuesto de Comida se pasó
+RD$1,300" es dato del propio usuario y va sin problema. "El 84% de los usuarios
+nunca transacciona" es una estadística del negocio en una pieza publicable y
+necesita aprobación previa, aunque venga de un tool (regla dura 15e).
+
+## 2b. El registro y los dos arquetipos
+
+Del Manual de Marca, y aplica a cada push que escribas:
+
+- **Español dominicano de la Gen Z, en "tú".** Suena a conversación entre
+  amigos, nunca a tutorial ni a pitch. Expresiones como *chelitos, manin,
+  bróder, pa'* funcionan cuando fluyen; forzarlas se nota.
+- **Enseña como El Sabio y conecta como El Everyman — nunca uno sin el otro.**
+  El Sabio da claridad ("se te pasó el presupuesto de comida"); el Everyman da
+  cercanía ("a todos nos pasa a fin de mes"). Un push que solo instruye suena a
+  banco; uno que solo empatiza no dice nada útil.
+- **Nunca** juzgues cómo gasta el usuario, ni uses culpa o miedo como gancho.
+  FinZen celebra el avance, no castiga el error.
+
+Las cinco prohibiciones absolutas están en la regla dura 15 y aplican también
+acá. El resto del método de contenido vive en `conceptos-contenido`.
+
 ## 3. Fórmulas de gancho que funcionan en push
 
 - **{Logra el resultado} sin {el dolor}** — "Ordena tus gastos sin mover un dedo"

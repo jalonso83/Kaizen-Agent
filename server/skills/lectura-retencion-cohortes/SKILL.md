@@ -19,11 +19,11 @@ FinZen tiene un problema de retención bien localizado y una serie de lecturas e
 > `retention_d30_pct`: **tres números agregados del periodo, sin dimensión de
 > cohorte.** La Agent API no expone retención por cohorte de semana de registro.
 >
-> En consecuencia, con las tools de hoy **no podés**: calcular la sobrevida
+> En consecuencia, con las tools de hoy **no puedes**: calcular la sobrevida
 > D1→D7 de un cohorte (§1), evaluar madurez de ventana de un cohorte concreto
 > (§2), ni separar cohorte orgánico de pagado (§4).
 >
-> Lo que sí podés hacer: reportar los tres agregados con su marca de
+> Lo que sí puedes hacer: reportar los tres agregados con su marca de
 > comparabilidad, y traer del Cerebro la serie de sobrevida ya calculada por un
 > humano (paso 2 de arriba) citándola como dato histórico, **nunca como cálculo
 > propio del periodo actual**.

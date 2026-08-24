@@ -66,7 +66,7 @@ export function GoalCard({ goal, reemplaza, onConfirm, onReject }: Props) {
       {goal.status === 'ACTIVE' && (
         <p className="goal-note">
           Kaizen va a seguir proponiendo campañas hacia esta meta hasta lograrla. No puede cambiarla por su cuenta:
-          si querés otra métrica u otro número, pedíselo y te va a pedir confirmación.
+          si quieres otra métrica u otro número, pídeselo y te va a pedir confirmación.
         </p>
       )}
       {goal.status === 'ACHIEVED' && goal.achievedValue != null && (
@@ -98,7 +98,7 @@ export function GoalCard({ goal, reemplaza, onConfirm, onReject }: Props) {
 
       {confirmandoCambio && (
         <ConfirmDialog
-          title="¿Seguro que querés cambiar la meta?"
+          title="¿Seguro que quieres cambiar la meta?"
           message={
             reemplaza
               ? `Se deja de perseguir "${resumenMeta(reemplaza)}" y se pasa a "${resumenMeta(goal)}". ` +

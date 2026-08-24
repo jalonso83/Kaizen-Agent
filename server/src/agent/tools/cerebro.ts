@@ -147,7 +147,7 @@ export const saveCerebroNoteTool: KaizenTool = {
   name: 'save_cerebro_note',
   description:
     'Guarda una nota (Markdown) en el Cerebro. Por defecto va a 50-kaizen/, que es donde el socio revisa los lunes: úsala así para el resumen semanal, propuestas de campaña en texto y discrepancias de datos. ' +
-    'Si la nota pertenece claramente a otra sección del Cerebro, pasá "subcarpeta" con el nombre exacto de una subcarpeta existente (podés consultarlas con list_cerebro_folders). NUNCA la uses para contenido de redes: eso es save_content_draft, que va a Contenidos. ' +
+    'Si la nota pertenece claramente a otra sección del Cerebro, pasa "subcarpeta" con el nombre exacto de una subcarpeta existente (puedes consultarlas con list_cerebro_folders). NUNCA la uses para contenido de redes: eso es save_content_draft, que va a Contenidos. ' +
     'El archivo se nombra automáticamente "YYYY-MM-DD-<title>.md" (hoy). Sin reintentos: si falla, no la reintentes automáticamente, avisa al socio.',
   inputSchema: {
     type: 'object',

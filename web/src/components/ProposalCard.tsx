@@ -87,7 +87,7 @@ export function ProposalCard({ proposal, onConfirm, onReject }: Props) {
       )}
       {proposal.status === 'EXPIRED' && (
         <p className="proposal-note proposal-note-warning">
-          La confirmación expiró (más de 30 minutos) — proponé de nuevo si sigue siendo una buena idea.
+          La confirmación expiró (más de 30 minutos) — propón de nuevo si sigue siendo una buena idea.
         </p>
       )}
       {proposal.error && <p className="proposal-note proposal-note-warning">{proposal.error}</p>}

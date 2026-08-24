@@ -34,7 +34,7 @@ router.post('/:id/confirm', asyncRoute(async (req, res) => {
     return;
   }
   if (runningConversations.has(proposal.conversationId)) {
-    res.status(409).json({ message: 'El agente ya está respondiendo en esta conversación — esperá a que termine.' });
+    res.status(409).json({ message: 'El agente ya está respondiendo en esta conversación — espera a que termine.' });
     return;
   }
 

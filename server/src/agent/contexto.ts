@@ -39,9 +39,9 @@ export function buildContextBlock(now: Date = new Date(), meta?: MetaVigente | n
     `esta línea es la única fuente de la fecha.`;
 
   const metaTexto = meta
-    ? ` META VIGENTE (id ${meta.id}): ${meta.resumen}. Toda campaña que propongas debe apuntar a ella, y seguís experimentando hasta lograrla. ` +
-      `No podés cambiarla ni darla por cerrada por tu cuenta: cambiarla exige que el socio lo pida Y confirme la tarjeta; cerrarla exige un número medido que la cumpla (mark_goal_achieved lo verifica).`
-    : ' NO hay meta vigente. Si proponés una campaña, proponé también la meta con propose_goal.';
+    ? ` META VIGENTE (id ${meta.id}): ${meta.resumen}. Toda campaña que propongas debe apuntar a ella, y sigues experimentando hasta lograrla. ` +
+      `No puedes cambiarla ni darla por cerrada por tu cuenta: cambiarla exige que el socio lo pida Y confirme la tarjeta; cerrarla exige un número medido que la cumpla (mark_goal_achieved lo verifica).`
+    : ' NO hay meta vigente. Si propones una campaña, propón también la meta con propose_goal.';
 
   return `<contexto>${fecha}${metaTexto}</contexto>`;
 }

@@ -118,7 +118,7 @@ router.delete('/:id', asyncRoute(async (req, res) => {
   }
 
   if (runningConversations.has(conversation.id)) {
-    res.status(409).json({ message: 'El agente está respondiendo en esta conversación — esperá a que termine para borrarla.' });
+    res.status(409).json({ message: 'El agente está respondiendo en esta conversación — espera a que termine para borrarla.' });
     return;
   }
 

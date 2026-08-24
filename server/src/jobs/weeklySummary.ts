@@ -135,7 +135,7 @@ function buildCronPrompt(reportWeek: WeekRange, priorWeek: WeekRange): string {
     `1. get_kpis para la semana a reportar (from=${reportWeek.from}, to=${reportWeek.to}) y de nuevo para la semana anterior (from=${priorWeek.from}, to=${priorWeek.to}).\n` +
     `2. get_campaign_results para la semana a reportar.\n` +
     `3. Escribí el resumen: 3-5 movimientos con cifras (comparando ambas semanas), los resultados de campañas medidas (lift y qué significa), y 2-3 recomendaciones accionables con el dato que las respalda.\n` +
-    `4. Identificá la mejor oportunidad de campaña de la semana según los datos, y proponela EN TEXTO — mismo método que usás en el chat normal (evaluate_segment para el count real, carga los skills campanas-retencion/copy-push/diseno-experimentos, un mensaje principal + 1-2 alternativas con Título y Mensaje, racional con datos, qué se mediría). NO llames a propose_campaign ni generes ninguna tarjeta — no está disponible en esta corrida y no corresponde: esto es una recomendación escrita para que el socio la lea y, si le interesa, la pida por chat luego. Si de verdad ningún segmento muestra una oportunidad clara esta semana, decilo en vez de forzar una idea débil.\n` +
+    `4. Identifica la mejor oportunidad de campaña de la semana según los datos, y proponla EN TEXTO — mismo método que usás en el chat normal (evaluate_segment para el count real, carga los skills campanas-retencion/copy-push/diseno-experimentos, un mensaje principal + 1-2 alternativas con Título y Mensaje, racional con datos, qué se mediría). NO llames a propose_campaign ni generes ninguna tarjeta — no está disponible en esta corrida y no corresponde: esto es una recomendación escrita para que el socio la lea y, si le interesa, la pida por chat luego. Si de verdad ningún segmento muestra una oportunidad clara esta semana, dilo en vez de forzar una idea débil.\n` +
     `5. Guardá el resumen COMPLETO —incluida la propuesta de campaña del paso 4, o la nota de que no hubo una oportunidad clara— con save_cerebro_note (title="resumen-semanal-${reportWeek.to}"). Es la única forma en que el socio va a ver esto: esta conversación es interna, nadie la lee por chat.\n` +
     `</evento_sistema>`
   );
@@ -154,7 +154,7 @@ let isRunning = false;
 
 export async function runWeeklySummary(): Promise<WeeklySummaryResult> {
   if (isRunning) {
-    return { ok: false, error: 'Ya hay una corrida del resumen semanal en curso — esperá a que termine.' };
+    return { ok: false, error: 'Ya hay una corrida del resumen semanal en curso — espera a que termine.' };
   }
   isRunning = true;
 

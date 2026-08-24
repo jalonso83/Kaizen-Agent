@@ -14,7 +14,7 @@ El objetivo no es reportar cuánto tráfico entró, sino responder si el dinero 
    subscriptions, revenue_usd, cost_usd, cac_usd). Ese bloque es **lifetime**:
    no aplica el filtro de fechas, igual que Top Sources en el tablero.
 2. `search_cerebro` con "atribución UTM tienda FinZen" para ver si la ambigüedad del §2 ya se resolvió. **Si sigue abierta, ninguna afirmación de ROI de campaña es defendible.**
-3. Si querés el gasto real por campaña en una ventana de fechas, esa es
+3. Si quieres el gasto real por campaña en una ventana de fechas, esa es
    `get_meta_spend` (Meta), no la Agent API de FinZen.
 
 > **NO uses `get_campaign_results` acá.** Esa tool no trae campañas pagadas:

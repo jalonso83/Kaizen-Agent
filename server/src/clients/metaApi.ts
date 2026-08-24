@@ -300,7 +300,7 @@ export interface MetaCampaignDraftInput {
 /**
  * Crea una campaña en Meta EN PAUSA.
  *
- * Fijate en lo que NO recibe: `status`. No es un descuido — es el guardarraíl.
+ * Fíjate en lo que NO recibe: `status`. No es un descuido — es el guardarraíl.
  * El criterio de aceptación de Fase 2 dice "es imposible (probado) que el
  * agente active una campaña", y la forma de hacerlo imposible no es pedirle al
  * modelo que mande siempre PAUSED, es no darle dónde escribirlo. Mismo patrón

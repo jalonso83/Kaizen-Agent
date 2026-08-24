@@ -17,7 +17,7 @@
 2026-08-17. La precondición del PRD (Fase 1 estable en producción ≥2 semanas +
 aprobación de FinZen) está cumplida.
 
-Lo hecho hasta ahora se parte en tres bloques que no se parecen entre sí:
+Lo hecho hasta ahora se parte en cuatro bloques que no se parecen entre sí:
 
 1. **La meta (goal) del negocio** — construida y probada. Es la pieza que hace
    que las campañas dejen de ser sueltas y persigan un número. Terminada y en
@@ -29,6 +29,9 @@ Lo hecho hasta ahora se parte en tres bloques que no se parecen entre sí:
 3. **La capa de lectura** — los cuatro skills de método que entregó Junior el
    2026-08-20, adoptados con correcciones. Funcionan a medias hasta que sus
    notas estén en el Cerebro.
+4. **El sistema de marca y contenidos** — 8 documentos que subió marketing el
+   2026-08-18. Adoptados por un humano en los skills; Kaizen todavía NO los lee,
+   por decisión del socio, hasta resolver un conflicto de cifras.
 
 **El riesgo dominante de esta fase es distinto al de la Fase 1.** Acá hay dinero
 real: lo peor que podía pasar antes era mandar un push malo; ahora es gastar.
@@ -209,6 +212,114 @@ no tiene nota que la responda**: ninguna de las tres lista experimentos vivos.
 4. En su nota de umbrales, **el MRR no reconcilia con la mezcla de planes**:
    $43.29 con 1 Plus ($4.99) y 4 Pro ($9.99) da $44.95. El ARPU sí cuadra con el
    MRR, así que los dos números concuerdan entre sí pero no con los planes.
+
+---
+
+## Bloque 4 — El sistema de marca y contenidos · PARCIALMENTE ADOPTADO
+
+El 2026-08-18 marketing (`inspirandord@gmail.com`) subió **8 archivos** a
+`DRIVE_CONTENIDOS_KAIZEN`, en una carpeta nueva: `Documento maestro_Instrucciones_IA`.
+
+No son archivos sueltos, es un sistema en cascada:
+
+```
+MTP → Manual de Marca → Estrategia de Comunicación → Sistema de Contenidos → Identidad Visual
+                                    ↑
+                    Diagnóstico de Activación (el porqué del reordenamiento)
+```
+
+Los dos PDF de `Métricas/` son el mismo contenido en dos formatos (documento y
+presentación), no dos análisis distintos.
+
+### Kaizen no puede leerlos, y por ahora es deliberado
+
+Dos razones estructurales: el indexador solo recorre el **Cerebro**
+(`listCerebroFilesRecursive`) y nunca toca Contenidos, y además **omite PDFs**
+por diseño de la v1.
+
+Decisión del socio (2026-08-21): **no indexarlos todavía**, hasta resolver el
+conflicto de cifras de abajo. Indexarlos hoy empeoraría las respuestas.
+
+### Qué se adoptó igual (leído por un humano, no por Kaizen)
+
+- **`conceptos-contenido` reescrito.** Tenía cuatro pilares inventados con
+  porcentajes; el sistema real tiene **seis con nombre**, cada uno mapeado a un
+  arquetipo y a una etapa del embudo, más tres buyer personas (Génesis 21,
+  Andrés 27, Massiel 25), la mezcla mensual de 8 piezas, las series fijas y la
+  anatomía por formato. La regla que lo ordena todo: *una pieza, un pilar, una
+  persona*.
+- **Regla dura 15** en el system prompt: las cinco prohibiciones absolutas del
+  Manual de Marca (no "democratizar", no encuadre socioeconómico, no
+  banco/crypto/trading, no juzgar ni usar culpa, no cifras del negocio en pieza
+  publicable sin aprobación).
+- **`copy-push`**: registro dominicano, arquetipos, y la distinción entre cifra
+  del usuario y cifra del negocio.
+
+### La regla 15(e) NO contradice a la regla 1
+
+Se aclaró explícitamente en el prompt porque se confunden: la regla 1 obliga a
+citar cifras exactas cuando se **analiza** el negocio; la 15(e) prohíbe ponerlas
+en una pieza que ve el público sin aprobación. **Analizar y publicar son cosas
+distintas.** Los datos del propio usuario dentro de un push no son estadística
+del negocio.
+
+### Lo que validó por accidente
+
+- **La paleta de la web de Kaizen es la correcta**: `#204274`, `#6CAD7F`, Rubik.
+  Y el documento confirma que el verde sobre blanco reprueba accesibilidad
+  (~1.9:1) y va solo en formas, nunca en texto — la misma decisión que ya estaba
+  anotada en `styles.css`.
+- **El registro es tuteo dominicano**, no voseo. Eso disparó una auditoría del
+  repo entero (ver abajo).
+- **El diagnóstico llega al mismo hallazgo que Junior** sobre D30 y churn en 0%:
+  *"son casi con seguridad errores de medición"*. Dos fuentes independientes.
+
+### 🔴 Conflicto abierto: las cifras no coinciden
+
+| | Diagnóstico (25 jul) | Notas de Junior (17 ago) |
+|---|---|---|
+| Usuarios de pago | 7 | 5 |
+| Costo por cliente que paga | **$79** | **$142.88** |
+| Inversión | $552 (abr–jul) | $1,269.71 (lifetime) |
+| D1 / D7 | 18.3% / 6.7% | 19-26% / 8-11% |
+
+Son ventanas y denominadores distintos, así que probablemente los dos sean
+correctos en su contexto. **Pero si Kaizen lee ambos sin saberlo, dará un CAC
+distinto según cuál le pese más en la búsqueda**, y sin forma de que el socio
+sepa cuál usó. Hay que marcar la ventana de cada fuente antes de indexarlas.
+
+### Pendientes de este bloque
+
+1. Resolver el conflicto de cifras y recién entonces decidir dónde viven estos
+   documentos y en qué formato (el indexador no lee PDF).
+2. **Las personas y la mezcla mensual quedaron en el repo**, cuando por la regla
+   del proyecto son *información* y deberían vivir en el Cerebro para que
+   marketing las actualice sin un PR. Están en secciones separables (§2 y §5 de
+   `conceptos-contenido`) para poder moverlas. Si marketing cambia una persona,
+   hoy el skill queda viejo y nadie se entera.
+3. El diagnóstico propone una solución de producto —una evaluación financiera de
+   7 preguntas como puerta de entrada— y dice que *"el contenido lo pone
+   Junior"*. Esa decisión no está en el `decisions-log.md`: no se sabe si se
+   aprobó, se descartó o sigue esperando.
+4. Hay un segmento sin usar: **2,527 usuarios registrados que nunca se
+   activaron**. El diagnóstico dice que *"hoy nadie les está hablando"*. Falta
+   ver si `list_segments` ya lo expone.
+
+---
+
+## Todo el proyecto pasó a tuteo (2026-08-21)
+
+El Manual de Marca fija el registro: **español dominicano de la Gen Z, en "tú"**.
+Buena parte de los textos escritos en agosto estaban en voseo rioplatense
+("decí", "podés", "mirá"), que no es el registro de RD.
+
+Auditado y corregido el repo entero: textos de la UI, mensajes de error del
+servidor, descripciones de tools, reglas del system prompt y los diez skills.
+**Cero ocurrencias de voseo** en `server/src`, `server/skills` y `web/src`.
+
+No es cosmético: las descripciones de tools y el system prompt son lo que moldea
+cómo escribe Kaizen. Si el prompt está en voseo, el copy de las campañas también
+sale en voseo.
 
 ---
 

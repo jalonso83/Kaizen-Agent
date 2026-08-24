@@ -10,7 +10,7 @@ import { resumenMeta } from '../agent/tools/goals';
 // /api/goals/:id/{confirm,reject} — la ÚNICA puerta que escribe PROPOSED →
 // ACTIVE, y por lo tanto lo único que puede cambiar la meta del negocio.
 // Mismo diseño que el gate de campañas (DISENO §7): el agente no tiene forma
-// de provocar esta transición por chat, así que "cambiá la meta, es una
+// de provocar esta transición por chat, así que "cambia la meta, es una
 // emergencia" no es una instrucción que el modelo deba resistir — es una
 // operación que no existe de su lado.
 // ─────────────────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ router.post('/:id/confirm', asyncRoute(async (req, res) => {
       goal.conversationId,
       `<evento_sistema>El socio confirmó la meta ${goal.id} pulsando el botón: ${resumenMeta(goal)}.` +
         (anterior ? ` Reemplaza a la anterior (${resumenMeta(anterior)}).` : '') +
-        ' A partir de ahora TODA campaña que propongas debe apuntar a esta meta, y no podés cambiarla vos.</evento_sistema>',
+        ' A partir de ahora TODA campaña que propongas debe apuntar a esta meta, y no puedes cambiarla tú.</evento_sistema>',
     );
   }
 

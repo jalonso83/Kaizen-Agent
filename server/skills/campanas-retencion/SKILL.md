@@ -46,7 +46,7 @@ las causas no funciona. Cada segmento de FinZen sugiere una causa distinta:
   tono es de aliado, nunca de reproche.
 - **Repetir el mismo título/mensaje** que ya le propusiste a este segmento
   antes en esta conversación (rechazado o no). Si volvés a proponerle algo,
-  cambiá de ángulo de los de la tabla de arriba — no repitas la fórmula
+  cambia de ángulo de los de la tabla de arriba — no repitas la fórmula
   anterior con sinónimos.
 
 ## 4. Estructura de toda propuesta de retención

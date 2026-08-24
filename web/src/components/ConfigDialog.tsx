@@ -219,7 +219,7 @@ export function ConfigDialog({ onClose }: Props) {
                 {runningNow ? 'Generando…' : 'Generar reporte'}
               </button>
               <p className="config-run-now-hint">
-                Genera el reporte de la semana <strong>ahora mismo</strong>, sin esperar al día programado. La semana a evaluar depende de si elegiste los últimos 7 días o la semana de calendario, así que guardá la configuración primero si la cambiaste.
+                Genera el reporte de la semana <strong>ahora mismo</strong>, sin esperar al día programado. La semana a evaluar depende de si elegiste los últimos 7 días o la semana de calendario, así que guarda la configuración primero si la cambiaste.
               </p>
               {runNowResult && <p className="config-run-now-ok">{runNowResult}</p>}
               {runNowError && <p className="config-error">{runNowError}</p>}
