@@ -26,9 +26,10 @@ Lo hecho hasta ahora se parte en cuatro bloques que no se parecen entre sí:
    que solo puede aportar FinZen (token, cuenta, tope) y probar contra la API
    real. Nada de esto se ha ejecutado nunca contra Meta de verdad: todo lo
    verificado hasta hoy es contra un simulador local.
-3. **La capa de lectura** — los cuatro skills de método que entregó Junior el
-   2026-08-20, adoptados con correcciones. Funcionan a medias hasta que sus
-   notas estén en el Cerebro.
+3. **La capa de lectura** — dos paquetes que entregó Junior el 2026-08-20: el
+   del tablero interno (4 skills) y el de redes sociales (5 skills), adoptados
+   con correcciones y renombres. Funcionan a medias hasta que sus notas estén en
+   el Cerebro, y los sociales además no tienen fuente de datos todavía.
 4. **El sistema de marca y contenidos** — 8 documentos que subió marketing el
    2026-08-18. Adoptados por un humano en los skills; Kaizen todavía NO los lee,
    por decisión del socio, hasta resolver un conflicto de cifras.
@@ -200,6 +201,81 @@ Además, de las cinco consultas que ejecutan, **`"experimentos activos FinZen"`
 no tiene nota que la responda**: ninguna de las tres lista experimentos vivos.
 `lectura-retencion-cohortes` §5 depende de eso para decidir si lee por brazo.
 
+### Segunda entrega, del mismo día (adoptada 2026-08-21)
+
+Junior mandó **dos paquetes fechados 2026-08-20**, y ninguno menciona al otro:
+
+| | Entrega A | Entrega B |
+|---|---|---|
+| Recibido en | `docs/recibido/2026-08-20-junior-metodo-de-lectura/` | `docs/recibido/2026-08-20-junior-metodo-y-conocimiento/` |
+| Responde a | *"tu pedido del 20 de agosto"* | *"Pasar tus agentes de análisis a Kaizen"* |
+| Dominio | el **tablero interno** de FinZen | el **sistema social** (IG/TikTok) |
+| Corte | por dominio | por oficio |
+| Contenido | 4 skills + 3 notas | 5 skills + 4 notas |
+
+**No compiten** (confirmado por el socio, 2026-08-21): A lee el tablero, B lee
+redes. Solo había dos choques reales, los dos resueltos:
+
+1. `lectura-kpis` (B) chocaba de nombre con `lectura-kpis-finzen` (A).
+2. La nota de rupturas está en las dos, con **las mismas 7 rupturas de
+   producto**; la de B agrega la capa social y las líneas base de redes.
+
+**B está mejor construida en un punto que importa:** aplica la separación
+instrucción/información con más rigor. Sus skills son método puro y toda cifra
+vive en las notas del Cerebro. A mezcla. Y esa diferencia arregla sola el
+problema de `lectura-retencion-cohortes`: B pone el mismo contenido en una nota
+(información que se cita) en vez de un skill (instrucción que no se puede
+ejecutar).
+
+**B también llena el hueco que A dejaba abierto:** su nota
+`decisiones-cerradas-no-relitigar` lista H9, H10, H11 y H13 con su estado, que
+es lo que `search_cerebro("experimentos activos")` no encontraba.
+
+#### Cómo se instalaron
+
+Renombrados para que el dominio sea explícito, porque lo que el modelo lee para
+elegir es la **descripción**, no el nombre del archivo:
+
+| De Junior | Instalado como |
+|---|---|
+| `lectura-kpis` | `lectura-kpis-social` |
+| `sanidad-datos` | `sanidad-datos-social` |
+| `umbrales-semaforo` | `umbrales-semaforo-social` |
+| `top-flop-hipotesis` | `top-flop-contenido` |
+| `lectura-experimentos` | *sin cambio* — lee evals de producto (H9, H13), no redes, y no choca con nada |
+
+Las cinco descripciones se reescribieron para declarar su fuente de datos y
+remitir a la contraparte (`lectura-kpis-social` → `lectura-kpis-finzen`,
+`sanidad-datos-social` → `verificar-comparabilidad`, `top-flop-contenido` →
+`diseno-experimentos`), con los punteros inversos puestos.
+
+#### 🔴 Los cuatro skills sociales no tienen fuente de datos
+
+**Ninguna tool de Kaizen trae números de Instagram o TikTok.** Salen de Windsor
+y del panel nativo; el propio mapa de Junior lo declara. Los cuatro llevan un
+bloque arriba diciéndolo, con la instrucción de decir que no hay acceso en vez
+de estimar. Es el mismo tratamiento que `lectura-retencion-cohortes`.
+
+Si en algún momento se le suma un feed social a Kaizen, los cuatro aplican tal
+cual — eso es lo que Junior dejó preparado.
+
+Los **umbrales sociales están PROPUESTOS y sin firmar** por el propio Junior
+(cita del 17-ago). Marcado en `umbrales-semaforo-social`.
+
+#### Hallazgos nuevos de B que cambian cosas
+
+- **H11 (broadcast a base dormida) está CERRADO NEGATIVO.** No estaba en ningún
+  lado. Importa porque el diagnóstico de marketing sugiere una campaña a los
+  2.527 dormidos: Kaizen estaría reproponiendo algo ya cerrado.
+- **FinZen es pre-PMF y "el modelo no monetiza" NO es afirmable**, porque solo
+  el 2,6% de los FREE llegó a ver el paywall. Guardarraíl contra una conclusión
+  fácil.
+- **Cifras vetadas**: el "89,93% usa Zenio" era inflado (real 6-9%), el "86-89%
+  de D1" era un bug de cálculo, y el "CAC $0,43" del panel es costo por registro,
+  no CAC.
+- **H10 corre al 100% sin brazo de control**, así que cualquier "lift" de su
+  panel es artefacto y no se cita.
+
 ### Pendiente con Junior
 
 1. La tabla de márgenes es para **una** tasa; el lift es una **diferencia** entre
@@ -212,6 +288,10 @@ no tiene nota que la responda**: ninguna de las tres lista experimentos vivos.
 4. En su nota de umbrales, **el MRR no reconcilia con la mezcla de planes**:
    $43.29 con 1 Plus ($4.99) y 4 Pro ($9.99) da $44.95. El ARPU sí cuadra con el
    MRR, así que los dos números concuerdan entre sí pero no con los planes.
+5. **Al Cerebro debe subir UNA sola nota de rupturas**, la de la entrega B: las
+   7 rupturas de producto están en las dos, y la de B agrega la capa social. Si
+   suben ambas, `search_cerebro("rupturas de serie")` devolverá dos archivos
+   parecidos y Kaizen citará el que gane en el ranking.
 
 ---
 

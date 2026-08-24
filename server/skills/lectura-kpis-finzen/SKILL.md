@@ -1,6 +1,6 @@
 ---
 name: lectura-kpis-finzen
-description: Úsalo cuando vayas a interpretar cualquier KPI agregado de FinZen (activación, MRR, churn, burn, break-even, DAU/MAU) antes de recomendar o proponer algo. Los KPIs de este tablero tienen trampas conocidas y varios significan algo distinto de lo que su nombre sugiere.
+description: Úsalo cuando vayas a interpretar cualquier KPI agregado de FinZen (activación, MRR, churn, burn, break-even, DAU/MAU) antes de recomendar o proponer algo. Los KPIs de este tablero tienen trampas conocidas y varios significan algo distinto de lo que su nombre sugiere. Para los KPIs de redes sociales (Instagram, TikTok), el skill es lectura-kpis-social.
 ---
 
 # Leer los KPIs de FinZen sin caer en las trampas del tablero
