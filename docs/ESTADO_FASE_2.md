@@ -403,6 +403,68 @@ sale en voseo.
 
 ---
 
+## Kaizen ya lee PDF, Word, Excel, PowerPoint y HTML (2026-08-25)
+
+Hasta hoy el indexador solo leía **Google Docs y `.md`/`.txt`**. Todo lo demás se
+contaba como "omitido" y quedaba invisible: los 8 documentos de marca (todos
+PDF), los CSV semanales de adquisición, y cualquier reporte que alguien subiera
+en otro formato.
+
+| Formato | Cómo se lee |
+|---|---|
+| Google Docs · **Sheets** · **Slides** | Exportación de Drive, sin librería. Las hojas van a CSV y no a texto plano: exportarlas a plano pega las columnas |
+| **PDF** | `unpdf` (pdf.js) |
+| **Word** `.docx` | `mammoth` |
+| **Excel** `.xlsx` | `exceljs` |
+| **PowerPoint** `.pptx` | ZIP + los `<a:t>` de OpenXML (`jszip`) |
+| **HTML** | Limpieza a texto propia |
+| CSV, TSV, JSON, YAML, XML, MD, TXT, LOG, SQL… | Descarga directa |
+
+### Tres decisiones
+
+**No se instaló `xlsx` (SheetJS).** La versión publicada en npm está congelada
+en 0.18.5 y arrastra una vulnerabilidad **alta** de prototype pollution
+(GHSA-4r6h-8v6p-xvw6, afecta a `<0.19.3`). Kaizen parsea archivos de una carpeta
+compartida, así que no es aceptable. Se usa `exceljs`, mantenido en npm.
+
+**Un archivo sin texto NUNCA se indexa vacío.** Un PDF escaneado devuelve cadena
+vacía sin lanzar error; guardarlo haría que la búsqueda lo devuelva, el modelo lo
+cite y no diga nada. Ahora lanza `SinTextoError` con el motivo y el indexador lo
+cuenta como **fallo visible**, distinto de "omitido": un `.png` omitido es
+normal, un PDF que se quiso leer y no dio texto es algo que alguien debe ver.
+
+*(Quinta aparición del mismo patrón en este proyecto.)*
+
+**El HTML se limpia antes de indexar.** Encontrado al probar con archivos reales:
+un reporte de 20 KB entraba con `<!DOCTYPE html>`, el CSS entero y las etiquetas,
+llenando el índice de nombres de clases CSS. Ese archivo pasó de 19.745
+caracteres de marcado a 14.068 de contenido.
+
+### Verificación (2026-08-25)
+
+22 chequeos con archivos sintéticos de cada formato, incluidos los que deben
+fallar: PDF escaneado, Excel vacío, `.png` (omitido, no error), `.doc` binario
+pre-2007 con instrucción de qué hacer, truncado a 200 KB con aviso. También que
+Excel traiga el **resultado** de una fórmula y no la fórmula, que conserve el
+nombre de cada hoja, y que PowerPoint ordene la diapositiva 2 antes que la 10.
+
+Además contra documentos reales: 2 PDF y 2 `.docx` de reportes, más los 2 HTML
+internos de FinZen. Todos extraen texto legible con tildes y ñ intactas.
+
+**Lo que NO se pudo probar:** el indexador contra el Cerebro real. Las
+credenciales de Drive del `.env` local apuntan a un proyecto con la API
+deshabilitada y el índice local tiene 0 documentos. La prueba real es en Railway:
+la corrida debe mostrar en Auditoría un desglose `por formato: google-doc=N
+pdf=N texto=N …`.
+
+> ⚠️ **Cuando esto llegue a Railway, los 8 PDF de marca entran al índice** (caben
+> de sobra en los 200 KB por documento). En ese momento el conflicto de cifras
+> entre el Diagnóstico de Activación y las notas de Junior deja de ser teórico:
+> Kaizen podrá citar los dos y dar CAC distintos. Conviene resolverlo antes o a
+> la vez.
+
+---
+
 ## 🚧 Bloqueado — lo que solo puede aportar FinZen
 
 | Qué | Por qué hace falta |

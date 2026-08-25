@@ -1,5 +1,6 @@
 import { db } from '../db';
 import { drive } from '../clients/drive';
+import type { Extraccion } from '../clients/documentos';
 import { audit } from '../services/audit';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -59,6 +60,9 @@ export async function runCerebroIndex(): Promise<CerebroIndexResult> {
     // búsquedas y nada en el resultado lo delataba). Se guardan los nombres para
     // poder decir CUÁL falló sin tener que ir a los logs del server.
     const fallidos: string[] = [];
+    // Con qué se extrajo cada documento (pdf, xlsx, google-sheet...). Va al
+    // resumen para poder ver de un vistazo si un formato nuevo está entrando.
+    const porVia: Record<string, number> = {};
 
     for (const entry of entries) {
       seenIds.add(entry.id);
@@ -69,21 +73,32 @@ export async function runCerebroIndex(): Promise<CerebroIndexResult> {
         continue;
       }
 
-      let text: string | null;
+      let extraccion: Extraccion | null;
       try {
-        text = await drive.fetchCerebroFileText(entry);
+        extraccion = await drive.fetchCerebroFileText(entry);
       } catch (err) {
+        // SinTextoError = el tipo SÍ se soporta pero el archivo no dio texto
+        // (PDF escaneado, Excel vacío). Cuenta como fallo VISIBLE, no como
+        // omitido: si se contara como omitido, un PDF escaneado se vería igual
+        // que un .png y nadie sabría que hay un documento que se quiso leer.
         const motivo = err instanceof Error ? err.message : String(err);
         console.warn(`[cerebro-index] No se pudo leer "${entry.path}/${entry.name}":`, motivo);
         fallidos.push(`${entry.name} (${motivo.slice(0, 120)})`);
         continue;
       }
-      if (text === null) {
+      if (extraccion === null) {
         omitted++;
-        console.warn(`[cerebro-index] "${entry.name}" (${entry.mimeType}) fuera de v1 (ej. PDF) — omitido.`);
+        console.warn(`[cerebro-index] "${entry.name}" (${entry.mimeType}) no es un tipo legible — omitido.`);
         continue;
       }
+      if (extraccion.aviso) {
+        console.warn(`[cerebro-index] "${entry.name}": ${extraccion.aviso}`);
+      }
+      porVia[extraccion.via] = (porVia[extraccion.via] ?? 0) + 1;
 
+      const text = extraccion.aviso ? `${extraccion.texto}
+
+[${extraccion.aviso}]` : extraccion.texto;
       const data = { name: entry.name, path: entry.path, mimeType: entry.mimeType, text, modifiedTime: entry.modifiedTime, indexedAt: new Date() };
       await db.cerebroDoc.upsert({ where: { id: entry.id }, create: { id: entry.id, ...data }, update: data });
       updated++;
@@ -99,8 +114,11 @@ export async function runCerebroIndex(): Promise<CerebroIndexResult> {
     const durationMs = Date.now() - startedAt;
     console.log(
       `[cerebro-index] listo en ${durationMs}ms — ${updated} actualizados, ${unchanged} sin cambios, ` +
-        `${omitted} omitidos (tipo no soportado), ${staleIds.length} borrados, ${fallidos.length} fallidos.`,
+        `${omitted} omitidos (tipo no legible), ${staleIds.length} borrados, ${fallidos.length} fallidos.`,
     );
+    if (Object.keys(porVia).length) {
+      console.log('[cerebro-index] por formato:', Object.entries(porVia).map(([v, n]) => `${v}=${n}`).join(' · '));
+    }
     // Chequeo de cuadre: si los contadores no suman lo que Drive listó, hay un
     // camino que no está contando y volveríamos a tener archivos invisibles.
     const contados = updated + unchanged + omitted + fallidos.length;
@@ -115,7 +133,9 @@ export async function runCerebroIndex(): Promise<CerebroIndexResult> {
     await audit.log({
       actor: 'cron',
       action: 'cerebro-index:done',
-      resultSummary: `${updated} actualizados, ${unchanged} sin cambios, ${omitted} omitidos, ${staleIds.length} borrados, ${fallidos.length} fallidos`,
+      resultSummary:
+        `${updated} actualizados, ${unchanged} sin cambios, ${omitted} omitidos, ${staleIds.length} borrados, ${fallidos.length} fallidos` +
+        (Object.keys(porVia).length ? ` · ${Object.entries(porVia).map(([v, n]) => `${v}=${n}`).join(' ')}` : ''),
       isError: fallidos.length > 0,
       durationMs,
     });

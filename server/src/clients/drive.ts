@@ -1,5 +1,6 @@
 import { google, drive_v3 } from 'googleapis';
 import { config } from '../config';
+import { extraerTexto, SinTextoError, type Extraccion } from './documentos';
 import { todayInRD } from '../util/fecha';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -133,7 +134,18 @@ async function conErrorDeEscrituraClaro<T>(operacion: () => Promise<T>): Promise
 
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 const DOC_MIME = 'application/vnd.google-apps.document';
+const SHEET_MIME = 'application/vnd.google-apps.spreadsheet';
+const SLIDES_MIME = 'application/vnd.google-apps.presentation';
 const MAX_DOC_CHARS = 200_000; // ~200KB por doc (DISENO §9)
+
+/** Tipos de Google que NO se descargan: se exportan a un formato de texto. */
+const EXPORTABLES: Record<string, { a: string; via: string }> = {
+  [DOC_MIME]: { a: 'text/plain', via: 'google-doc' },
+  // CSV y no text/plain: exportar una hoja a texto plano pierde la separación
+  // de columnas y deja los números pegados.
+  [SHEET_MIME]: { a: 'text/csv', via: 'google-sheet' },
+  [SLIDES_MIME]: { a: 'text/plain', via: 'google-slides' },
+};
 
 export interface CerebroFileEntry {
   id: string;
@@ -167,17 +179,36 @@ async function listFolderRecursive(
   return entries;
 }
 
-/** Texto de un archivo del Cerebro, o null si el tipo no se indexa (PDFs — fuera de v1, DISENO §9). */
-async function fetchFileText(client: drive_v3.Drive, entry: CerebroFileEntry): Promise<string | null> {
-  if (entry.mimeType === DOC_MIME) {
-    const res = await client.files.export({ fileId: entry.id, mimeType: 'text/plain' }, { responseType: 'text' });
-    return String(res.data).slice(0, MAX_DOC_CHARS);
+/**
+ * Texto de un archivo del Cerebro.
+ *
+ * Devuelve `null` SOLO si el tipo no se puede leer (imágenes, video, binarios).
+ * Si el tipo SÍ está soportado pero no se pudo extraer texto —un PDF escaneado,
+ * un Excel vacío— LANZA SinTextoError, para que el indexador lo cuente como
+ * fallo visible en vez de guardar un documento en blanco que la búsqueda va a
+ * devolver y el modelo va a citar como si dijera algo.
+ *
+ * Los tipos nativos de Google se EXPORTAN (una llamada, sin librerías); todo lo
+ * demás se descarga en binario y lo parsea clients/documentos.ts.
+ */
+async function fetchFileText(client: drive_v3.Drive, entry: CerebroFileEntry): Promise<Extraccion | null> {
+  const exportable = EXPORTABLES[entry.mimeType];
+  if (exportable) {
+    const res = await client.files.export({ fileId: entry.id, mimeType: exportable.a }, { responseType: 'text' });
+    const texto = String(res.data).trim();
+    if (!texto) {
+      throw new SinTextoError(exportable.via, `"${entry.name}" está vacío en Drive.`);
+    }
+    return { texto: texto.slice(0, MAX_DOC_CHARS), via: exportable.via };
   }
-  if (entry.mimeType === 'text/plain' || entry.mimeType === 'text/markdown' || /\.(md|txt)$/i.test(entry.name)) {
-    const res = await client.files.get({ fileId: entry.id, alt: 'media' }, { responseType: 'text' });
-    return String(res.data).slice(0, MAX_DOC_CHARS);
-  }
-  return null;
+
+  // Cualquier otro tipo de Google (Forms, Sites, dibujos, atajos) no tiene
+  // exportación a texto que sirva.
+  if (entry.mimeType.startsWith('application/vnd.google-apps.')) return null;
+
+  const res = await client.files.get({ fileId: entry.id, alt: 'media' }, { responseType: 'arraybuffer' });
+  const datos = Buffer.from(res.data as ArrayBuffer);
+  return extraerTexto(datos, entry.mimeType, entry.name);
 }
 
 async function findSubfolderId(client: drive_v3.Drive, parentId: string, name: string): Promise<string | null> {
@@ -229,8 +260,12 @@ export const drive = {
     return listFolderRecursive(client, config.drive.cerebroFolderId, '');
   },
 
-  /** Texto plano de un archivo del Cerebro (Google Doc exportado, o .md/.txt descargado). null si no se indexa (ej. PDF). */
-  async fetchCerebroFileText(entry: CerebroFileEntry): Promise<string | null> {
+  /**
+   * Texto de un archivo del Cerebro, con la vía usada para extraerlo.
+   * `null` = tipo no soportado. Lanza SinTextoError si el tipo se soporta pero
+   * el archivo no dio texto (PDF escaneado, hoja vacía).
+   */
+  async fetchCerebroFileText(entry: CerebroFileEntry): Promise<Extraccion | null> {
     const client = driveClient();
     return fetchFileText(client, entry);
   },
