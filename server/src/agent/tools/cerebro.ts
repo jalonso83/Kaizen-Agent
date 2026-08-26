@@ -22,6 +22,29 @@ interface CerebroRow {
   name: string;
   path: string;
   text: string;
+  /** Fecha de modificación en Drive (ISO). Lo que permite distinguir dos fuentes que se contradicen. */
+  modifiedTime: string;
+}
+
+/**
+ * Aviso que viaja CON el resultado, no solo en el system prompt (mismo patrón
+ * que kpis.ts). El caso real que lo motiva: el Diagnóstico de Activación (jul)
+ * dice CAC $79 y las notas de umbrales (ago) dicen $142.88. Los dos son
+ * correctos en su ventana, pero sin la fecha al lado el modelo elegía el que
+ * ganara en el ranking y nadie sabía cuál había usado.
+ */
+const FECHAS_NOTE =
+  'OJO: los documentos del Cerebro cubren VENTANAS DE TIEMPO DISTINTAS y algunos se contradicen entre sí por eso. ' +
+  'Cada resultado trae "fecha" (cuándo se modificó el archivo en Drive, NO necesariamente el período que cubren sus datos). ' +
+  'Al citar cualquier cifra del negocio que salga de acá, di SIEMPRE de qué documento sale y de cuándo es. ' +
+  'Si dos documentos dan números distintos para lo mismo, NO elijas uno: reporta ambos con su fecha y di que discrepan — ' +
+  'lo más probable es que midan ventanas distintas, y eso es información, no un error.';
+
+/** "24 de julio de 2026" — el modelo cita fechas, no timestamps. */
+function fechaLegible(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 /** Fragmento de ~1500 chars centrado en la primera palabra de la query que aparece en el texto. */
@@ -44,10 +67,11 @@ function extractFragment(text: string, query: string): string {
 export const searchCerebroTool: KaizenTool = {
   name: 'search_cerebro',
   description:
-    'Busca en el Cerebro de FinZen (Drive: marca, decisiones, análisis) por palabras clave. Devuelve hasta 5 documentos con un fragmento relevante y su nombre/ruta como fuente. ' +
+    'Busca en el Cerebro de FinZen (Drive: marca, decisiones, análisis) por palabras clave. Devuelve hasta 5 documentos con un fragmento relevante, su nombre/ruta como fuente y la FECHA del documento. ' +
+    'Los documentos del Cerebro cubren ventanas de tiempo distintas y algunos se contradicen: al citar una cifra de acá, di siempre de qué documento sale y de cuándo es. ' +
     'Úsala SIEMPRE antes de redactar el mensaje de una campaña o contenido (para el tono de marca) y ante preguntas sobre decisiones o contexto del negocio que no salen de los KPIs. ' +
     'Es una búsqueda por palabras clave, no una lista completa: si los resultados no tienen que ver con lo que buscabas, significa que la consulta no dio en el blanco, NO que el documento no exista. ' +
-    'Reformulá con otros términos (más específicos, o el nombre del archivo) antes de afirmarle al socio que algo no está en el Cerebro.',
+    'Reformula con otros términos (más específicos, o el nombre del archivo) antes de afirmarle al socio que algo no está en el Cerebro.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -72,7 +96,7 @@ export const searchCerebroTool: KaizenTool = {
     // la columna tsv — si el índice normaliza acentos y la consulta no, buscar
     // "activación" no encuentra un documento que dice "activacion".
     const rows = await db.$queryRaw<CerebroRow[]>`
-      SELECT name, path, text
+      SELECT name, path, text, "modifiedTime"
       FROM "CerebroDoc"
       WHERE tsv @@ plainto_tsquery('es_kaizen', ${query})
       ORDER BY ts_rank(tsv, plainto_tsquery('es_kaizen', ${query}), 1) DESC
@@ -86,7 +110,7 @@ export const searchCerebroTool: KaizenTool = {
     if (rows.length < MAX_RESULTS) {
       const yaEsta = new Set(rows.map((r) => `${r.path}/${r.name}`));
       const extra = await db.$queryRaw<CerebroRow[]>`
-        SELECT name, path, text
+        SELECT name, path, text, "modifiedTime"
         FROM "CerebroDoc"
         WHERE name ILIKE ${`%${query}%`} OR text ILIKE ${`%${query}%`}
         LIMIT ${MAX_RESULTS}
@@ -101,8 +125,13 @@ export const searchCerebroTool: KaizenTool = {
       return JSON.stringify({ results: [], note: 'Sin coincidencias. Prueba palabras clave más generales.' });
     }
 
-    const results = rows.map((r) => ({ name: r.name, path: r.path, fragment: extractFragment(r.text, query) }));
-    return JSON.stringify({ results });
+    const results = rows.map((r) => ({
+      name: r.name,
+      path: r.path,
+      fecha: fechaLegible(r.modifiedTime),
+      fragment: extractFragment(r.text, query),
+    }));
+    return [FECHAS_NOTE, JSON.stringify({ results })].join('\n');
   },
 };
 

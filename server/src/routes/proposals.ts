@@ -67,7 +67,12 @@ router.post('/:id/confirm', asyncRoute(async (req, res) => {
   };
 
   const heartbeat = setInterval(() => res.write(': ping\n\n'), 15_000);
-  req.on('close', () => clearInterval(heartbeat));
+  // OJO con el evento: se escucha `res`, NO `req`. En Node moderno el 'close'
+  // de la PETICIÓN se emite cuando se termina de LEER el cuerpo —medido: a los
+  // 2 ms— y no cuando el cliente se va. Colgado de `req`, este heartbeat se
+  // cancelaba antes del primer latido y NUNCA funcionó (bug encontrado
+  // 2026-08-26). El 'close' de la RESPUESTA sí es el cliente desconectándose.
+  res.on('close', () => clearInterval(heartbeat));
 
   // Mensaje user sintético (§7) — el agente lo ve como si el socio lo hubiera
   // escrito, y sabe exactamente qué tool le toca llamar.

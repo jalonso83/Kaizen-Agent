@@ -11,6 +11,7 @@ import {
   buildHistory,
   persistUserText,
   persistAssistantMessage,
+  persistAssistantText,
   persistToolResultMessage,
 } from './history';
 
@@ -71,6 +72,14 @@ export async function runAgentTurn(
   conversationId: string,
   userText: string | null,
   sse?: SseWriter,
+  /**
+   * Corta la corrida cuando el socio pulsa Detener (o cierra la pestaña).
+   * routes/chat.ts lo dispara desde el `close` de la conexión: abortar el fetch
+   * del navegador cierra el HTTP, eso dispara el close, y eso corta el turno.
+   * Sin esto el agente seguía llamando a Anthropic y ejecutando tools con nadie
+   * mirando — gastando tokens y pudiendo dejar una tarjeta que ya no se quería.
+   */
+  signal?: AbortSignal,
 ): Promise<void> {
   // (1) commit del mensaje del socio SIEMPRE, incluso si Kaizen no puede
   // responder (kill switch / sin key) — antes esto pasaba después de los
@@ -98,6 +107,10 @@ export async function runAgentTurn(
     return;
   }
 
+  // Fuera del try a propósito: el catch de la interrupción lo necesita para
+  // poder guardar lo que Kaizen alcanzó a escribir.
+  let fragmento = '';
+
   try {
     const messages = await buildHistory(conversationId);
     const baseLen = messages.length;
@@ -119,13 +132,14 @@ export async function runAgentTurn(
       messages,
       stream: true,
       max_iterations: 12, // tope duro contra runaway loops (un flujo típico usa 3-5).
-    });
+    }, { signal });
 
     for await (const messageStream of runner) {
       for await (const ev of messageStream) {
         if (ev.type === 'content_block_start') {
           if (ev.content_block.type === 'thinking') sse?.send('thinking', { active: true });
         } else if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
+          fragmento += ev.delta.text;
           sse?.send('text_delta', { text: ev.delta.text });
         }
       }
@@ -140,6 +154,9 @@ export async function runAgentTurn(
       // real, 2026-08-07). Persistir aquí garantiza que el createdAt del
       // mensaje quede sellado antes de que la tool corra.
       await persistAssistantMessage(conversationId, finalMessage);
+      // La ronda quedó guardada entera: el fragmento acumulado ya no hace falta
+      // y no debe volver a escribirse si se interrumpe la ronda siguiente.
+      fragmento = '';
       handleStopReason(finalMessage, sse);
     }
 
@@ -154,6 +171,28 @@ export async function runAgentTurn(
 
     sse?.send('done', {});
   } catch (err) {
+    // INTERRUMPIDO por el socio: no es un error del sistema. Se guarda lo que
+    // Kaizen alcanzó a escribir —si cortaste porque ya viste lo que
+    // necesitabas, perder media respuesta útil es molesto— marcado para que
+    // tanto el socio como el propio modelo sepan que quedó a medias.
+    //
+    // Si el corte cae en medio de un tool_use ya persistido, el historial NO
+    // queda corrupto: la recuperación de tool_use huérfanos (history.ts) le
+    // inserta el tool_result sintético en el próximo turno.
+    if (signal?.aborted) {
+      if (fragmento.trim()) {
+        await persistAssistantText(conversationId, `${fragmento.trimEnd()}\n\n_(respuesta interrumpida)_`);
+      }
+      await audit.log({
+        conversationId,
+        actor: 'partner',
+        action: 'run:aborted',
+        resultSummary: fragmento.trim() ? `interrumpida con ${fragmento.length} caracteres escritos` : 'interrumpida antes de escribir nada',
+      });
+      sse?.send('done', {});
+      return;
+    }
+
     const message = err instanceof Error ? err.message : String(err);
     await audit.log({
       conversationId,

@@ -30,12 +30,19 @@ export function useAgentStream(conversationId: string | null, onDone: () => void
   const [state, setState] = useState<StreamState>(initialState);
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
+  // Abortar este fetch cierra la conexión HTTP, y eso corta la corrida del lado
+  // del server (routes/chat.ts escucha el `close`). Es un solo mecanismo: no
+  // hace falta un endpoint de "detener".
+  const abortRef = useRef<AbortController | null>(null);
 
   // Núcleo compartido: consume el SSE de CUALQUIER endpoint que dispare un
   // turno del agente (mensaje normal o la corrida que confirma una propuesta,
   // routes/proposals.ts) — mismo protocolo de eventos en ambos casos.
   const runStream = useCallback(async (url: string, body: Record<string, unknown>) => {
     setState({ isStreaming: true, liveText: '', toolStatus: null, error: null });
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     let res: Response;
     try {
@@ -44,8 +51,15 @@ export function useAgentStream(conversationId: string | null, onDone: () => void
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
     } catch {
+      // Abortar rechaza el fetch: no es un fallo de conexión.
+      if (controller.signal.aborted) {
+        setState(initialState);
+        onDoneRef.current();
+        return;
+      }
       setState((s) => ({ ...s, isStreaming: false, error: 'No se pudo conectar con Kaizen.' }));
       onDoneRef.current(); // el padre reconcilia (p.ej. saca el mensaje optimista)
       return;
@@ -63,9 +77,23 @@ export function useAgentStream(conversationId: string | null, onDone: () => void
     let buffer = '';
 
     while (true) {
-      const { done, value } = await reader.read();
+      let done: boolean;
+      let value: Uint8Array | undefined;
+      try {
+        ({ done, value } = await reader.read());
+      } catch {
+        // El abort hace que read() rechace a mitad del stream. Se sale del
+        // bucle SIN marcar error: el server ya guardó lo que Kaizen alcanzó a
+        // escribir, y onDone() recarga el historial con ese fragmento.
+        if (controller.signal.aborted) break;
+        // Cualquier otro corte (se cayó la red, Railway cortó) sí es un error,
+        // pero tampoco se lanza: hay que salir por abajo para que isStreaming
+        // vuelva a false, o el compositor queda bloqueado para siempre.
+        setState((s) => ({ ...s, error: 'Se cortó la conexión con Kaizen.' }));
+        break;
+      }
       if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      buffer += decoder.decode(value!, { stream: true });
 
       const chunks = buffer.split('\n\n');
       buffer = chunks.pop() ?? '';
@@ -141,5 +169,8 @@ export function useAgentStream(conversationId: string | null, onDone: () => void
   // sin esto la barra roja se quedaba hasta recargar la página.
   const clearError = useCallback(() => setState((s) => ({ ...s, error: null })), []);
 
-  return { ...state, sendMessage, confirmProposal, editMessage, retryMessage, clearError };
+  /** Detener: corta el fetch, y con él la corrida del server. */
+  const stop = useCallback(() => abortRef.current?.abort(), []);
+
+  return { ...state, sendMessage, confirmProposal, editMessage, retryMessage, clearError, stop };
 }

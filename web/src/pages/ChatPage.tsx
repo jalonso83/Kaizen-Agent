@@ -352,7 +352,7 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
               onConfirmGoal={handleConfirmGoal}
               onRejectGoal={handleRejectGoal}
             />
-            <AgentStatusBar toolLabel={stream.toolStatus?.label ?? null} isStreaming={stream.isStreaming} />
+            <AgentStatusBar toolLabel={stream.toolStatus?.label ?? null} isStreaming={stream.isStreaming} onStop={stream.stop} />
             <Composer disabled={stream.isStreaming} onSend={handleSend} />
           </>
         ) : (

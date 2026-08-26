@@ -465,6 +465,69 @@ pdf=N texto=N …`.
 
 ---
 
+## Botón Detener, y el heartbeat que nunca funcionó (2026-08-26)
+
+No había forma de interrumpir a Kaizen a mitad de una respuesta.
+
+**No era solo un botón.** El backend solo escuchaba el cierre de conexión para
+apagar el heartbeat; la corrida seguía viva. Un botón puesto solo en la UI
+habría dejado al agente gastando tokens, capaz de dejar una tarjeta de propuesta
+que ya no se quería, y con la conversación bloqueada — el siguiente mensaje
+habría dado 409.
+
+**Cómo quedó:** el navegador aborta su `fetch`, eso cierra la conexión HTTP, y
+eso dispara el `close` que corta la corrida de verdad. Un solo mecanismo, sin
+endpoint nuevo. El SDK ya lo soporta: `toolRunner` acepta un `signal`.
+
+**Se guarda el fragmento** (decisión del socio): lo que Kaizen alcanzó a
+escribir se persiste marcado como `_(respuesta interrumpida)_`, con
+`stopReason: 'aborted'`. Si cortaste porque ya viste lo que necesitabas, perder
+media respuesta útil es molesto. Queda auditado como `run:aborted`, **no** como
+error — interrumpir no es un fallo.
+
+### 🔴 El bug que apareció de paso: `req.on('close')` no es lo que parece
+
+Probando la interrupción, el mock que escribí para simular a Anthropic dejó de
+emitir eventos por su cuenta. Medido con una sonda:
+
+```
+req 'close'  a los +2 ms      ← cuando termina de LEERSE el cuerpo
+res 'close'  a los +1869 ms   ← cuando el cliente se desconecta de verdad
+```
+
+En Node moderno el `'close'` de la **petición** se emite al terminar de leer el
+cuerpo, no cuando el cliente se va. Y `routes/chat.ts` y `routes/proposals.ts`
+colgaban el heartbeat de ahí:
+
+```js
+const heartbeat = setInterval(() => res.write(': ping\n\n'), 15_000);
+req.on('close', () => clearInterval(heartbeat));   // se limpia a los 2 ms
+```
+
+**El heartbeat se cancelaba antes del primer latido: nunca funcionó, desde Fase
+1.** Su razón de ser es que Railway corta conexiones ociosas, así que una
+corrida larga —con thinking y varias tools, fácil más de 15 s sin escribir
+nada— podía estar perdiéndose ahí sin que nadie lo relacionara.
+
+Y de rebote: el abort nuevo, colgado del mismo evento, habría abortado **todas**
+las corridas a los 2 ms. Se descubrió solo porque la prueba falló.
+
+Arreglado en los dos archivos cambiando a `res.on('close')`.
+
+### Verificación (2026-08-26)
+
+12 chequeos contra un stream real, con un simulador local de la API de Anthropic
+que responde despacio para poder cortarlo a mitad: el fragmento se guarda con su
+marca y su `stopReason`, la respuesta completa NO se guarda, queda `run:aborted`
+sin `isError`, no se registra ningún `run:error`, y el lock se suelta (el
+siguiente mensaje da 200 y no 409).
+
+Y en el navegador: el botón aparece junto a *"Kaizen está pensando…"*, al
+pulsarlo el chat queda con el texto parcial más *"(respuesta interrumpida)"*, la
+barra desaparece, el compositor se libera y no sale banner de error.
+
+---
+
 ## 🚧 Bloqueado — lo que solo puede aportar FinZen
 
 | Qué | Por qué hace falta |

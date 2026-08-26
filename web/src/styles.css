@@ -427,6 +427,16 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 @media (prefers-reduced-motion: reduce) { .status-bar-dot { animation: none; } }
 @keyframes pulse { 50% { opacity: 0.35; } }
 
+/* El texto empuja el botón al borde: Detener queda siempre en el mismo lugar,
+   no bailando según lo largo que sea el nombre de la tool en curso. */
+.status-bar-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-bar-stop {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  background: none; border: 1px solid var(--border); border-radius: 20px;
+  padding: 3px 11px 3px 9px; font-size: 12.5px; color: var(--text-secondary);
+}
+.status-bar-stop:hover { border-color: var(--danger); color: var(--danger); }
+
 /* ---------- composer ---------- */
 .composer {
   display: flex; gap: 10px; align-items: flex-end;

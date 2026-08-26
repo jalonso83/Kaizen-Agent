@@ -36,6 +36,24 @@ export async function persistUserText(conversationId: string, text: string): Pro
   });
 }
 
+/**
+ * Guarda como mensaje del assistant el TEXTO que Kaizen alcanzó a escribir
+ * antes de que el socio interrumpiera la corrida (runner.ts). No pasa por
+ * persistAssistantMessage porque no hay un BetaMessage completo del que sacar
+ * los bloques: solo hay el texto acumulado de los deltas.
+ */
+export async function persistAssistantText(conversationId: string, text: string): Promise<void> {
+  await db.message.create({
+    data: {
+      conversationId,
+      seq: await nextSeq(conversationId),
+      role: 'assistant',
+      content: [{ type: 'text', text }] as object,
+      stopReason: 'aborted',
+    },
+  });
+}
+
 /** Reconstruye [{role, content}] válido para la API, con recovery de tool_use huérfanos. */
 export async function buildHistory(conversationId: string): Promise<BetaMessageParam[]> {
   const rows = await db.message.findMany({

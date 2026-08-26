@@ -173,14 +173,33 @@ async function streamAgentTurn(req: Request, res: Response, conversationId: stri
   };
 
   // Railway corta conexiones ociosas — heartbeat cada 15s (§3).
+  // OJO con el evento: se escucha `res`, NO `req`. En Node moderno el 'close'
+  // de la PETICIÓN se emite cuando se termina de LEER el cuerpo —medido: a los
+  // 2 ms— y no cuando el cliente se va. Colgado de `req`, este heartbeat se
+  // cancelaba antes del primer latido y NUNCA funcionó (bug encontrado
+  // 2026-08-26). El 'close' de la RESPUESTA sí es el cliente desconectándose.
   const heartbeat = setInterval(() => res.write(': ping\n\n'), 15_000);
-  req.on('close', () => clearInterval(heartbeat));
+  // Botón Detener: el navegador aborta su fetch, eso cierra la conexión HTTP y
+  // dispara este `close`, que corta la corrida de verdad. Sin el abort, cerrar
+  // la pestaña dejaba al agente llamando a Anthropic y ejecutando tools con
+  // nadie mirando, y la conversación bloqueada hasta que terminara sola.
+  //
+  // `terminado` evita abortar en el cierre NORMAL: al terminar bien también se
+  // cierra la conexión, y sin esta guarda quedaría una fila `run:aborted` falsa
+  // en el audit log de cada turno.
+  const abort = new AbortController();
+  let terminado = false;
+  res.on('close', () => {
+    clearInterval(heartbeat);
+    if (!terminado) abort.abort();
+  });
 
   runningConversations.add(conversationId);
   try {
     await db.conversation.update({ where: { id: conversationId }, data: { updatedAt: new Date() } });
-    await runAgentTurn(conversationId, userText, sse);
+    await runAgentTurn(conversationId, userText, sse, abort.signal);
   } finally {
+    terminado = true;
     runningConversations.delete(conversationId);
     clearInterval(heartbeat);
     res.end();
