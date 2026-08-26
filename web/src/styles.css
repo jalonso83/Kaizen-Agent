@@ -427,22 +427,38 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 @media (prefers-reduced-motion: reduce) { .status-bar-dot { animation: none; } }
 @keyframes pulse { 50% { opacity: 0.35; } }
 
-/* El texto empuja el botón al borde: Detener queda siempre en el mismo lugar,
-   no bailando según lo largo que sea el nombre de la tool en curso. */
-.status-bar-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.status-bar-stop {
-  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
-  background: none; border: 1px solid var(--border); border-radius: 20px;
-  padding: 3px 11px 3px 9px; font-size: 12.5px; color: var(--text-secondary);
-}
-.status-bar-stop:hover { border-color: var(--danger); color: var(--danger); }
+
 
 /* ---------- composer ---------- */
+/* Ahora es columna: arriba puede ir el aviso de "editando", abajo la fila con
+   el textarea y el botón. */
 .composer {
-  display: flex; gap: 10px; align-items: flex-end;
+  display: flex; flex-direction: column; gap: 8px;
   padding: 14px clamp(16px, 4vw, 60px) 18px;
   border-top: 1px solid var(--border);
 }
+.composer-fila { display: flex; gap: 10px; align-items: flex-end; }
+
+/* Editar un mensaje trae su texto a este mismo cuadro: hace falta decir que lo
+   que se va a enviar reemplaza a un mensaje viejo y no es uno nuevo. */
+.composer-editando {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12.5px; color: var(--amber);
+}
+.composer-editando button {
+  background: none; border: none; padding: 0;
+  color: var(--text-secondary); font-size: 12.5px; text-decoration: underline;
+}
+.composer-editando button:hover { color: var(--text-primary); }
+
+/* Detener OCUPA el lugar de Enviar mientras Kaizen responde: es donde el socio
+   ya tiene la mano, y evita dos botones que hacen cosas opuestas conviviendo. */
+.composer-stop {
+  display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
+  background: none; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 9px 15px; font-size: 14px; color: var(--text-secondary);
+}
+.composer-stop:hover { border-color: var(--danger); color: var(--danger); }
 .composer textarea {
   flex: 1; resize: none; border: 1px solid var(--border); border-radius: var(--radius);
   padding: 10px 13px; background: var(--surface); color: var(--text-primary);

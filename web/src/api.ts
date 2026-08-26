@@ -74,6 +74,16 @@ export const api = {
   deleteConversation: (conversationId: string) =>
     request<void>(`/api/conversations/${conversationId}`, { method: 'DELETE' }),
 
+  /**
+   * Detener la respuesta en curso. NO aborta el fetch del stream a propósito:
+   * el server necesita seguir con la conexión abierta para guardar lo que
+   * Kaizen alcanzó a escribir, mandar `done` y recién ahí cerrar. Si el cliente
+   * colgaba, recargaba el historial antes de que el fragmento estuviera guardado
+   * y el texto a medias desaparecía (bug real, 2026-08-26).
+   */
+  stopRun: (conversationId: string) =>
+    request<{ stopped: boolean }>(`/api/conversations/${conversationId}/stop`, { method: 'POST' }),
+
   getWeeklySummaryConfig: () => request<WeeklySummaryConfig>('/api/config/weekly-summary'),
 
   // Objeto y no 4 argumentos posicionales: son dos pares (qué semana / cuándo

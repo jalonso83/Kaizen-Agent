@@ -80,7 +80,7 @@ router.post('/:id/confirm', asyncRoute(async (req, res) => {
     `<evento_sistema>El socio confirmó la propuesta ${proposal.id} pulsando el botón. ` +
     'Procede a crear el borrador con create_campaign_draft.</evento_sistema>';
 
-  runningConversations.add(proposal.conversationId);
+  runningConversations.add(proposal.conversationId, new AbortController());
   try {
     await db.conversation.update({ where: { id: proposal.conversationId }, data: { updatedAt: new Date() } });
     await runAgentTurn(proposal.conversationId, syntheticText, sse);

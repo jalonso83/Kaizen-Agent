@@ -514,6 +514,34 @@ las corridas a los 2 ms. Se descubrió solo porque la prueba falló.
 
 Arreglado en los dos archivos cambiando a `res.on('close')`.
 
+### El fragmento desaparecía: era una carrera (corregido 2026-08-26)
+
+Probándolo con el modelo real, el texto a medias **se borraba entero** al
+interrumpir. La causa: abortar el fetch cerraba la conexión, el cliente
+limpiaba el texto en vivo y recargaba el historial **mientras el server todavía
+estaba guardando el fragmento**. La recarga no encontraba nada.
+
+En la prueba con el simulador ganaba el server por poco; con el modelo real, que
+tarda más en cerrar, gana el cliente.
+
+Se corrigió invirtiendo quién cuelga: **`POST /api/conversations/:id/stop`**. El
+stream sigue abierto, el server corta la corrida, guarda, manda `done` y recién
+ahí cierra. El cliente recarga sobre un historial que ya tiene el fragmento. El
+`AbortController` del navegador queda solo como red de seguridad para cuando se
+desmonta el componente.
+
+`runningConversations` pasó de `Set<string>` a un `Map<string, AbortController>`
+para que el endpoint pueda encontrar la corrida y cortarla desde otra petición.
+
+### Dos cambios de interfaz que vinieron con esto
+
+- **Detener reemplaza a Enviar** mientras Kaizen responde, en vez de vivir en la
+  barra de estado: es donde el socio ya tiene la mano, y evita dos botones que
+  hacen cosas opuestas conviviendo.
+- **Editar un mensaje baja el texto al compositor**, no a un cuadro dentro de la
+  burbuja. Se corrige donde se escribió, el botón pasa a decir *Guardar*, y
+  Escape cancela.
+
 ### Verificación (2026-08-26)
 
 12 chequeos contra un stream real, con un simulador local de la API de Anthropic

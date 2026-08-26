@@ -105,30 +105,21 @@ export function ChatView({
   onRejectGoal,
 }: Props) {
   const endRef = useRef<HTMLDivElement>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
   const [rewindTarget, setRewindTarget] = useState<string | null>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' });
   }, [messages.length, liveText]);
 
-  const startEdit = (message: StoredMessage) => {
-    setEditingId(message.id);
-    setEditText(plainText(message));
-  };
-  const cancelEdit = () => setEditingId(null);
-  const submitEdit = () => {
-    const text = editText.trim();
-    if (editingId && text) onEditMessage(editingId, text);
-    setEditingId(null);
-  };
+  // La edición NO vive acá: el texto vuelve al compositor de abajo, que es
+  // donde el socio lo escribió. ChatView solo avisa cuál se quiere editar.
+  const startEdit = (message: StoredMessage) => onEditMessage(message.id, plainText(message));
 
   if (messages.length === 0 && !isStreaming) {
     return (
       <div className="chat-empty">
-        <p>Empezá la conversación. Por ejemplo:</p>
-        <p className="chat-empty-example">&ldquo;Buscame la gente que tiene su presupuesto pasado&rdquo;</p>
+        <p>Empieza la conversación. Por ejemplo:</p>
+        <p className="chat-empty-example">&ldquo;Búscame la gente que tiene su presupuesto pasado&rdquo;</p>
       </div>
     );
   }
@@ -276,7 +267,6 @@ export function ChatView({
       {merged.map((item) => {
         if (!item.blocks) return item.node;
 
-        const isEditing = editingId === item.firstId;
         return (
           // Los botones van FUERA de la burbuja (hermanos, no hijos) para que no
           // ensucien el globo de texto; el grupo es quien detecta el hover.
@@ -284,26 +274,10 @@ export function ChatView({
             <div className={`bubble bubble-${item.role}`}>
               {item.role === 'assistant' && <span className="bubble-who">Kaizen</span>}
 
-              {isEditing ? (
-                <div className="bubble-edit">
-                  <textarea
-                    className="bubble-edit-input"
-                    value={editText}
-                    onChange={(e) => setEditText(e.target.value)}
-                    autoFocus
-                    rows={Math.min(10, Math.max(2, editText.split('\n').length))}
-                  />
-                  <div className="bubble-edit-actions">
-                    <button type="button" className="dialog-cancel" onClick={cancelEdit}>Cancelar</button>
-                    <button type="button" className="dialog-confirm" onClick={submitEdit} disabled={!editText.trim()}>Enviar</button>
-                  </div>
-                </div>
-              ) : (
-                item.blocks
-              )}
+              {item.blocks}
             </div>
 
-            {!isStreaming && !isEditing && (
+            {!isStreaming && (
               <span className="bubble-actions">
                 {item.role === 'user' && item.firstId && (
                   <button

@@ -30,9 +30,10 @@ export function useAgentStream(conversationId: string | null, onDone: () => void
   const [state, setState] = useState<StreamState>(initialState);
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
-  // Abortar este fetch cierra la conexión HTTP, y eso corta la corrida del lado
-  // del server (routes/chat.ts escucha el `close`). Es un solo mecanismo: no
-  // hace falta un endpoint de "detener".
+  // El botón Detener NO pasa por acá: llama a POST /:id/stop y el server cierra
+  // el stream después de guardar (ver api.stopRun). Este controller es solo la
+  // red de seguridad para cuando el componente se desmonta o se cambia de
+  // conversación con un turno a medias.
   const abortRef = useRef<AbortController | null>(null);
 
   // Núcleo compartido: consume el SSE de CUALQUIER endpoint que dispare un
@@ -169,8 +170,5 @@ export function useAgentStream(conversationId: string | null, onDone: () => void
   // sin esto la barra roja se quedaba hasta recargar la página.
   const clearError = useCallback(() => setState((s) => ({ ...s, error: null })), []);
 
-  /** Detener: corta el fetch, y con él la corrida del server. */
-  const stop = useCallback(() => abortRef.current?.abort(), []);
-
-  return { ...state, sendMessage, confirmProposal, editMessage, retryMessage, clearError, stop };
+  return { ...state, sendMessage, confirmProposal, editMessage, retryMessage, clearError };
 }

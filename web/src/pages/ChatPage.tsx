@@ -47,6 +47,9 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
   // Sección activa. Sin router (DISENO §10): son dos vistas dentro del mismo
   // layout, no dos rutas — el sidebar se queda donde está en ambas.
   const [view, setView] = useState<'chat' | 'metas' | 'audit'>('chat');
+  // Mensaje que se está editando. Vive acá y no en ChatView porque el cuadro
+  // donde se corrige es el compositor, que es hermano de ChatView.
+  const [editando, setEditando] = useState<{ id: string; texto: string } | null>(null);
 
   const refreshConversations = useCallback(async () => {
     const { conversations: list } = await api.listConversations();
@@ -124,6 +127,13 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
   // fila real de la BD y reemplaza esta lista entera, optimista incluido.
   const handleSend = useCallback(
     (text: string) => {
+      // Si veníamos editando, esto NO es un mensaje nuevo: handleEditMessage
+      // trunca el historial y pone su propio mensaje optimista, así que el de
+      // abajo duplicaría.
+      if (editando) {
+        handleEditMessage(editando.id, text);
+        return;
+      }
       setMessages((prev) => [
         ...prev,
         {
@@ -135,7 +145,8 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
       ]);
       stream.sendMessage(text);
     },
-    [stream.sendMessage],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [stream.sendMessage, editando],
   );
 
   const handleLogout = async () => {
@@ -211,10 +222,15 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
     }
   };
 
+  // "Editar" ya no manda nada: baja el texto al compositor para que el socio lo
+  // corrija donde lo escribió. El envío real ocurre en handleSend.
+  const empezarEdicion = (messageId: string, texto: string) => setEditando({ id: messageId, texto });
+
   // Editar/reintentar truncan localmente al instante (mismo espíritu que el
   // mensaje optimista de handleSend) — el turno real llega por SSE y
   // handleDone() recarga la versión real de la BD cuando termina.
   const handleEditMessage = (messageId: string, text: string) => {
+    setEditando(null);
     setMessages((prev) => {
       const idx = prev.findIndex((m) => m.id === messageId);
       const kept = idx === -1 ? prev : prev.slice(0, idx);
@@ -225,6 +241,11 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
     });
     setProposals((prev) => prev.filter((p) => p.status !== 'PROPOSED'));
     stream.editMessage(messageId, text);
+  };
+
+  /** Detener: se lo pide al server. El stream sigue abierto hasta que él cierre. */
+  const detener = () => {
+    if (activeId) api.stopRun(activeId).catch(() => setLoadError('No se pudo detener la respuesta.'));
   };
 
   const handleRetryMessage = (messageId: string) => {
@@ -346,18 +367,24 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
               isStreaming={stream.isStreaming}
               onConfirmProposal={handleConfirmProposal}
               onRejectProposal={handleRejectProposal}
-              onEditMessage={handleEditMessage}
+              onEditMessage={empezarEdicion}
               onRetryMessage={handleRetryMessage}
               onRewindMessage={handleRewindMessage}
               onConfirmGoal={handleConfirmGoal}
               onRejectGoal={handleRejectGoal}
             />
-            <AgentStatusBar toolLabel={stream.toolStatus?.label ?? null} isStreaming={stream.isStreaming} onStop={stream.stop} />
-            <Composer disabled={stream.isStreaming} onSend={handleSend} />
+            <AgentStatusBar toolLabel={stream.toolStatus?.label ?? null} isStreaming={stream.isStreaming} />
+            <Composer
+              isStreaming={stream.isStreaming}
+              onSend={handleSend}
+              onStop={detener}
+              editando={editando}
+              onCancelarEdicion={() => setEditando(null)}
+            />
           </>
         ) : (
           <div className="chat-empty">
-            <p>Creá una conversación para empezar.</p>
+            <p>Crea una conversación para empezar.</p>
           </div>
         ))}
       </main>

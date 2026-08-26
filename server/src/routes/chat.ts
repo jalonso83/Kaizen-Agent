@@ -127,6 +127,28 @@ router.delete('/:id', asyncRoute(async (req, res) => {
   res.status(204).end();
 }));
 
+/**
+ * Detener la respuesta en curso. NO es el cliente colgando la conexión: el
+ * stream sigue abierto, el server corta la corrida, GUARDA lo que Kaizen
+ * alcanzó a escribir, manda `done` y recién ahí cierra.
+ *
+ * Ese orden es el punto. Cuando el botón abortaba el fetch del navegador, el
+ * cliente recargaba el historial mientras el server todavía estaba guardando:
+ * la recarga no encontraba el fragmento y el texto a medias desaparecía de la
+ * pantalla (bug real, 2026-08-26).
+ */
+router.post('/:id/stop', asyncRoute(async (req, res) => {
+  const conversation = await loadOwnedConversation(req.params.id, req.partner!.id);
+  if (!conversation) {
+    res.status(404).json({ message: 'Conversación no encontrada.' });
+    return;
+  }
+  const cortada = runningConversations.stop(conversation.id);
+  // 200 aunque no hubiera nada que cortar: que el socio pulse Detener justo
+  // cuando el turno terminó solo no es un error suyo ni del sistema.
+  res.json({ stopped: cortada });
+}));
+
 router.get('/:id/messages', asyncRoute(async (req, res) => {
   const conversation = await loadOwnedConversation(req.params.id, req.partner!.id);
   if (!conversation) {
@@ -194,7 +216,7 @@ async function streamAgentTurn(req: Request, res: Response, conversationId: stri
     if (!terminado) abort.abort();
   });
 
-  runningConversations.add(conversationId);
+  runningConversations.add(conversationId, abort);
   try {
     await db.conversation.update({ where: { id: conversationId }, data: { updatedAt: new Date() } });
     await runAgentTurn(conversationId, userText, sse, abort.signal);
