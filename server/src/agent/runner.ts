@@ -134,7 +134,31 @@ export async function runAgentTurn(
       max_iterations: 12, // tope duro contra runaway loops (un flujo típico usa 3-5).
     }, { signal });
 
+    // Cuántos de runner.params.messages ya se guardaron. Sin este índice los
+    // tool_result se persistían TODOS al final del bucle, después de todos los
+    // assistant, así que una corrida de dos rondas quedaba en la BD como
+    // A1, A2, U1, U2 en vez de A1, U1, A2, U2 — y el historial del turno
+    // siguiente salía inválido: "tool_use ids were found without tool_result
+    // blocks" (bug real, 2026-08-27, verificado con dos rondas y sin ninguna
+    // interrupción de por medio).
+    let persistidos = baseLen;
+
+    /** Guarda los tool_result que el runner agregó desde la última vuelta. */
+    const persistirPendientes = async () => {
+      while (persistidos < runner.params.messages.length) {
+        const m = runner.params.messages[persistidos];
+        // Los assistant se guardan aparte, desde finalMessage (traen usage y
+        // stop_reason, que acá no están).
+        if (m.role === 'user') await persistToolResultMessage(conversationId, m.content);
+        persistidos++;
+      }
+    };
+
     for await (const messageStream of runner) {
+      // Al empezar esta ronda ya están los tool_result de la anterior: se
+      // guardan ANTES del assistant de esta, que es el orden real.
+      await persistirPendientes();
+
       for await (const ev of messageStream) {
         if (ev.type === 'content_block_start') {
           if (ev.content_block.type === 'thinking') sse?.send('thinking', { active: true });
@@ -160,14 +184,9 @@ export async function runAgentTurn(
       handleStopReason(finalMessage, sse);
     }
 
-    // Los tool_result ('user') que el runner generó entre rondas — los
-    // 'assistant' ya quedaron persistidos arriba, en orden correcto.
-    const newMessages = runner.params.messages.slice(baseLen);
-    for (const msg of newMessages) {
-      if (msg.role === 'user') {
-        await persistToolResultMessage(conversationId, msg.content);
-      }
-    }
+    // Los tool_result de la ÚLTIMA ronda: el bucle ya terminó, así que nadie
+    // más va a pasar por persistirPendientes().
+    await persistirPendientes();
 
     sse?.send('done', {});
   } catch (err) {

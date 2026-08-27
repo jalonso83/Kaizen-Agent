@@ -65,34 +65,82 @@ export async function buildHistory(conversationId: string): Promise<BetaMessageP
     content: r.content as ContentBlocks,
   }));
 
-  // Recovery (§5): si el último mensaje es un assistant con tool_use SIN su
-  // tool_result (crash a mitad de turno), insertar un user con tool_result
-  // sintético por cada tool_use huérfano. Se persiste para dejar la BD consistente.
-  const last = messages[messages.length - 1];
-  if (last && last.role === 'assistant' && Array.isArray(last.content)) {
-    const orphanIds = last.content
-      .filter((b): b is Anthropic.Beta.BetaToolUseBlockParam => (b as { type?: string }).type === 'tool_use')
-      .map((b) => b.id);
-    if (orphanIds.length > 0) {
-      const recovery: Anthropic.Beta.BetaToolResultBlockParam[] = orphanIds.map((id) => ({
-        type: 'tool_result',
-        tool_use_id: id,
-        is_error: true,
-        content: 'La ejecución anterior se interrumpió antes de completar esta herramienta.',
-      }));
-      await db.message.create({
-        data: {
-          conversationId,
-          seq: await nextSeq(conversationId),
-          role: 'user',
-          content: recovery as object,
-        },
-      });
-      messages.push({ role: 'user', content: recovery });
+  return repararHuerfanos(messages);
+}
+
+/** Los `tool_use` de un mensaje del assistant. Vacío si no es un assistant. */
+function toolUseIds(m: BetaMessageParam): string[] {
+  if (m.role !== 'assistant' || !Array.isArray(m.content)) return [];
+  return m.content
+    .filter((b): b is Anthropic.Beta.BetaToolUseBlockParam => (b as { type?: string }).type === 'tool_use')
+    .map((b) => b.id);
+}
+
+/** Los `tool_result` que trae un mensaje del usuario. */
+function toolResultIds(m: BetaMessageParam | undefined): Set<string> {
+  if (!m || m.role !== 'user' || !Array.isArray(m.content)) return new Set();
+  return new Set(
+    m.content
+      .filter((b): b is Anthropic.Beta.BetaToolResultBlockParam => (b as { type?: string }).type === 'tool_result')
+      .map((b) => b.tool_use_id),
+  );
+}
+
+/**
+ * Recovery (§5): todo `tool_use` necesita su `tool_result` en el mensaje
+ * INMEDIATAMENTE siguiente, o la API rechaza el historial entero.
+ *
+ * Se recorre TODO el historial y no solo el último mensaje. La versión anterior
+ * miraba `messages[length - 1]`, lo cual bastaba mientras un corte a mitad de
+ * turno dejara el assistant con tool_use al final. Desde que interrumpir guarda
+ * el fragmento de texto (runner.ts, 2026-08-26) eso dejó de ser cierto:
+ *
+ *     assistant → con tool_use, sin su tool_result
+ *     assistant → el fragmento guardado al interrumpir   ← el último ya no tiene tool_use
+ *
+ * La recuperación miraba el último, no veía tool_use, y el huérfano quedaba
+ * enterrado — la conversación se rompía para siempre con "tool_use ids were
+ * found without tool_result blocks" (bug real, 2026-08-27).
+ *
+ * La reparación es EN MEMORIA y no se persiste: insertar en medio exigiría
+ * renumerar `seq` de todo lo posterior, y la BD debe guardar lo que de verdad
+ * pasó. buildHistory es el único que lee estos bloques, así que reconstruir
+ * bien en cada turno alcanza — y es idempotente.
+ */
+export function repararHuerfanos(messages: BetaMessageParam[]): BetaMessageParam[] {
+  const salida: BetaMessageParam[] = [];
+
+  for (let i = 0; i < messages.length; i++) {
+    const actual = messages[i];
+    salida.push(actual);
+
+    const usados = toolUseIds(actual);
+    if (usados.length === 0) continue;
+
+    const resueltos = toolResultIds(messages[i + 1]);
+    const huerfanos = usados.filter((id) => !resueltos.has(id));
+    if (huerfanos.length === 0) continue;
+
+    // Si el siguiente mensaje resuelve SOLO algunos, los que faltan igual
+    // tienen que ir en ESE mismo mensaje, no en uno nuevo: la API exige que
+    // todos los tool_result estén en el mensaje inmediatamente posterior.
+    const sinteticos: Anthropic.Beta.BetaToolResultBlockParam[] = huerfanos.map((id) => ({
+      type: 'tool_result',
+      tool_use_id: id,
+      is_error: true,
+      content: 'La ejecución anterior se interrumpió antes de completar esta herramienta.',
+    }));
+
+    const siguiente = messages[i + 1];
+    if (siguiente && siguiente.role === 'user' && Array.isArray(siguiente.content)) {
+      salida.push({ role: 'user', content: [...sinteticos, ...siguiente.content] });
+      i++; // ya se consumió
+    } else {
+      salida.push({ role: 'user', content: sinteticos });
     }
   }
 
-  return messages;
+  return salida;
 }
 
 /** Persiste un mensaje del assistant (bloques crudos + usage + stop_reason). */

@@ -556,6 +556,78 @@ barra desaparece, el compositor se libera y no sale banner de error.
 
 ---
 
+## 🔴 El historial se corrompía con dos rondas de tools (2026-08-27)
+
+Reportado por el socio: al pedir campañas para usuarios dormidos, la auditoría
+mostró
+
+```
+petición inválida — messages.16: `tool_use` ids were found without
+`tool_result` blocks immediately after
+```
+
+**Son dos bugs distintos que llevan al mismo sitio.**
+
+### 1. El orden de persistencia (pre-existente, y el más grave)
+
+El runner guardaba los `assistant` DENTRO del bucle y los `tool_result` **todos
+juntos al terminar**. Con dos rondas, la BD quedaba así:
+
+```
+A1, A2, U1, U2      ← lo que se guardaba
+A1, U1, A2, U2      ← lo que de verdad pasó
+```
+
+La API exige que cada `tool_use` tenga su `tool_result` en el mensaje
+**inmediatamente** siguiente, así que **cualquier turno donde Kaizen usara tools
+en dos rondas dejaba la conversación rota para el turno siguiente**. No hacía
+falta interrumpir nada. Explorar segmentos —`list_segments`, `evaluate_segment`,
+`get_kpis`— es exactamente un flujo de varias rondas.
+
+Corregido persistiendo los `tool_result` de cada ronda al empezar la siguiente,
+con un índice sobre `runner.params.messages`.
+
+### 2. La recuperación de huérfanos solo miraba el último mensaje
+
+`buildHistory` revisaba `messages[length - 1]`. Eso bastaba mientras un corte a
+mitad de turno dejara al `assistant` con `tool_use` al final — pero desde que
+interrumpir guarda el fragmento de texto (2026-08-26), deja de ser cierto:
+
+```
+assistant → con tool_use, sin su tool_result
+assistant → el fragmento guardado al interrumpir   ← el último ya no tiene tool_use
+```
+
+La recuperación no veía nada y el huérfano quedaba enterrado. **Ese lo introduje
+yo**: el guardado del fragmento rompió la invariante en la que se apoyaba.
+
+Ahora se recorre TODO el historial. La reparación es **en memoria y no se
+persiste**: insertar en medio exigiría renumerar `seq` de todo lo posterior, y
+la BD debe guardar lo que de verdad pasó. Es idempotente, así que rehacerla en
+cada turno no cuesta nada.
+
+### Verificación
+
+Cinco casos, sin base de datos porque la lógica es pura:
+
+| Caso | Sin reparar | Reparado |
+|---|---|---|
+| Una ronda (lo normal) | válido | válido |
+| Dos rondas, orden viejo | **roto** | válido |
+| Interrupción con fragmento | **roto** | válido |
+| Dos rondas, orden nuevo | **válido** | válido |
+| Tools en paralelo, un solo resultado | **roto** | válido |
+
+**Lo que NO se pudo verificar:** el índice de `persistirPendientes` contra el
+crecimiento real de `runner.params.messages` — hace falta la BD y un modelo que
+llame tools. La reparación de huérfanos cubre el caso aunque ese índice estuviera
+mal contado, así que el fallo no puede volver a escaparse por ahí.
+
+**Las conversaciones ya rotas se arreglan solas** al desplegar: la reparación
+actúa en la reconstrucción, no en lo guardado.
+
+---
+
 ## 🚧 Bloqueado — lo que solo puede aportar FinZen
 
 | Qué | Por qué hace falta |
