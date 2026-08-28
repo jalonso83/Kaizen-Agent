@@ -87,20 +87,35 @@ function toolResultIds(m: BetaMessageParam | undefined): Set<string> {
 }
 
 /**
- * Recovery (§5): todo `tool_use` necesita su `tool_result` en el mensaje
- * INMEDIATAMENTE siguiente, o la API rechaza el historial entero.
+ * Recovery (§5). La API impone DOS reglas simétricas sobre el historial, y
+ * romper cualquiera de las dos lo rechaza entero:
  *
- * Se recorre TODO el historial y no solo el último mensaje. La versión anterior
- * miraba `messages[length - 1]`, lo cual bastaba mientras un corte a mitad de
- * turno dejara el assistant con tool_use al final. Desde que interrumpir guarda
- * el fragmento de texto (runner.ts, 2026-08-26) eso dejó de ser cierto:
+ *   1. Todo `tool_use` necesita su `tool_result` en el mensaje INMEDIATAMENTE
+ *      siguiente.  →  "tool_use ids were found without tool_result blocks"
+ *   2. Todo `tool_result` necesita su `tool_use` en el mensaje INMEDIATAMENTE
+ *      anterior.   →  "unexpected tool_use_id found in tool_result blocks"
  *
- *     assistant → con tool_use, sin su tool_result
- *     assistant → el fragmento guardado al interrumpir   ← el último ya no tiene tool_use
+ * Un historial puede llegar acá mal emparejado por dos vías: el orden de
+ * persistencia viejo (`A1, A2, U1, U2`, ver runner.ts) o una corrida
+ * interrumpida a mitad de una tool.
  *
- * La recuperación miraba el último, no veía tool_use, y el huérfano quedaba
- * enterrado — la conversación se rompía para siempre con "tool_use ids were
- * found without tool_result blocks" (bug real, 2026-08-27).
+ * POR QUÉ NO ALCANZA CON PARCHEAR DE A PARES: el primer intento (2026-08-27)
+ * recorría el historial insertando los `tool_result` que faltaban, y con el
+ * orden viejo emparejaba `A2` con `U1` — arrastrando el resultado de `A1`
+ * detrás de `A2`, donde su `tool_use` ya no estaba. Cambiaba el error 1 por el
+ * error 2. La lección: el emparejamiento hay que RECONSTRUIRLO, no remendarlo.
+ *
+ * Lo que hace esta versión:
+ *   - Junta TODOS los `tool_result` del historial en un índice por id, sin
+ *     importar en qué mensaje estaban.
+ *   - Vuelve a colocarlos: detrás de cada assistant con `tool_use` va un user
+ *     con el resultado REAL de cada id si existe, o uno sintético si no.
+ *   - Descarta los `tool_result` sueltos que no correspondan a ningún
+ *     `tool_use`, y el mensaje entero si no le queda nada más.
+ *
+ * Se conserva el resultado real cuando está: la tool llegó a correr y su dato
+ * sirve — reemplazarlo por "se interrumpió" tiraría a la basura los KPIs que
+ * Kaizen ya había traído.
  *
  * La reparación es EN MEMORIA y no se persiste: insertar en medio exigiría
  * renumerar `seq` de todo lo posterior, y la BD debe guardar lo que de verdad
@@ -108,36 +123,50 @@ function toolResultIds(m: BetaMessageParam | undefined): Set<string> {
  * bien en cada turno alcanza — y es idempotente.
  */
 export function repararHuerfanos(messages: BetaMessageParam[]): BetaMessageParam[] {
+  // Índice de todos los resultados disponibles, estén donde estén.
+  const resultados = new Map<string, Anthropic.Beta.BetaToolResultBlockParam>();
+  for (const m of messages) {
+    if (m.role !== 'user' || !Array.isArray(m.content)) continue;
+    for (const b of m.content) {
+      if ((b as { type?: string }).type === 'tool_result') {
+        const tr = b as Anthropic.Beta.BetaToolResultBlockParam;
+        resultados.set(tr.tool_use_id, tr);
+      }
+    }
+  }
+
   const salida: BetaMessageParam[] = [];
 
-  for (let i = 0; i < messages.length; i++) {
-    const actual = messages[i];
-    salida.push(actual);
+  for (const m of messages) {
+    const usados = toolUseIds(m);
 
-    const usados = toolUseIds(actual);
-    if (usados.length === 0) continue;
-
-    const resueltos = toolResultIds(messages[i + 1]);
-    const huerfanos = usados.filter((id) => !resueltos.has(id));
-    if (huerfanos.length === 0) continue;
-
-    // Si el siguiente mensaje resuelve SOLO algunos, los que faltan igual
-    // tienen que ir en ESE mismo mensaje, no en uno nuevo: la API exige que
-    // todos los tool_result estén en el mensaje inmediatamente posterior.
-    const sinteticos: Anthropic.Beta.BetaToolResultBlockParam[] = huerfanos.map((id) => ({
-      type: 'tool_result',
-      tool_use_id: id,
-      is_error: true,
-      content: 'La ejecución anterior se interrumpió antes de completar esta herramienta.',
-    }));
-
-    const siguiente = messages[i + 1];
-    if (siguiente && siguiente.role === 'user' && Array.isArray(siguiente.content)) {
-      salida.push({ role: 'user', content: [...sinteticos, ...siguiente.content] });
-      i++; // ya se consumió
-    } else {
-      salida.push({ role: 'user', content: sinteticos });
+    if (usados.length > 0) {
+      salida.push(m);
+      salida.push({
+        role: 'user',
+        content: usados.map(
+          (id): Anthropic.Beta.BetaToolResultBlockParam =>
+            resultados.get(id) ?? {
+              type: 'tool_result',
+              tool_use_id: id,
+              is_error: true,
+              content: 'La ejecución anterior se interrumpió antes de completar esta herramienta.',
+            },
+        ),
+      });
+      continue;
     }
+
+    // Mensajes del usuario: se les quitan los tool_result, que ya se
+    // recolocaron arriba. Si eran SOLO tool_result, el mensaje desaparece.
+    if (m.role === 'user' && Array.isArray(m.content)) {
+      const sinResultados = m.content.filter((b) => (b as { type?: string }).type !== 'tool_result');
+      if (sinResultados.length === 0) continue;
+      salida.push({ role: 'user', content: sinResultados });
+      continue;
+    }
+
+    salida.push(m);
   }
 
   return salida;

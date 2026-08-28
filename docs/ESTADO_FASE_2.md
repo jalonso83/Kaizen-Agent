@@ -606,17 +606,57 @@ persiste**: insertar en medio exigiría renumerar `seq` de todo lo posterior, y
 la BD debe guardar lo que de verdad pasó. Es idempotente, así que rehacerla en
 cada turno no cuesta nada.
 
+### 3. El arreglo anterior cambió un error por el otro
+
+Al redesplegar, el chat volvió a fallar — pero con el mensaje **espejo**:
+
+```
+petición inválida — messages.6.content.0: unexpected `tool_use_id` found in
+`tool_result` blocks: toolu_01PHYZLtdz5FqQtzbjq2YTkM
+```
+
+La API impone **dos reglas simétricas**, no una:
+
+1. Todo `tool_use` necesita su `tool_result` en el mensaje inmediatamente
+   **siguiente**.
+2. Todo `tool_result` necesita su `tool_use` en el mensaje inmediatamente
+   **anterior**.
+
+Mi reparación recorría el historial insertando lo que faltaba, de a pares. Con
+el orden viejo `A1, A2, U1, U2` emparejaba `A2` con `U1` y arrastraba el
+resultado de `A1` detrás de `A2`, donde su `tool_use` ya no estaba. Cumplía la
+regla 1 rompiendo la 2. **También fue mío.**
+
+La lección: el emparejamiento hay que **reconstruirlo**, no remendarlo. La
+versión definitiva junta todos los `tool_result` del historial en un índice por
+id, sin importar dónde estaban, y los recoloca detrás del `assistant` que los
+pidió — con el resultado **real** si existe (los KPIs que Kaizen ya trajo no se
+tiran a la basura) o uno sintético si no. Los `tool_result` sueltos que no
+corresponden a ningún `tool_use` se descartan.
+
 ### Verificación
 
-Cinco casos, sin base de datos porque la lógica es pura:
+Ocho casos de lógica pura, cada uno validado contra **las dos** reglas — el
+error anterior pasó justamente porque la prueba solo comprobaba una:
 
 | Caso | Sin reparar | Reparado |
 |---|---|---|
 | Una ronda (lo normal) | válido | válido |
-| Dos rondas, orden viejo | **roto** | válido |
+| Dos rondas, orden viejo | **roto (ambas reglas)** | válido |
 | Interrupción con fragmento | **roto** | válido |
-| Dos rondas, orden nuevo | **válido** | válido |
+| Dos rondas, orden nuevo | válido | válido |
 | Tools en paralelo, un solo resultado | **roto** | válido |
+| `tool_result` huérfano (el error que introduje) | **roto** | válido |
+| Texto y `tool_result` mezclados en un mensaje | válido | válido |
+| Idempotencia (reparar dos veces) | **roto** | válido |
+
+Además se comprueba en cada caso que no se pierdan los resultados reales de las
+tools ni el texto del socio.
+
+Contra la BD real (Docker arriba, 2026-08-27): se sembró una conversación con la
+forma exacta del fallo de Railway y se pasó por `buildHistory` de verdad.
+`A1, A2, U1, U2` sale reordenado a `A1, U1, A2, U2`, con `KPIS_REALES` y
+`CEREBRO_REAL` intactos. Datos de prueba borrados al terminar.
 
 **Lo que NO se pudo verificar:** el índice de `persistirPendientes` contra el
 crecimiento real de `runner.params.messages` — hace falta la BD y un modelo que
