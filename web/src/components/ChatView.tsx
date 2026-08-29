@@ -87,6 +87,9 @@ interface Props {
   onRewindMessage: (messageId: string) => void;
   onConfirmGoal: (goalId: string) => void;
   onRejectGoal: (goalId: string) => void;
+  /** Permisos del socio, para saber si las tarjetas se pueden decidir o solo leer. */
+  puedeConfirmarCampanas: boolean;
+  puedeConfirmarMetas: boolean;
 }
 
 export function ChatView({
@@ -103,6 +106,8 @@ export function ChatView({
   onRewindMessage,
   onConfirmGoal,
   onRejectGoal,
+  puedeConfirmarCampanas,
+  puedeConfirmarMetas,
 }: Props) {
   const endRef = useRef<HTMLDivElement>(null);
   const [rewindTarget, setRewindTarget] = useState<string | null>(null);
@@ -171,7 +176,15 @@ export function ChatView({
       kind: 'proposal',
       id: proposal.id,
       createdAt: proposal.createdAt,
-      node: <ProposalCard key={proposal.id} proposal={proposal} onConfirm={onConfirmProposal} onReject={onRejectProposal} />,
+      node: (
+        <ProposalCard
+          key={proposal.id}
+          proposal={proposal}
+          onConfirm={onConfirmProposal}
+          onReject={onRejectProposal}
+          puedeDecidir={puedeConfirmarCampanas}
+        />
+      ),
     })),
     ...goals.map((goal): ProposalEntry => ({
       kind: 'proposal',
@@ -184,6 +197,7 @@ export function ChatView({
           reemplaza={goal.replacesGoalId ? porId.get(goal.replacesGoalId) : undefined}
           onConfirm={onConfirmGoal}
           onReject={onRejectGoal}
+          puedeDecidir={puedeConfirmarMetas}
         />
       ),
     })),

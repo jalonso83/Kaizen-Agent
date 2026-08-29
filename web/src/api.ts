@@ -6,7 +6,10 @@ import type {
   Goal,
   Partner,
   Proposal,
+  RolInfo,
+  Rol,
   StoredMessage,
+  Usuario,
   WeeklySummaryConfig,
 } from './types';
 
@@ -47,6 +50,26 @@ export const api = {
   logout: () => request<{ ok: true }>('/api/auth/logout', { method: 'POST' }),
 
   me: () => request<Partner>('/api/auth/me'),
+
+  cambiarMiPassword: (actual: string, nueva: string) =>
+    request<{ ok: true }>('/api/auth/password', { method: 'POST', body: JSON.stringify({ actual, nueva }) }),
+
+  // ── Gestión de usuarios (solo rol ADMIN; el servidor lo verifica) ──
+  listarUsuarios: () => request<{ usuarios: Usuario[] }>('/api/users'),
+
+  listarRoles: () => request<{ roles: RolInfo[] }>('/api/users/roles'),
+
+  crearUsuario: (datos: { email: string; name: string; role: Rol; password: string }) =>
+    request<Usuario>('/api/users', { method: 'POST', body: JSON.stringify(datos) }),
+
+  actualizarUsuario: (id: string, cambios: { name?: string; role?: Rol }) =>
+    request<Usuario>(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(cambios) }),
+
+  cambiarHabilitado: (id: string, disabled: boolean) =>
+    request<Usuario>(`/api/users/${id}/disabled`, { method: 'POST', body: JSON.stringify({ disabled }) }),
+
+  restablecerPassword: (id: string, password: string) =>
+    request<{ ok: true }>(`/api/users/${id}/password`, { method: 'POST', body: JSON.stringify({ password }) }),
 
   listConversations: () => request<{ conversations: ConversationSummary[] }>('/api/conversations'),
 

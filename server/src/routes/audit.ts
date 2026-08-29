@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { requireAuth } from '../middleware/requireAuth';
+import { requireAuth, requirePermission } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { resumenMeta } from '../agent/tools/goals';
 
@@ -20,6 +20,7 @@ import { resumenMeta } from '../agent/tools/goals';
 
 const router = Router();
 router.use(requireAuth);
+router.use(requirePermission('auditoria:ver'));
 
 /** El `id` de AuditLog es BigInt y JSON.stringify explota con eso. */
 function serializable<T extends { id: bigint }>(row: T): Omit<T, 'id'> & { id: string } {

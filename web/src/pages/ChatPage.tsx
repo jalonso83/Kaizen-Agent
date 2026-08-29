@@ -9,7 +9,8 @@ import { AgentStatusBar } from '../components/AgentStatusBar';
 import { MenuIcon } from '../components/Icons';
 import { AuditPage } from './AuditPage';
 import { MetasPage } from './MetasPage';
-import type { ConversationSummary, Goal, Partner, Proposal, StoredMessage } from '../types';
+import { UsuariosPage } from './UsuariosPage';
+import type { ConversationSummary, Goal, Partner, Permiso, Proposal, StoredMessage } from '../types';
 
 interface Props {
   partner: Partner;
@@ -18,6 +19,18 @@ interface Props {
 
 // Calca server/prisma/schema.prisma → Conversation.title @default(...).
 const DEFAULT_CONVERSATION_TITLE = 'Nueva conversación';
+
+type Vista = 'chat' | 'metas' | 'audit' | 'usuarios';
+
+// Qué permiso hace falta para cada pestaña. Esconder una pestaña es cortesía:
+// el servidor niega igual con 403 si alguien llama la API a mano (ver
+// server/src/auth/permisos.ts). Acá solo se evita ofrecer puertas cerradas.
+const PESTANAS: Array<{ vista: Vista; label: string; permiso: Permiso }> = [
+  { vista: 'chat', label: 'Chat', permiso: 'chat' },
+  { vista: 'metas', label: 'Metas', permiso: 'metas:ver' },
+  { vista: 'audit', label: 'Auditoría', permiso: 'auditoria:ver' },
+  { vista: 'usuarios', label: 'Usuarios', permiso: 'usuarios:gestionar' },
+];
 
 /** Barra de error descartable. Antes no había forma de cerrarla: se quedaba
  *  hasta recargar la página, tapando el chat por un fallo ya superado. */
@@ -46,10 +59,19 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Sección activa. Sin router (DISENO §10): son dos vistas dentro del mismo
   // layout, no dos rutas — el sidebar se queda donde está en ambas.
-  const [view, setView] = useState<'chat' | 'metas' | 'audit'>('chat');
+  const [view, setView] = useState<Vista>('chat');
   // Mensaje que se está editando. Vive acá y no en ChatView porque el cuadro
   // donde se corrige es el compositor, que es hermano de ChatView.
   const [editando, setEditando] = useState<{ id: string; texto: string } | null>(null);
+
+  // Las pestañas que este socio puede ver, según su rol.
+  const pestanas = PESTANAS.filter((p) => partner.permisos.includes(p.permiso));
+  // Si la vista activa deja de estar permitida —por ejemplo porque un CEO/CTO
+  // le bajó el rol mientras tenía Auditoría abierta— se cae a la primera
+  // pestaña disponible en vez de quedarse en una pantalla que solo puede
+  // mostrar 403s.
+  const vistaValida = pestanas.some((p) => p.vista === view) ? view : (pestanas[0]?.vista ?? 'chat');
+  if (vistaValida !== view) setView(vistaValida);
 
   const refreshConversations = useCallback(async () => {
     const { conversations: list } = await api.listConversations();
@@ -318,36 +340,24 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
             <MenuIcon />
           </button>
           <nav className="app-tabs" aria-label="Secciones">
-            <button
-              type="button"
-              className={view === 'chat' ? 'app-tab is-active' : 'app-tab'}
-              onClick={() => setView('chat')}
-              aria-current={view === 'chat' ? 'page' : undefined}
-            >
-              Chat
-            </button>
-            <button
-              type="button"
-              className={view === 'metas' ? 'app-tab is-active' : 'app-tab'}
-              onClick={() => setView('metas')}
-              aria-current={view === 'metas' ? 'page' : undefined}
-            >
-              Metas
-            </button>
-            <button
-              type="button"
-              className={view === 'audit' ? 'app-tab is-active' : 'app-tab'}
-              onClick={() => setView('audit')}
-              aria-current={view === 'audit' ? 'page' : undefined}
-            >
-              Auditoría
-            </button>
+            {pestanas.map((p) => (
+              <button
+                key={p.vista}
+                type="button"
+                className={view === p.vista ? 'app-tab is-active' : 'app-tab'}
+                onClick={() => setView(p.vista)}
+                aria-current={view === p.vista ? 'page' : undefined}
+              >
+                {p.label}
+              </button>
+            ))}
           </nav>
           {view === 'chat' && <span className="chat-topbar-title">{activeTitle}</span>}
         </header>
 
         {view === 'metas' && <MetasPage />}
         {view === 'audit' && <AuditPage />}
+        {view === 'usuarios' && <UsuariosPage yo={partner} />}
 
         {view === 'chat' && loadError && (
           <BannerError mensaje={loadError} onClose={() => setLoadError(null)} />
@@ -372,6 +382,8 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
               onRewindMessage={handleRewindMessage}
               onConfirmGoal={handleConfirmGoal}
               onRejectGoal={handleRejectGoal}
+              puedeConfirmarCampanas={partner.permisos.includes('campanas:confirmar')}
+              puedeConfirmarMetas={partner.permisos.includes('metas:confirmar')}
             />
             <AgentStatusBar toolLabel={stream.toolStatus?.label ?? null} isStreaming={stream.isStreaming} />
             <Composer

@@ -32,9 +32,11 @@ interface Props {
   proposal: Proposal;
   onConfirm: (proposalId: string) => void;
   onReject: (proposalId: string) => void;
+  /** Permiso 'campanas:confirmar'. Sin él la tarjeta se ve, pero no se decide. */
+  puedeDecidir: boolean;
 }
 
-export function ProposalCard({ proposal, onConfirm, onReject }: Props) {
+export function ProposalCard({ proposal, onConfirm, onReject, puedeDecidir }: Props) {
   const { payload } = proposal;
   const pending = proposal.status === 'PROPOSED';
 
@@ -92,7 +94,11 @@ export function ProposalCard({ proposal, onConfirm, onReject }: Props) {
       )}
       {proposal.error && <p className="proposal-note proposal-note-warning">{proposal.error}</p>}
 
-      {pending && (
+      {/* Sin permiso se muestra la propuesta entera igual: poder LEER lo que
+          Kaizen propone es justamente el punto de que otros usen el chat. Lo
+          que no se puede es publicarla. Se dice por qué, en vez de esconder
+          los botones y dejar a la persona buscando dónde confirmar. */}
+      {pending && (puedeDecidir ? (
         <div className="proposal-actions">
           <button type="button" onClick={() => onReject(proposal.id)}>
             Rechazar
@@ -101,7 +107,11 @@ export function ProposalCard({ proposal, onConfirm, onReject }: Props) {
             Confirmar
           </button>
         </div>
-      )}
+      ) : (
+        <p className="proposal-note">
+          Esta campaña necesita que un CEO / CTO la confirme antes de llegar a FinZen.
+        </p>
+      ))}
     </div>
   );
 }

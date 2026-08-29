@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { requireAuth } from '../middleware/requireAuth';
+import { requireAuth, requirePermission } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { audit } from '../services/audit';
 import { runWeeklySummary, startWeeklySummaryCron } from '../jobs/weeklySummary';
@@ -29,6 +29,7 @@ function invalidInt(value: unknown, min: number, max: number, campo: string, ayu
 
 const router = Router();
 router.use(requireAuth);
+router.use(requirePermission('config:editar'));
 
 router.get('/weekly-summary', asyncRoute(async (_req, res) => {
   const cfg = await db.weeklySummaryConfig.upsert({

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { requireAuth } from '../middleware/requireAuth';
+import { requireAuth, requirePermission } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { resumenMeta } from '../agent/tools/goals';
 
@@ -23,11 +23,16 @@ import { resumenMeta } from '../agent/tools/goals';
 
 const router = Router();
 router.use(requireAuth);
+// El permiso va POR RUTA y no con router.use: este router y el de goals.ts
+// se montan los dos en /api/goals, y un router.use acá también se ejecutaría
+// para las peticiones que en realidad van al otro — negándolas con el permiso
+// equivocado y un mensaje que no corresponde.
+
 
 /** Estados de Proposal que significan que la campaña llegó de verdad a FinZen. */
 const LLEGO_A_FINZEN = ['EXECUTED', 'EXECUTING', 'UNKNOWN_OUTCOME'];
 
-router.get('/history', asyncRoute(async (_req, res) => {
+router.get('/history', requirePermission('metas:ver'), asyncRoute(async (_req, res) => {
   const [metas, socios, sinMeta] = await Promise.all([
     db.goal.findMany({
       orderBy: [{ confirmedAt: 'desc' }, { createdAt: 'desc' }],

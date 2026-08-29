@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { db } from '../db';
-import { requireAuth } from '../middleware/requireAuth';
+import { requireAuth, requirePermission } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { runAgentTurn } from '../agent/runner';
 import { generateConversationTitle } from '../agent/autoTitle';
@@ -25,6 +25,7 @@ function firstTextBlock(content: unknown): string {
 
 const router = Router();
 router.use(requireAuth);
+router.use(requirePermission('chat'));
 
 router.get('/', asyncRoute(async (req, res) => {
   const conversations = await db.conversation.findMany({

@@ -4,7 +4,15 @@ import type { ConversationSummary, Partner } from '../types';
 import type { Theme } from '../hooks/useTheme';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ConfigDialog } from './ConfigDialog';
-import { GearIcon, MoonIcon, SunIcon } from './Icons';
+import { CambiarPasswordDialog } from './CambiarPasswordDialog';
+import { GearIcon, KeyIcon, MoonIcon, SunIcon } from './Icons';
+
+/** Calca ETIQUETA_ROL de server/src/auth/permisos.ts. */
+const ROL_LABEL: Record<string, string> = {
+  ADMIN: 'CEO / CTO',
+  ASSISTANT: 'Asistente',
+  USER: 'Usuario',
+};
 
 interface Props {
   conversations: ConversationSummary[];
@@ -38,6 +46,7 @@ export function ConversationList({
   const [editValue, setEditValue] = useState('');
   const [deletingConversation, setDeletingConversation] = useState<ConversationSummary | null>(null);
   const [showConfig, setShowConfig] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const startRename = (c: ConversationSummary) => {
     setEditingId(c.id);
@@ -117,7 +126,12 @@ export function ConversationList({
       </nav>
 
       <div className="sidebar-footer">
-        <span className="partner-name">{partner.name}</span>
+        <span className="partner-identidad">
+          <span className="partner-name">{partner.name}</span>
+          {/* El rol se muestra siempre: saber con qué permisos estás entrando
+              evita el "¿por qué no me aparece Auditoría?" sin respuesta. */}
+          <span className="partner-rol">{ROL_LABEL[partner.role] ?? partner.role}</span>
+        </span>
         <span className="sidebar-footer-actions">
           <button
             type="button"
@@ -131,12 +145,26 @@ export function ConversationList({
           <button
             type="button"
             className="icon-button"
-            onClick={() => setShowConfig(true)}
-            title="Configuración"
-            aria-label="Configuración"
+            onClick={() => setShowPassword(true)}
+            title="Cambiar mi contraseña"
+            aria-label="Cambiar mi contraseña"
           >
-            <GearIcon />
+            <KeyIcon />
           </button>
+          {/* La configuración del resumen semanal y el reindexado son del
+              CEO/CTO. El servidor los niega igual (permiso 'config:editar');
+              esconder el botón solo evita ofrecer algo que va a fallar. */}
+          {partner.permisos.includes('config:editar') && (
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setShowConfig(true)}
+              title="Configuración"
+              aria-label="Configuración"
+            >
+              <GearIcon />
+            </button>
+          )}
           <button type="button" className="logout" onClick={onLogout}>
             Salir
           </button>
@@ -155,6 +183,7 @@ export function ConversationList({
       )}
 
       {showConfig && <ConfigDialog onClose={() => setShowConfig(false)} />}
+      {showPassword && <CambiarPasswordDialog onClose={() => setShowPassword(false)} />}
     </aside>
   );
 }

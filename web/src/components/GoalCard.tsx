@@ -32,9 +32,11 @@ interface Props {
   reemplaza?: Goal;
   onConfirm: (goalId: string) => void;
   onReject: (goalId: string) => void;
+  /** Permiso 'metas:confirmar'. Sin él la meta se ve, pero no se decide. */
+  puedeDecidir: boolean;
 }
 
-export function GoalCard({ goal, reemplaza, onConfirm, onReject }: Props) {
+export function GoalCard({ goal, reemplaza, onConfirm, onReject, puedeDecidir }: Props) {
   const [confirmandoCambio, setConfirmandoCambio] = useState(false);
   const pendiente = goal.status === 'PROPOSED';
   const esCambio = Boolean(goal.replacesGoalId);
@@ -79,7 +81,11 @@ export function GoalCard({ goal, reemplaza, onConfirm, onReject }: Props) {
         <p className="goal-note">Reemplazada por una meta posterior que el socio confirmó.</p>
       )}
 
-      {pendiente && (
+      {pendiente && !puedeDecidir && (
+        <p className="metas-vacio">Esta meta necesita que un CEO / CTO la confirme para entrar en vigencia.</p>
+      )}
+
+      {pendiente && puedeDecidir && (
         <div className="goal-actions">
           <button type="button" onClick={() => onReject(goal.id)}>
             Rechazar

@@ -3,10 +3,48 @@
 // Anthropic (así se guardan crudos en Message.content — ver server §2.2/2.4).
 // ─────────────────────────────────────────────────────────────────────────
 
+// ── Roles y permisos (server/src/auth/permisos.ts) ────────────────────────
+// Esta lista calca la del servidor. Sirve para DIBUJAR la interfaz: esconder
+// una pestaña que no corresponde. La autorización de verdad la hace el
+// servidor en cada request — acá no hay ninguna garantía, solo cortesía.
+
+export type Permiso =
+  | 'chat'
+  | 'metas:ver'
+  | 'metas:confirmar'
+  | 'campanas:confirmar'
+  | 'auditoria:ver'
+  | 'config:editar'
+  | 'usuarios:gestionar';
+
+export type Rol = 'ADMIN' | 'ASSISTANT' | 'USER';
+
 export interface Partner {
   id: string;
   name: string;
   email: string;
+  role: Rol;
+  permisos: Permiso[];
+}
+
+/** Un socio visto desde la pantalla de gestión de usuarios. */
+export interface Usuario {
+  id: string;
+  email: string;
+  name: string;
+  role: Rol;
+  rolLabel: string;
+  permisos: Permiso[];
+  disabled: boolean;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+export interface RolInfo {
+  value: Rol;
+  label: string;
+  descripcion: string;
+  permisos: Permiso[];
 }
 
 export type ContentBlock =

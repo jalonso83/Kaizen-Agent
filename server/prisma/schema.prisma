@@ -18,8 +18,16 @@ model Partner {
   email         String         @unique
   name          String
   passwordHash  String // bcrypt cost 12
+  // 'ADMIN' | 'ASSISTANT' | 'USER' — ver src/auth/permisos.ts, que es la tabla
+  // de qué puede hacer cada uno. Se guarda el rol, NO los permisos: así cambiar
+  // qué incluye un rol no obliga a migrar filas.
+  // Sin enum de Prisma a propósito: agregar un valor a un enum de Postgres pide
+  // migración, y estos roles van a moverse mientras el equipo crece.
+  role          String         @default("USER")
   disabled      Boolean        @default(false)
   createdAt     DateTime       @default(now())
+  // Quién lo creó, para la auditoría. Null en los socios sembrados por CLI.
+  createdBy     String?
   conversations Conversation[]
 }
 

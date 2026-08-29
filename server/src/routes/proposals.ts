@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { requireAuth } from '../middleware/requireAuth';
+import { requireAuth, requirePermission } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { audit } from '../services/audit';
 import { runAgentTurn } from '../agent/runner';
@@ -17,6 +17,9 @@ import { runningConversations } from '../services/runningConversations';
 
 const router = Router();
 router.use(requireAuth);
+// El gate ahora exige permiso además de sesión: que alguien pueda pedirle a
+// Kaizen que PROPONGA una campaña no significa que pueda publicarla.
+router.use(requirePermission('campanas:confirmar'));
 
 /** Propuesta + ownership vía su conversación (nunca se confía en el :id a secas). */
 async function loadOwnedProposal(proposalId: string, partnerId: string) {
