@@ -11,7 +11,7 @@
 
 ---
 
-## 📍 Dónde estamos (actualizado: 2026-08-21)
+## 📍 Dónde estamos (actualizado: 2026-08-29)
 
 **Fase 2 arrancó el 2026-08-18**, con aprobación explícita del equipo el
 2026-08-17. La precondición del PRD (Fase 1 estable en producción ≥2 semanas +
@@ -665,6 +665,100 @@ mal contado, así que el fallo no puede volver a escaparse por ahí.
 
 **Las conversaciones ya rotas se arreglan solas** al desplegar: la reparación
 actúa en la reconstrucción, no en lo guardado.
+
+---
+
+## Roles y permisos de usuario (2026-08-29)
+
+Hasta ahora todo socio que entraba podía todo: el chat, confirmar campañas,
+la auditoría, la configuración. Con el equipo creciendo eso deja de servir.
+
+### Los tres roles
+
+| Rol | En pantalla | Puede |
+|---|---|---|
+| `ADMIN` | CEO / CTO | todo |
+| `ASSISTANT` | Asistente | chat + ver metas |
+| `USER` | Usuario | solo el chat |
+
+Los permisos son siete (`chat`, `metas:ver`, `metas:confirmar`,
+`campanas:confirmar`, `auditoria:ver`, `config:editar`, `usuarios:gestionar`) y
+viven en **`server/src/auth/permisos.ts`**, que es la única fuente de verdad.
+Las rutas chequean **permisos, no roles**: mover un permiso de un rol a otro se
+hace en un archivo, sin recorrer las rutas buscando `if (rol === 'ADMIN')`.
+
+### Dónde está la garantía
+
+En el servidor. `requirePermission` corre en cada router; el frontend solo
+esconde pestañas, que es cortesía visual — cualquiera puede llamar la API a
+mano. Si el frontend y la tabla de permisos se contradicen, manda la tabla.
+
+Dos detalles que costaron pensarse:
+
+- **Los dos routers de metas comparten `/api/goals`.** Un `router.use` en el de
+  historial también se ejecutaría para las peticiones dirigidas al gate,
+  negándolas con el permiso equivocado. Ahí el permiso va **por ruta**.
+- **El rol NO viaja firmado en el JWT.** El token dura 7 días: si el rol fuera
+  parte de la firma, quitarle permisos a alguien no tendría efecto hasta que
+  caducara su sesión. Se lee de la BD en cada request, igual que `disabled`.
+
+### El gate queda reforzado, no ampliado
+
+Un `USER` puede pedirle a Kaizen que **proponga** una campaña — proponer solo
+escribe en nuestra BD — pero confirmar exige `campanas:confirmar`. Ampliar
+quién usa el chat no amplía quién publica en FinZen. La tarjeta se sigue viendo
+entera y dice por qué no se puede confirmar, en vez de esconder los botones.
+
+### Las reglas que evitan quedarse afuera
+
+1. Nadie cambia su propio rol.
+2. Nadie se deshabilita a sí mismo.
+3. Nunca queda el sistema sin un `ADMIN` habilitado (chequeo dentro de la
+   transacción, no antes).
+
+La 3 **hoy es inalcanzable por HTTP**: solo un ADMIN puede degradar o apagar a
+otro, y al serlo ya garantiza que quede uno. Se deja igual, como la red que
+atrapa el día que alguien relaje las reglas 1 o 2. Está documentada en el código
+como no cubierta por las pruebas, en vez de aparentar cobertura.
+
+**No se borran socios, se deshabilitan.** Borrarlos se lleva sus conversaciones
+por FK y deja el audit log con `partner:<id>` que ya no resuelven a ningún
+nombre — justo el registro que sirve para saber quién autorizó qué campaña.
+
+### La migración promueve a los socios que ya existían
+
+`UPDATE "Partner" SET "role" = 'ADMIN'`. Dejarlos caer al default `USER` les
+quitaría en silencio el acceso que ya tenían y, peor, dejaría la instalación
+sin nadie que pueda repartir roles. Una migración no puede quitar acceso sin
+que nadie se entere.
+
+### Verificación
+
+End-to-end contra el servidor Express real:
+
+| Qué | Resultado |
+|---|---|
+| Matriz de 3 roles × 7 endpoints | los 19 chequeos correctos |
+| Autoescalar rol / autodeshabilitarse | 400, ambos |
+| Degradar a alguien con sesión abierta | pierde el acceso con la **misma cookie** |
+| Repromoverlo | recupera el acceso, misma cookie |
+| Rol corrupto en BD (`'BASURA'`) | no da **ningún** permiso, ni el chat |
+| Cuenta deshabilitada con sesión viva | 401 en el request siguiente |
+| `passwordHash` en respuestas | no aparece ni al crear ni al listar |
+
+En el navegador: el Asistente ve solo Chat y Metas, sin engranaje de
+configuración; el CEO/CTO ve las cuatro pestañas, con su propia fila marcada
+"TÚ" y sus controles de rol y deshabilitar apagados.
+
+### Pendiente de decidir con FinZen
+
+- Un `ADMIN` **no** ve las conversaciones de los demás: siguen siendo privadas
+  de cada socio, como antes. Si se quiere supervisión, es una decisión de
+  privacidad que hay que tomar a propósito, no algo que deba colarse.
+- Las contraseñas iniciales las pone un CEO/CTO (no hay envío de correos), así
+  que las conoce hasta que la otra persona la cambie. Se agregó "cambiar mi
+  contraseña" y la pantalla lo dice en voz alta, pero la solución de fondo es
+  recuperación por correo.
 
 ---
 
