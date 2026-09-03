@@ -1,4 +1,13 @@
 import { config } from '../config';
+import {
+  proyectarRespuesta,
+  FORMA_KPIS,
+  FORMA_SEGMENTOS,
+  FORMA_EVALUACION,
+  FORMA_ADQUISICION,
+  FORMA_BORRADOR,
+  type Forma,
+} from './proyeccion';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Cliente de la FinZen Agent API — el ÚNICO puente entre Kaizen y FinZen.
@@ -8,6 +17,10 @@ import { config } from '../config';
 //  - 401: key inválida → revisar FINZEN_AGENT_KEY
 //  - 503: Agent API deshabilitada (FinZen no ha puesto AGENT_API_KEY / kill switch)
 //  - 429: límite de borradores diarios alcanzado → avisar al socio, no reintentar
+//
+// Toda respuesta pasa por la lista blanca de `proyeccion.ts` antes de salir de
+// acá (regla dura 4): este es el único punto por donde entran datos de FinZen,
+// así que es el único donde hace falta filtrarlos.
 // ─────────────────────────────────────────────────────────────────────────
 
 export class FinzenApiError extends Error {
@@ -20,7 +33,22 @@ export class FinzenApiError extends Error {
   }
 }
 
-async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+/**
+ * `forma` es la lista blanca del contrato (PRD §4) para esta respuesta. No es
+ * opcional por descuido: un endpoint nuevo tiene que declarar qué campos deja
+ * pasar, y esa decisión se revisa en el PR.
+ *
+ * El filtrado corre DESPUÉS del chequeo de `res.ok` a propósito: el cuerpo de
+ * un error no sigue el contrato y su `message` es justamente lo que hay que
+ * leer para saber qué pasó.
+ */
+async function request<T>(
+  method: 'GET' | 'POST',
+  path: string,
+  forma: Forma,
+  endpoint: string,
+  body?: unknown,
+): Promise<T> {
   const res = await fetch(`${config.finzen.apiUrl}${path}`, {
     method,
     headers: {
@@ -35,7 +63,7 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
   if (!res.ok) {
     throw new FinzenApiError(res.status, typeof json.message === 'string' ? json.message : `FinZen API error ${res.status}`);
   }
-  return json as T;
+  return proyectarRespuesta<T>(json, forma, endpoint);
 }
 
 // ── Tipos según el contrato (PRD §4) ──────────────────────────────────────
@@ -136,7 +164,7 @@ export function getKpis(params?: { from?: string; to?: string; week_mode?: 'roll
   if (params?.to) qs.set('to', params.to);
   if (params?.week_mode) qs.set('week_mode', params.week_mode);
   const suffix = qs.size > 0 ? `?${qs.toString()}` : '';
-  return request<KpisResponse>('GET', `/api/agent/kpis${suffix}`);
+  return request<KpisResponse>('GET', `/api/agent/kpis${suffix}`, FORMA_KPIS, 'GET /api/agent/kpis');
 }
 
 /**
@@ -154,12 +182,17 @@ export function getAcquisitionWindow(params?: { from?: string; to?: string }): P
   if (params?.from) qs.set('from', params.from);
   if (params?.to) qs.set('to', params.to);
   const suffix = qs.size > 0 ? `?${qs.toString()}` : '';
-  return request<AcquisitionWindowResponse>('GET', `/api/agent/acquisition-window${suffix}`);
+  return request<AcquisitionWindowResponse>(
+    'GET',
+    `/api/agent/acquisition-window${suffix}`,
+    FORMA_ADQUISICION,
+    'GET /api/agent/acquisition-window',
+  );
 }
 
 /** Catálogo de segmentos curados. Leerlo en vivo: FinZen puede agregar segmentos. */
 export async function listSegments(): Promise<SegmentDef[]> {
-  const res = await request<{ segments: SegmentDef[] }>('GET', '/api/agent/segments');
+  const res = await request<{ segments: SegmentDef[] }>('GET', '/api/agent/segments', FORMA_SEGMENTOS, 'GET /api/agent/segments');
   return res.segments;
 }
 
@@ -168,7 +201,12 @@ export function evaluateSegment(slug: string, params?: Record<string, string | n
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params ?? {})) qs.set(k, String(v));
   const suffix = qs.size > 0 ? `?${qs.toString()}` : '';
-  return request<SegmentEvaluation>('GET', `/api/agent/segments/${encodeURIComponent(slug)}${suffix}`);
+  return request<SegmentEvaluation>(
+    'GET',
+    `/api/agent/segments/${encodeURIComponent(slug)}${suffix}`,
+    FORMA_EVALUACION,
+    'GET /api/agent/segments/{slug}',
+  );
 }
 
 /**
@@ -177,5 +215,5 @@ export function evaluateSegment(slug: string, params?: Record<string, string | n
  * explícita del socio en el chat (gate de doble aprobación, PRD §1.6).
  */
 export function createCampaignDraft(input: CampaignDraftInput): Promise<CampaignDraftResult> {
-  return request<CampaignDraftResult>('POST', '/api/agent/campaigns', input);
+  return request<CampaignDraftResult>('POST', '/api/agent/campaigns', FORMA_BORRADOR, 'POST /api/agent/campaigns', input);
 }

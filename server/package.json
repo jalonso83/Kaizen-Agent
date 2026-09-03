@@ -13,6 +13,7 @@
     "build:server-only": "prisma generate && tsc",
     "start": "node dist/app.js",
     "typecheck": "tsc --noEmit",
+    "test": "tsx --test \"src/tests/*.test.ts\"",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",

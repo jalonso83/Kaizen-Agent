@@ -97,6 +97,111 @@ function validateProposalInput(input: Record<string, unknown>): ValidatedProposa
   };
 }
 
+// ── Backstop de la regla dura 1 (auditoría del 2026-08-07) ────────────────
+//
+// El schema pedía "el count real que devolvió evaluate_segment" y la validación
+// solo comprobaba que fuera un entero ≥0: si el modelo escribía 1240 sin haber
+// llamado nunca a la tool, la propuesta se creaba igual y el socio veía una
+// tarjeta con una cifra de aspecto sólido. La regla 1 era una promesa del
+// prompt, no una propiedad del sistema.
+//
+// El dato para comprobarlo ya existía: withGuard audita CADA llamada a tool con
+// su input y su resultado. Acá se relee esa evidencia de la MISMA conversación
+// —que es lo que exige la regla 1, "un tool ejecutado EN ESTA conversación"— y
+// se compara el número.
+//
+// Falla cerrado a propósito: si no hay evidencia, no se propone. El costo de
+// equivocarse hacia ese lado es un turno perdido llamando a evaluate_segment; el
+// costo del otro lado es una cifra inventada frente al socio.
+
+/** Cuántas llamadas a evaluate_segment se miran hacia atrás en la conversación. */
+const EVALUACIONES_A_REVISAR = 30;
+
+export interface EvaluacionRegistrada {
+  slug: string;
+  count: number;
+  params: Record<string, unknown>;
+}
+
+/**
+ * Lee las evaluaciones reales de las filas de auditoría. Separada de la consulta
+ * para poder probarla sin BD.
+ *
+ * El slug se toma del RESULTADO, no del input: el resultado es lo que FinZen
+ * respondió de verdad. Una fila cuyo resultSummary no sea el JSON esperado
+ * (truncado, formato viejo) se ignora en vez de romper — pero entonces no cuenta
+ * como evidencia, que es el lado seguro.
+ */
+export function extraerEvaluaciones(
+  filas: Array<{ input: unknown; resultSummary: string | null }>,
+): EvaluacionRegistrada[] {
+  const salida: EvaluacionRegistrada[] = [];
+  for (const fila of filas) {
+    if (!fila.resultSummary) continue;
+    try {
+      const parsed = JSON.parse(fila.resultSummary) as Record<string, unknown>;
+      const slug = parsed.slug;
+      const count = parsed.count;
+      if (typeof slug !== 'string' || typeof count !== 'number' || !Number.isFinite(count)) continue;
+      const params =
+        typeof fila.input === 'object' && fila.input !== null ? (fila.input as Record<string, unknown>) : {};
+      salida.push({ slug, count, params });
+    } catch {
+      // resultSummary que no es JSON — no es evidencia utilizable.
+    }
+  }
+  return salida;
+}
+
+/** Cómo se le describe al modelo una evaluación que sí ocurrió. */
+function describir(e: EvaluacionRegistrada): string {
+  const filtros = Object.entries(e.params)
+    .filter(([k]) => k !== 'slug')
+    .map(([k, v]) => `${k}=${String(v)}`)
+    .join(', ');
+  return `${e.slug} → ${e.count}${filtros ? ` (con ${filtros})` : ''}`;
+}
+
+/**
+ * Lanza si `segmentCount` no coincide con ninguna evaluación real del mismo
+ * slug en esta conversación. Se compara contra CUALQUIERA de ellas y no solo
+ * contra la última: evaluar el mismo segmento con dos filtros distintos y
+ * proponer sobre el primero es legítimo.
+ */
+export async function verificarSegmentCount(
+  conversationId: string,
+  slug: string,
+  segmentCount: number,
+): Promise<void> {
+  const filas = await db.auditLog.findMany({
+    where: { conversationId, action: 'tool:evaluate_segment', isError: false },
+    select: { input: true, resultSummary: true },
+    orderBy: { createdAt: 'desc' },
+    take: EVALUACIONES_A_REVISAR,
+  });
+
+  const evaluaciones = extraerEvaluaciones(filas);
+  const delSlug = evaluaciones.filter((e) => e.slug === slug);
+
+  if (delSlug.length === 0) {
+    const otros = evaluaciones.map(describir).join(' · ');
+    throw new Error(
+      `No puedo registrar la propuesta: en esta conversación no hay ninguna llamada a evaluate_segment para "${slug}", ` +
+        `así que el segment_count de ${segmentCount} no está respaldado por un dato real. ` +
+        `Llama a evaluate_segment("${slug}") y usa el count que devuelva.` +
+        (otros ? ` Lo que sí evaluaste acá: ${otros}.` : ''),
+    );
+  }
+
+  if (!delSlug.some((e) => e.count === segmentCount)) {
+    throw new Error(
+      `No puedo registrar la propuesta: el segment_count de ${segmentCount} no coincide con lo que evaluate_segment ` +
+        `devolvió en esta conversación para "${slug}" (${delSlug.map(describir).join(' · ')}). ` +
+        'Usa el count exacto que devolvió la tool; si necesitas otro alcance, vuelve a evaluar el segmento con los filtros correctos.',
+    );
+  }
+}
+
 export const proposeCampaignTool: KaizenTool = {
   name: 'propose_campaign',
   description:
@@ -122,7 +227,12 @@ export const proposeCampaignTool: KaizenTool = {
       segment_slug: { type: 'string', description: 'slug del catálogo (ver list_segments)' },
       segment_params: { type: 'object', description: 'Filtros del segmento (plans, platforms, country, days) — opcional' },
       rationale: { type: 'string', description: 'Por qué este segmento, ahora, con este mensaje — con cifras (≥10 caracteres)' },
-      segment_count: { type: 'number', description: 'Count real devuelto por evaluate_segment — no lo inventes' },
+      segment_count: {
+        type: 'number',
+        description:
+          'Count real devuelto por evaluate_segment — no lo inventes. Se VERIFICA contra las llamadas reales a evaluate_segment de esta conversación: ' +
+          'si no coincide con ninguna, la propuesta se rechaza y tendrás que evaluar el segmento antes de reintentar.',
+      },
       expected_measurement: { type: 'string', description: 'Qué se va a medir: el holdout elegido, por qué, y en qué ventana' },
       message_type: {
         type: 'string',
@@ -141,6 +251,10 @@ export const proposeCampaignTool: KaizenTool = {
       throw new Error('propose_campaign requiere una conversación activa (no disponible en corridas sin chat, como el cron).');
     }
     const { campaignInput, segmentCount, expectedMeasurement, messageType } = validateProposalInput(input);
+
+    // Backstop de la regla 1: el count tiene que salir de un evaluate_segment
+    // real de ESTA conversación, no de la memoria del modelo.
+    await verificarSegmentCount(ctx.conversationId, campaignInput.segment_slug, segmentCount);
 
     // Bajo qué meta nace. Se lee ACÁ y no al ejecutar: entre proponer y crear
     // el borrador el socio puede cambiar la meta, y lo que hay que registrar es
