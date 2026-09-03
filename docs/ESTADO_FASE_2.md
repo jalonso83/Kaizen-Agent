@@ -354,7 +354,7 @@ del negocio.
 - **El diagnóstico llega al mismo hallazgo que Junior** sobre D30 y churn en 0%:
   *"son casi con seguridad errores de medición"*. Dos fuentes independientes.
 
-### 🔴 Conflicto abierto: las cifras no coinciden
+### El conflicto de cifras, reconciliado (2026-09-03)
 
 | | Diagnóstico (25 jul) | Notas de Junior (17 ago) |
 |---|---|---|
@@ -366,12 +366,63 @@ del negocio.
 Son ventanas y denominadores distintos, así que probablemente los dos sean
 correctos en su contexto. **Pero si Kaizen lee ambos sin saberlo, dará un CAC
 distinto según cuál le pese más en la búsqueda**, y sin forma de que el socio
-sepa cuál usó. Hay que marcar la ventana de cada fuente antes de indexarlas.
+sepa cuál usó.
+
+**La reconciliación está hecha** y vive en
+[`docs/cerebro/finzen-cifras-ventanas-y-cac.md`](cerebro/finzen-cifras-ventanas-y-cac.md),
+lista para subir a `10-decisiones/`. Ninguna de las cuatro filas resultó ser una
+contradicción de medición:
+
+- **CAC:** $552/7 = $78.86 es un **promedio acumulado** (stock de clientes vivos,
+  abr–jul); $142.88 es el **costo marginal** de julio (suscripciones nuevas del
+  mes). Para decidir si gastar un dólar más manda el marginal; el acumulado es
+  narrativa histórica. Los tres niveles de Junior ($0.22 registro → $1.07
+  activado → $142.88 suscripción) son **consistentes entre sí**: implican 20.6%
+  de activación, dentro de su propia banda de 12-23%.
+- **7 → 5 pagos:** es **churn entre ambas fechas**, visible en la serie de MRR
+  del propio Junior — la caída de $53.28 a $43.29 son **$9.99 exactos, una
+  suscripción Pro cancelada**. Se ve en el MRR y no en el indicador de churn,
+  que Junior reporta con tres fallos consecutivos.
+- **Retención:** 18.3%/6.7% caen apenas por debajo de las bandas porque el
+  Diagnóstico promedia cohortes anteriores al 29-jun, que es cuando Junior
+  documenta que D1 subió. Las dos fuentes coinciden por separado en que D30 y
+  churn en 0% son errores de medición.
+
+**Lo que sí queda abierto** (afinado, era el pendiente #4 de "Pendiente con
+Junior"): el MRR de $43.29 contra 1 Plus + 4 Pro = $44.95, **$1.66 de
+diferencia**. Ojo con la trampa: el **ARPU no es evidencia independiente**
+($43.29/5 = $8.658, está derivado del MRR), así que la mezcla de planes es el
+único número independiente — y es el que discrepa. No son dos contra uno.
+
+⚠️ Las cifras del Diagnóstico salieron de esta misma tabla, **no del PDF
+original**. La aritmética cierra, pero falta verificarlas contra la fuente.
+
+### `search_cerebro` ahora distingue la fecha del archivo de la ventana de datos
+
+El aviso que ya viajaba con los resultados desde el 2026-08-26 daba la **fecha
+de Drive**, que es cuándo se editó el archivo y no de cuándo son sus datos: una
+nota con cifras de julio editada en agosto se leía como "agosto", y el modelo la
+comparaba contra otra de agosto como si midieran lo mismo.
+
+Ahora cada resultado trae también `ventana`, leída de una línea
+`Ventana de datos:` en el encabezado del documento (convención en
+[`docs/cerebro/README.md`](cerebro/README.md); se aceptan `Ventana`, `Período` y
+`Cubre`). Un documento sin la línea devuelve **"no declarada"** — que es
+información honesta, no un default inventado — y se comporta igual que antes.
+La convención se adopta documento por documento.
+
+**Probado** (17 casos de lógica pura): el archivo real de la nota nueva, las tres
+notas reales de Junior (ninguna declara ventana → "no declarada", no se inventa
+nada), variantes con negritas/viñeta/cita/CRLF/mayúsculas, y los que NO deben
+matchear: línea vacía, la palabra "ventana" suelta en prosa, y una declaración
+más allá de los 800 caracteres del encabezado.
 
 ### Pendientes de este bloque
 
-1. Resolver el conflicto de cifras y recién entonces decidir dónde viven estos
-   documentos y en qué formato (el indexador no lee PDF).
+1. Verificar las cifras del Diagnóstico contra el PDF original y decidir si esos
+   8 documentos se copian al Cerebro (hoy viven en `Contenidos/`, que el
+   indexador **no recorre**, así que Kaizen no los lee y el conflicto está
+   dormido). Con la nota de reconciliación arriba, copiarlos ya es seguro.
 2. **Las personas y la mezcla mensual quedaron en el repo**, cuando por la regla
    del proyecto son *información* y deberían vivir en el Cerebro para que
    marketing las actualice sin un PR. Están en secciones separables (§2 y §5 de

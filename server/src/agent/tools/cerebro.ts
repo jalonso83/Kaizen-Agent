@@ -35,16 +35,47 @@ interface CerebroRow {
  */
 const FECHAS_NOTE =
   'OJO: los documentos del Cerebro cubren VENTANAS DE TIEMPO DISTINTAS y algunos se contradicen entre sí por eso. ' +
-  'Cada resultado trae "fecha" (cuándo se modificó el archivo en Drive, NO necesariamente el período que cubren sus datos). ' +
-  'Al citar cualquier cifra del negocio que salga de acá, di SIEMPRE de qué documento sale y de cuándo es. ' +
-  'Si dos documentos dan números distintos para lo mismo, NO elijas uno: reporta ambos con su fecha y di que discrepan — ' +
-  'lo más probable es que midan ventanas distintas, y eso es información, no un error.';
+  'Cada resultado trae "fecha" (cuándo se MODIFICÓ el archivo en Drive) y, si el documento la declara, "ventana" (el período que cubren SUS CIFRAS). ' +
+  'No son lo mismo y la que importa para comparar cifras es "ventana": una nota con datos de julio editada en agosto tiene fecha de agosto. ' +
+  'Si un documento NO trae "ventana", no asumas que sus cifras son de la fecha del archivo — dilo como lo que es: ventana no declarada. ' +
+  'Al citar cualquier cifra del negocio que salga de acá, di SIEMPRE de qué documento sale y de qué ventana. ' +
+  'Si dos documentos dan números distintos para lo mismo, NO elijas uno: reporta ambos con su ventana y di que discrepan — ' +
+  'lo más probable es que midan períodos o denominadores distintos, y eso es información, no un error.';
 
 /** "24 de julio de 2026" — el modelo cita fechas, no timestamps. */
 function fechaLegible(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/**
+ * Ventana de datos declarada en el encabezado del documento (convención de
+ * `docs/cerebro/README.md`): una línea `Ventana de datos: ...` entre las
+ * primeras del texto.
+ *
+ * Por qué hace falta habiendo ya `fecha`: la fecha de Drive dice cuándo se
+ * EDITÓ el archivo, no de cuándo son sus datos. El caso real: el Diagnóstico de
+ * Activación (cifras acumuladas abr–jul) y las notas de Junior (CAC marginal de
+ * julio) dan CAC de $79 y $142.88 — los dos correctos, con denominadores
+ * distintos. Con solo la fecha, el modelo los lee como dos mediciones de lo
+ * mismo separadas por tres semanas, que es exactamente la lectura equivocada.
+ *
+ * Se acepta `Ventana`, `Ventana de datos`, `Período`/`Periodo` y `Cubre`, con o
+ * sin negritas de Markdown. Un documento sin la línea devuelve `undefined` y se
+ * comporta igual que antes — la convención se adopta documento por documento,
+ * no de golpe.
+ */
+const VENTANA_RE = /^[\s>*_-]*\**\s*(?:ventana(?:\s+de\s+datos)?|per[ií]odo|cubre)\s*\**\s*:\s*(.+?)\s*$/im;
+/** Solo el encabezado: más abajo, "Período:" suele ser parte del contenido, no del documento. */
+const VENTANA_SCAN_CHARS = 800;
+
+export function ventanaDeclarada(text: string): string | undefined {
+  const match = VENTANA_RE.exec(text.slice(0, VENTANA_SCAN_CHARS));
+  if (!match) return undefined;
+  const ventana = match[1].replace(/\*+/g, '').trim();
+  if (!ventana) return undefined;
+  return ventana.length > 200 ? `${ventana.slice(0, 200)}…` : ventana;
 }
 
 /** Fragmento de ~1500 chars centrado en la primera palabra de la query que aparece en el texto. */
@@ -67,8 +98,8 @@ function extractFragment(text: string, query: string): string {
 export const searchCerebroTool: KaizenTool = {
   name: 'search_cerebro',
   description:
-    'Busca en el Cerebro de FinZen (Drive: marca, decisiones, análisis) por palabras clave. Devuelve hasta 5 documentos con un fragmento relevante, su nombre/ruta como fuente y la FECHA del documento. ' +
-    'Los documentos del Cerebro cubren ventanas de tiempo distintas y algunos se contradicen: al citar una cifra de acá, di siempre de qué documento sale y de cuándo es. ' +
+    'Busca en el Cerebro de FinZen (Drive: marca, decisiones, análisis) por palabras clave. Devuelve hasta 5 documentos con un fragmento relevante, su nombre/ruta como fuente, la FECHA en que se modificó el archivo y la VENTANA de datos que el documento declara (o "no declarada"). ' +
+    'Los documentos del Cerebro cubren ventanas de tiempo distintas y algunos se contradicen por eso: al citar una cifra de acá, di siempre de qué documento sale y de qué ventana — no de la fecha del archivo, que es cuándo se editó y no de cuándo son sus datos. ' +
     'Úsala SIEMPRE antes de redactar el mensaje de una campaña o contenido (para el tono de marca) y ante preguntas sobre decisiones o contexto del negocio que no salen de los KPIs. ' +
     'Es una búsqueda por palabras clave, no una lista completa: si los resultados no tienen que ver con lo que buscabas, significa que la consulta no dio en el blanco, NO que el documento no exista. ' +
     'Reformula con otros términos (más específicos, o el nombre del archivo) antes de afirmarle al socio que algo no está en el Cerebro.',
@@ -125,10 +156,14 @@ export const searchCerebroTool: KaizenTool = {
       return JSON.stringify({ results: [], note: 'Sin coincidencias. Prueba palabras clave más generales.' });
     }
 
+    // La ventana se busca en el texto COMPLETO del documento (el encabezado),
+    // no en el fragmento: el fragmento está centrado en el match de la búsqueda
+    // y casi nunca incluye las primeras líneas.
     const results = rows.map((r) => ({
       name: r.name,
       path: r.path,
       fecha: fechaLegible(r.modifiedTime),
+      ventana: ventanaDeclarada(r.text) ?? 'no declarada',
       fragment: extractFragment(r.text, query),
     }));
     return [FECHAS_NOTE, JSON.stringify({ results })].join('\n');
