@@ -41,6 +41,15 @@ Kaizen es un **proyecto 100% independiente**: repositorio propio (`Kaizen-Agent`
 | `GET /api/agent/segments` | Solo lectura (agregados, sin PII) | Segmentos curados de usuarios |
 | `POST /api/agent/campaigns` | Escritura solo-borrador | Crear campañas que un humano aprueba en el panel de FinZen |
 
+> 📌 **Se sumó un cuarto endpoint que este PRD nunca documentó**
+> (encontrado en el código el 2026-09-03): `GET /api/agent/acquisition-window`
+> — adquisición por `(source, campaign, medium)` de una ventana de días **en
+> hora RD**, con la semana completa lunes→domingo como default. No confundirlo
+> con `kpis.acquisition.by_source`, que es **lifetime** a propósito. Para
+> cualquier número "de esta semana" por red va este; su tipado está en
+> `clients/finzenApi.ts` (`AcquisitionWindowResponse`). Falta que FinZen lo
+> documente formalmente acá, como los otros tres.
+
 ---
 
 ## 2. Alcance y no-alcance
@@ -390,13 +399,16 @@ Elementos que debe contener (redáctalo y itéralo — es de lo más importante 
 
 ### Criterios de aceptación Fase 1
 
-- [ ] Un socio escribe "búscame la gente que tiene su presupuesto pasado" → el agente evalúa el segmento, responde con el count real y propone una campaña interna + conceptos de contenido.
-- [ ] El socio confirma → el borrador aparece en el panel de FinZen vía `POST /api/agent/campaigns`.
-- [ ] El agente nunca crea un borrador sin confirmación explícita (probado intentando engañarlo por chat).
-- [ ] El agente responde preguntas de KPIs con números reales del endpoint (verificable contra el dashboard de FinZen).
-- [ ] `search_cerebro` devuelve contenido real de la carpeta y el agente lo usa (p.ej. tono de marca en los mensajes).
-- [ ] Audit log consultable de todas las acciones.
-- [ ] Resumen semanal automático generado en Drive.
+> Estado al 2026-09-03 (detalle y evidencia en [`ESTADO.md`](ESTADO.md)).
+
+- [x] Un socio escribe "búscame la gente que tiene su presupuesto pasado" → el agente evalúa el segmento, responde con el count real y propone una campaña interna + conceptos de contenido.
+- [x] El socio confirma → el borrador aparece en el panel de FinZen vía `POST /api/agent/campaigns`. *(Circuito probado de punta a punta contra el mock, incluido el CAS anti doble-ejecución; el gate real corre desde el 22-jul.)*
+- [ ] El agente nunca crea un borrador sin confirmación explícita (probado intentando engañarlo por chat). *(Imposible por estructura —`create_campaign_draft` solo acepta un `proposal_id` y `CONFIRMED` lo escribe únicamente el endpoint del botón— pero **falta la prueba adversarial por chat real**: protocolo en [`TESTING.md`](../TESTING.md) §10.)*
+- [x] El agente responde preguntas de KPIs con números reales del endpoint (verificable contra el dashboard de FinZen). *(Desde el 01-ago con key real. Reforzado el 03-sep con el backstop del `segment_count`.)*
+- [x] `search_cerebro` devuelve contenido real de la carpeta y el agente lo usa (p.ej. tono de marca en los mensajes). *(Confirmado 2026-08-12: 66 documentos indexados y citados con ruta y cifras exactas.)*
+- [x] Audit log consultable de todas las acciones. *(Pantalla de Auditoría, 2026-08-13.)*
+- [x] Resumen semanal automático generado en Drive. *(Confirmado 2026-08-12: `50-kaizen/2026-08-10-resumen-semanal…` en el Cerebro.)*
+- [ ] **Añadido en el camino:** validar la taxonomía de `message_type` con marketing de FinZen antes de que se use en propuestas reales.
 
 ---
 

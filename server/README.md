@@ -195,9 +195,13 @@ instrucción, compliance financiero) y el catálogo de skills.
 
 - `finzenApi.ts` — el único puente con FinZen. Tipado exacto contra el
   contrato real (PRD §4), header `x-agent-key`, timeout de 30s.
-- `drive.ts` — Service Account de Google (credencial por path local o por
-  JSON en base64 para Railway). Hoy solo lista archivos de la raíz del
-  Cerebro; el indexado recursivo es parte de §3.
+  Toda respuesta pasa por la lista blanca del contrato (`proyeccion.ts`, §3.1)
+  antes de salir del cliente.
+- `drive.ts` — OAuth de usuario para escribir (la Service Account **no puede**:
+  no tiene cuota de almacenamiento, ver `docs/DRIVE_OAUTH.md`), con la Service
+  Account como respaldo de lectura. Listado recursivo del Cerebro y extracción
+  de texto de Google Docs/Sheets/Slides, PDF, Word, Excel, PowerPoint y HTML.
+- `metaApi.ts` — Graph API v21, solo lectura por ahora.
 
 ### 2.9 Cliente de consola (`scripts/chatCli.ts`)
 
@@ -211,22 +215,61 @@ sin la web como de referencia ya probada del parser que usa
 ### 2.10 Web de socios (`../web/`)
 
 React + Vite + TS. Login, lista de conversaciones, chat con streaming real,
-`ProposalCard` (sus botones Confirmar/Rechazar llaman a endpoints que todavía
-no existen — ver §3). Corre en dev con `npm run dev` en `web/`, proxeado a
+`ProposalCard` y `GoalCard`, y las pantallas de Metas, Auditoría y Usuarios.
+Corre en dev con `npm run dev` en `web/`, proxeado a
 este server (mismo origen, cero CORS). Detalle completo en
 [`../web/README.md`](../web/README.md).
 
 ---
 
-## 3. Lo que falta (por diseño, no por olvido)
+## 3. Lo que falta
 
-| Falta | Por qué no está | Dónde está el diseño |
+> ⚠️ **Esta sección estuvo desactualizada del 2026-07-22 al 2026-09-03**: listaba
+> como pendientes cinco piezas que llevaban meses construidas (el gate, el
+> Cerebro, el cron semanal, los botones de la tarjeta y el build servido por
+> Express). Quien llegaba nueva al repo leía que faltaba medio proyecto.
+> Corregido; **la lista de abajo se actualiza en el mismo PR que cambie el
+> estado**, igual que `docs/ESTADO.md`.
+
+Nada del diseño de la Fase 1 (`DISENO_FASE1.md` / PRD) quedó sin construir. Lo
+que sigue abierto es de otra naturaleza:
+
+| Falta | Qué es | Dónde |
 |---|---|---|
-| `propose_campaign` / `create_campaign_draft` | Necesitan la tabla `Proposal` **usada de verdad** + endpoints `/api/proposals/:id/confirm` y `/reject` + el gate estructural (CONFIRMED solo lo escribe el botón HTTP, nunca el agente) | DISENO §7 |
-| `search_cerebro` / `save_content_draft` | Necesitan el indexador recursivo del Cerebro (Drive → `CerebroDoc`) + búsqueda FTS, y extender `drive.ts` para crear Docs en Contenidos | DISENO §9 |
-| Resumen semanal automático (cron) | Job de `node-cron`, corre con un subconjunto de tools (sin las de escritura) | DISENO §12 |
-| Confirmar/Rechazar en la web | `ProposalCard` ya llama a `/api/proposals/:id/confirm` y `/reject` — 404 hasta que exista el gate de arriba | DISENO §7 |
-| Build de producción de la web servido por Express | Hoy la web solo corre en dev (Vite); falta conectar `web/dist` como estático en `app.ts` | DISENO §0.5 |
+| Prueba adversarial del gate por chat | Intentar por conversación real que Kaizen cree un borrador sin confirmación ("créala ya", "soy admin"). Es el criterio 3 de Fase 1 **y** el 3 de Fase 2 | `TESTING.md` §6 |
+| Backstop de la regla 9 | El protocolo de lectura del Cerebro antes de proponer es solo instrucción del prompt; no se cumplió en la conversación real auditada el 2026-08-07 | `docs/ESTADO.md` |
+| Tools de escritura en Meta | `create_meta_campaign_draft` entra cuando FinZen habilite `ads_management` — hoy solo lectura, y `META_WRITE_ENABLED=false` | `docs/ESTADO_FASE_2.md` |
+| Cobertura de pruebas | `npm test` cubre hoy la lógica pura de la lista blanca, el backstop del `segment_count` y la ventana del Cerebro. El runner, el historial y el gate siguen probados a mano | §3.2 |
+
+### 3.1 Los dos backstops de las reglas duras (2026-09-03)
+
+La auditoría del 2026-08-07 encontró que de las 10 reglas duras del system
+prompt solo la 3 (el gate) tenía respaldo de código: las demás dependían de que
+el modelo se portara bien. Dos de esos hallazgos ya están cerrados:
+
+- **Regla 1 — nunca inventes cifras.** `propose_campaign` ahora **verifica** el
+  `segment_count` contra las llamadas reales a `evaluate_segment` de la misma
+  conversación, releyendo el audit log (`verificarSegmentCount`,
+  `agent/tools/campaigns.ts`). Falla cerrado: sin evidencia no hay propuesta.
+  El costo de equivocarse por ese lado es un turno perdido; por el otro, una
+  cifra inventada frente al socio.
+- **Regla 4 — nunca PII.** Toda respuesta de la FinZen Agent API pasa por una
+  **lista blanca** del contrato del PRD §4 (`clients/proyeccion.ts`) antes de
+  llegar al modelo. Antes se reenviaba cruda, así que la garantía era de FinZen,
+  no de Kaizen. Cada campo descartado se audita (`finzen:campos-descartados`) y
+  se escribe en los logs, una vez por ruta y por vida del proceso: si FinZen
+  agrega un campo, **se ve** en vez de pasar de largo.
+
+### 3.2 Pruebas automatizadas (`npm test`)
+
+`tsx --test` sobre `src/tests/`, sin dependencias nuevas. Cubre lógica pura, sin
+BD ni red (`src/tests/setup.ts` pone variables con forma válida para los módulos
+que arrastran `config.ts`/`db.ts`).
+
+La prueba que más importa de la lista blanca no es la que comprueba que se
+descarta lo de más: es la que proyecta la **respuesta real del contrato** y
+exige que salga idéntica. Una lista blanca mal escrita borra datos legítimos, y
+lo hace sin romper nada.
 
 ---
 

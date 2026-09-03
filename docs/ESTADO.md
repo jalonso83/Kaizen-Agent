@@ -15,7 +15,22 @@
 
 ---
 
-## 📍 Dónde estamos (actualizado: 2026-08-09)
+## 📍 Dónde estamos (actualizado: 2026-09-03)
+
+**Fase 1 cerrada; el trabajo activo es la Fase 2** — su bitácora es
+[`ESTADO_FASE_2.md`](ESTADO_FASE_2.md) y ahí está lo que pasó desde el 18-ago.
+De los 7 criterios de aceptación de Fase 1 del PRD quedan **dos** abiertos: la
+prueba adversarial del gate (necesita una conversación real, protocolo escrito
+en [`TESTING.md`](../TESTING.md) §10) y la validación de la taxonomía de
+`message_type` con marketing.
+
+> **Este documento estuvo parado del 09-ago al 03-sep** mientras se seguía
+> trabajando: la pantalla de Auditoría —que **es el criterio 6**—, el export CSV
+> de adquisición, la vista móvil, editar/reintentar mensajes y el día/hora
+> configurables del resumen semanal se construyeron sin quedar registrados acá.
+> Están en el log de git; se recuperan abajo, en el hito del 03-sep.
+
+### El estado al 2026-08-09 (lo que decía esta sección entonces)
 
 **FASE 0 COMPLETADA. FASE 1 COMPLETA de mi lado en cuanto a construcción** —
 todo lo que se puede construir y probar sin credenciales reales de producción
@@ -80,14 +95,14 @@ los valores NUNCA se escriben aquí ni en el repo):
 Las de la service account se conservan como respaldo de LECTURA. `DRIVE_KAIZEN_FOLDER_ID`
 es opcional: la carpeta `50-kaizen/` se resuelve por nombre dentro del Cerebro.
 
-> ⚠️ **Pendiente de verificar (encontrado 2026-07-18, auditoría de env vars):**
-> el código ahora **exige** `DATABASE_URL` y `JWT_SECRET` (`config.ts` los
-> pasó de `optional()` a `required()` al construirse la BD/auth de Fase 1) —
-> si Railway todavía no los tiene seteados, **el deploy está crasheando al
-> arrancar** (falla al boot, no a mitad de una request). Confirmar en Railway
-> y agregarlos si faltan, junto con `NODE_ENV=production` (si no, la cookie
-> de sesión no lleva `Secure`). `KAIZEN_MAX_DRAFTS_PER_DAY` es opcional
-> (default 5, no bloquea el arranque).
+> ✅ **Resuelto (confirmado por el socio 2026-09-03): el deploy de Railway está
+> arriba y funcionando.** El código **exige** `DATABASE_URL` y `JWT_SECRET`
+> (`config.ts` los pasó de `optional()` a `required()` al construirse la BD/auth
+> de Fase 1), así que un arranque exitoso es la prueba de que están puestos —
+> la validación corre al boot, no a mitad de una request. Queda como duda
+> menor, porque **no falla el arranque**: si `NODE_ENV=production` no está, la
+> cookie de sesión no lleva `Secure`. `KAIZEN_MAX_DRAFTS_PER_DAY` es opcional
+> (default 5, tampoco bloquea el arranque).
 
 Para desarrollo local: `.env` desde `.env.example` (ya actualizado con las
 variables de arriba). Para Drive se puede usar `GOOGLE_SERVICE_ACCOUNT_PATH`
@@ -99,6 +114,73 @@ Pendientes de Fase 2: las de Meta.
 ---
 
 ## Historial de hitos
+
+### 2026-09-03 — Los dos backstops de la auditoría, y la deuda de documentación
+
+**Cerrados los hallazgos (B) de la auditoría de guardarraíles del 2026-08-07.**
+Eran los dos casos donde una regla dura del system prompt no tenía nada detrás:
+
+- **Regla 1 (nunca inventes cifras).** `propose_campaign` ahora verifica el
+  `segment_count` contra las llamadas reales a `evaluate_segment` **de la misma
+  conversación**, releyendo el audit log (`verificarSegmentCount`,
+  `agent/tools/campaigns.ts`). La evidencia ya existía —`withGuard` audita cada
+  tool con su input y su resultado—, solo que nadie la releía. Se compara contra
+  *cualquiera* de las evaluaciones del slug, no solo la última: evaluar el mismo
+  segmento con dos filtros y proponer sobre el primero es legítimo.
+  **Falla cerrado**: sin evidencia no hay propuesta. Equivocarse por ese lado
+  cuesta un turno; por el otro, una cifra inventada frente al socio.
+- **Regla 4 (nunca PII).** Toda respuesta de la FinZen Agent API pasa por una
+  **lista blanca** del contrato del PRD §4 antes de llegar al modelo
+  (`clients/proyeccion.ts`, aplicada en el único punto por donde entran datos de
+  FinZen). Antes se reenviaba cruda con `JSON.stringify`, así que la garantía de
+  "Kaizen nunca ve datos personales" era de FinZen, no de Kaizen. Cada campo
+  descartado se audita como `finzen:campos-descartados` y sale por los logs, una
+  vez por ruta y por vida del proceso — porque un descarte silencioso sería
+  exactamente el patrón que ya mordió cinco veces en este proyecto.
+
+**Arrancó la suite de pruebas** (`npm test`, `tsx --test` sobre `src/tests/`,
+sin dependencias nuevas): 28 casos de lógica pura sobre la lista blanca, el
+backstop del `segment_count` y la ventana del Cerebro. Hasta hoy no había ni un
+`test` en ningún `package.json` y toda verificación era un script ad-hoc que no
+volvía a correr nunca. La prueba que más importa de la lista blanca no es la que
+comprueba que descarta lo de más, sino la que proyecta la **respuesta real del
+contrato** y exige que salga idéntica: una lista blanca mal escrita borra datos
+legítimos sin romper nada.
+
+**Deuda de documentación saldada.** `server/README.md` §3 y `TESTING.md` §9
+listaban como pendientes cinco piezas construidas desde julio (el gate, el
+Cerebro, el cron, los botones de la tarjeta, el build servido por Express), y
+`SKILLS.md` listaba 5 skills habiendo 15. Todo eso es lo primero que lee quien
+retoma el repo. Corregido, y `TESTING.md` ahora trae el **protocolo escrito de
+la prueba adversarial del gate** (§10) con las seis provocaciones y las consultas
+SQL que la verifican, para que solo haga falta correrla.
+
+### 2026-08-11 al 2026-08-18 — lo que se construyó sin quedar registrado acá
+
+Recuperado del log de git el 2026-09-03. Se trabajó, se comiteó, y esta bitácora
+no se tocó — justo lo que su propia regla de arriba prohíbe.
+
+- **Pantalla de Auditoría + pestañas Chat/Auditoría** (13-ago, `6fa5258`) —
+  **es el criterio de aceptación 6 de la Fase 1**, y estaba sin registrar.
+  Después: indicador de plegable más claro y los cambios de configuración
+  mostrando su estado anterior (`56dbaec`, `60e0068`).
+- **Día y hora del resumen semanal configurables desde la web** (12-ago,
+  `e88f181`), con desplegable propio y hora en dos listas (1-12 + AM/PM). Y el
+  cálculo de la semana pasó a **hora de RD, no UTC** (`3f603bd`).
+- **Vista móvil** (12-ago, `41761f3`): el chat ocupa la pantalla y el sidebar
+  pasa a ser un cajón. Iconos del sidebar a SVG.
+- **Logo propio de Kaizen** (12-ago, `cbfcbaf`), en vez del isotipo de FinZen que
+  se había puesto "por ahora".
+- **Kaizen sabe qué día es** (11-ago, `5a334c1`): bloque `<contexto>` con la
+  fecha real. Sin eso, cualquier razonamiento sobre ventanas de tiempo salía de
+  suponer. Botones de mensaje movidos fuera de la burbuja.
+- **Búsqueda por nombre de archivo en el Cerebro** (13-ago, `50d8987`).
+- **La tarjeta de propuesta va al cierre del turno que la creó** (17-ago,
+  `7bafb05`) y **tablas Markdown en el chat** (18-ago, `a059758`).
+- **Reglas duras 11 y 14** (18-ago, `0b6669a`): *pagar no es lo mismo que tener
+  un plan* (`plan_distribution` incluye a los que están en prueba gratis, así que
+  nunca es un total de pagos) y *toda campaña dice si se publicó y con qué
+  fecha*.
 
 ### 2026-08-12 — El Cerebro, probado de punta a punta (y qué falla todavía en la búsqueda)
 
@@ -129,6 +211,15 @@ si la consulta principal devuelve CERO filas**: con tres resultados flojos nunca
 se activa, y la respuesta suena segura ("no aparece ningún documento") cuando la
 búsqueda simplemente no llegó. Pendiente decidir el arreglo: normalizar el rank
 por largo y/o subir el límite de 3.
+
+> ✅ **Resuelto** (verificado en el código el 2026-09-03; el arreglo entró con
+> `50d8987` el 13-ago y no había quedado anotado acá). Los tres frentes:
+> `ts_rank` recibe el tercer argumento `1`, que divide el puntaje por
+> `1+log(largo)` — un digest de 71 KB ya no le gana a la nota corta que trata
+> justamente del tema; el límite subió de 3 a **5**; y el respaldo por `ILIKE`
+> ahora corre cuando la consulta quedó **corta**, no solo cuando dio cero, que
+> era el caso que importaba. Sumado al `setweight` del nombre, es lo que hace
+> que buscar por nombre de archivo encuentre el archivo.
 
 **Bug corregido: el indexador se tragaba los archivos ilegibles.** Cuando
 `fetchCerebroFileText` lanzaba, el `catch` logueaba y hacía `continue` sin
@@ -394,7 +485,7 @@ mejoras de guardarraíles que la auditoría del 2026-08-07 encontró — código
 real pendiente, no verificación.
 
 **(A) Para que el socio verifique (con credenciales reales / acceso a Railway):**
-- [ ] Confirmar en Railway que `DATABASE_URL` y `JWT_SECRET` estén seteados (ver ⚠️ arriba — si faltan, el deploy de producción puede estar crasheando al arrancar)
+- [x] Confirmar en Railway que `DATABASE_URL` y `JWT_SECRET` estén seteados — **confirmado 2026-09-03**: el deploy está arriba y funcionando, y como `config.ts` los exige al boot, que arranque es la prueba. Queda por mirar `NODE_ENV=production` (no bloquea el arranque, pero sin él la cookie de sesión no lleva `Secure`)
 - [ ] Correr `npm run build` (ya automatizado) y confirmar que Railway despliega la web actualizada — u ojo, si Railway ya tiene su propio build cacheado, puede necesitar un redeploy limpio
 - [x] Con `ANTHROPIC_API_KEY` real: probar una conversación de punta a punta — **en curso desde 2026-08-01** en un server aparte, ya encontró y disparó la corrección de varios bugs reales (ver historial 2026-08-07)
 - [x] Con Drive real: **confirmado 2026-08-12**. El indexador corre contra el Cerebro real (66 docs indexados, 2 PDF omitidos) y `search_cerebro` devuelve contenido real que el modelo usa — probado de punta a punta: se le pidió a Kaizen guardar una nota con datos inventados ("Proyecto Magenta", ventana de 11 días, holdout 24%), se reindexó, y en una conversación nueva la encontró citando ruta y cifras exactas. Antes ya había citado `20-ideas/inbox.md` en una respuesta real. Queda un matiz de calidad de búsqueda, no de indexado — ver el hallazgo de `ts_rank` en el historial 2026-08-12
@@ -403,8 +494,8 @@ real pendiente, no verificación.
 - [x] Confirmar que el resumen semanal se generó y aterrizó en `50-kaizen/` del Cerebro — **confirmado 2026-08-12**: `2026-08-10-resumen-semanal-2026-08-10.md` está en la carpeta y Kaizen lo lee y lo analiza cuando se le pide. La dependencia de `DRIVE_KAIZEN_FOLDER_ID` desapareció con el fix de OAuth de Alonso (la carpeta se resuelve por nombre, ver historial 2026-08-09)
 
 **(B) Hallazgos abiertos de la auditoría de guardarraíles (2026-08-07) — código real, mío para construir si se decide priorizarlo:**
-- [ ] Backstop de código para la regla 1: `propose_campaign` no cruza `segment_count` contra un `evaluate_segment` real de la misma conversación — hoy solo valida que sea un entero ≥0, el modelo podría en teoría inventarlo
-- [ ] Backstop de código para la regla 4: `finzenApi.ts` reenvía la respuesta cruda de `get_kpis`/`evaluate_segment`/`get_campaign_results` sin filtrar campos — si la API de FinZen alguna vez devolviera algo de más, Kaizen lo pasaría directo al modelo sin ningún control propio
+- [x] Backstop de código para la regla 1 — **hecho 2026-09-03**: `propose_campaign` verifica `segment_count` contra las llamadas reales a `evaluate_segment` de la misma conversación, releyendo el audit log (`verificarSegmentCount`). Falla cerrado; probado con 9 casos en `npm test`
+- [x] Backstop de código para la regla 4 — **hecho 2026-09-03**: lista blanca del contrato del PRD §4 sobre toda respuesta de la Agent API (`clients/proyeccion.ts`), con los descartes auditados como `finzen:campos-descartados`. Probado con 12 casos, incluido el que más importa: que la respuesta real del contrato pase **entera**
 - [ ] Reforzar que la regla 9 (protocolo de lectura del Cerebro antes de proponer) se cumpla en la práctica — hoy es solo instrucción de texto y no se siguió en la conversación real revisada; considerar forzarla a nivel de código (p.ej. una llamada obligatoria a `search_cerebro` en el primer turno de campaña de cada conversación) en vez de dejarlo a discreción del modelo
 
 **Del audit del prompt (2026-07-26) — decisiones de Junior/Alonso, siguen sin tocar:**

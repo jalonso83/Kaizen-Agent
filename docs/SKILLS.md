@@ -1,6 +1,6 @@
 # SKILLS.md — Los skills de Kaizen
 
-**Versión 1.0 · 2026-07-12**
+**Versión 1.1 · 2026-09-03** (v1.0: 2026-07-12)
 
 Un **skill** es un playbook procedimental: instrucciones de *cómo hacer bien una
 tarea específica* del oficio de growth/marketing, que Kaizen carga bajo demanda
@@ -17,7 +17,7 @@ contra prompt-injection). Cambiar un skill = un PR revisado y versionado.
 El Cerebro sigue siendo el lugar del *conocimiento* (tono, decisiones, datos);
 los skills son el lugar del *método*.
 
-## Mecánica (a construir en Fase 1 — ver DISENO_FASE1.md §15)
+## Mecánica (construida — ver DISENO_FASE1.md §15)
 
 1. Al boot, un loader lee los frontmatters de `server/skills/*/SKILL.md` y arma
    el **catálogo** (slug + descripción).
@@ -78,6 +78,11 @@ alternativas, qué incluye el racional.
 - [ ] Probado: pedirle a Kaizen una tarea del skill y verificar que lo carga
       (audit log) y sigue el método.
 - [ ] Fila agregada al catálogo de este documento.
+- [ ] `load_skill('<slug>')` responde de verdad. **Un `SKILL.md` guardado con
+      CRLF no parseaba su frontmatter** y el skill quedaba invisible para el
+      agente, con un warning en consola que nadie mira (bug real del
+      2026-08-20; le pasaba a `resumen-semanal`). El parser ya lo tolera, pero
+      la comprobación es de dos segundos y es la única que lo detecta.
 
 ## Reglas para escribir/editar skills
 
@@ -97,18 +102,58 @@ alternativas, qué incluye el racional.
    (los de marketing vienen de repos MIT — ver abajo).
 8. Al agregar/quitar un skill: actualizar el catálogo de este doc en el mismo PR.
 
-## Catálogo actual
+## Catálogo actual (15 skills)
+
+> Actualizado 2026-09-03. Este catálogo estuvo listando 5 skills mientras había
+> 15 instalados, incumpliendo la regla 8 de abajo. Se actualiza **en el mismo
+> PR** que agregue o quite uno.
+
+Los skills se agrupan en tres capas. La distinción no es cosmética: los de
+**acción** dicen qué hacer, los de **lectura** dicen qué se puede afirmar a
+partir de un número, y esa capa faltaba entera hasta que Junior la entregó el
+2026-08-20 (ver `docs/ESTADO_FASE_2.md`, Bloque 3).
+
+### Acción — qué proponer y cómo redactarlo
 
 | Skill | Cuándo lo usa Kaizen | Origen |
 |---|---|---|
-| [`campanas-retencion`](../server/skills/campanas-retencion/SKILL.md) | Diseñar campañas para reactivar/retener usuarios (dormidos, nunca activados, trial por vencer) | Adaptado de `churn-prevention` (coreyhaines31/marketingskills, MIT) |
-| [`copy-push`](../server/skills/copy-push/SKILL.md) | Redactar el mensaje de una campaña push/slot (≤200 chars) | Adaptado de `copywriting` + `sms` (coreyhaines31/marketingskills, MIT) |
-| [`diseno-experimentos`](../server/skills/diseno-experimentos/SKILL.md) | Definir holdout, hipótesis y lectura de lift de una campaña; interpretar resultados | Adaptado de `ab-testing` (coreyhaines31/marketingskills, MIT) |
-| [`conceptos-contenido`](../server/skills/conceptos-contenido/SKILL.md) | Crear conceptos de contenido externo (reels, carruseles, guiones) para Contenidos | Adaptado de `social` (coreyhaines31/marketingskills, MIT) |
-| [`resumen-semanal`](../server/skills/resumen-semanal/SKILL.md) | El formato y criterios del reporte semanal automático (cron del lunes) | Propio de Kaizen |
+| [`campanas-retencion`](../server/skills/campanas-retencion/SKILL.md) | Reactivar/retener usuarios (dormidos, nunca activados, presupuesto excedido, trial por vencer) | Adaptado de `churn-prevention` (coreyhaines31/marketingskills, MIT) |
+| [`copy-push`](../server/skills/copy-push/SKILL.md) | Redactar título (≤100) y mensaje (≤200) de un push/slot — son los parámetros `title`/`message` de `propose_campaign` | Adaptado de `copywriting` + `sms` (mismo repo, MIT) |
+| [`diseno-experimentos`](../server/skills/diseno-experimentos/SKILL.md) | Definir holdout e hipótesis **antes** de la campaña | Adaptado de `ab-testing` (mismo repo, MIT) |
+| [`conceptos-contenido`](../server/skills/conceptos-contenido/SKILL.md) | Conceptos de contenido externo (reels, carruseles, guiones). Reescrito con el sistema real de marketing: 6 pilares, 3 buyer personas, mezcla mensual | Adaptado de `social` (MIT) + sistema de marca de FinZen |
+| [`resumen-semanal`](../server/skills/resumen-semanal/SKILL.md) | Formato y criterios del reporte semanal (cron del lunes) | Propio de Kaizen |
+| [`adquisicion-pagada`](../server/skills/adquisicion-pagada/SKILL.md) | Mecánica de la integración con Meta: qué significa cada campo y qué puede y no puede hacer Kaizen en esa cuenta | Propio de Kaizen (Fase 2) |
 
-**Candidatos para Fase 2** (cuando llegue Meta): adaptar `ads` y `ad-creative`
-del mismo repo MIT.
+### Lectura del tablero interno — qué se puede afirmar (Junior, entrega A)
+
+| Skill | Cuándo lo usa Kaizen |
+|---|---|
+| [`lectura-kpis-finzen`](../server/skills/lectura-kpis-finzen/SKILL.md) | Antes de interpretar cualquier KPI agregado. Documenta seis trampas verificadas del tablero donde leer el dato tal cual es falso |
+| [`lectura-adquisicion-finzen`](../server/skills/lectura-adquisicion-finzen/SKILL.md) | CAC/ROI y dónde poner presupuesto. La ambigüedad de atribución sin resolver invalida cualquier lectura ingenua de ROI |
+| [`lectura-retencion-cohortes`](../server/skills/lectura-retencion-cohortes/SKILL.md) | Retención D1/D7/D30. La métrica que gobierna es la **sobrevida** entre D1 y D7, no cada una por separado |
+| [`verificar-comparabilidad`](../server/skills/verificar-comparabilidad/SKILL.md) | **Siempre** antes de decir que algo subió o bajó |
+| [`lectura-experimentos`](../server/skills/lectura-experimentos/SKILL.md) | Al vencer la ventana de un experimento (H9, H13) o una campaña: veredicto con el pre-registro, y cierre del bucle escribiendo el aprendizaje al Cerebro |
+
+### Lectura de redes sociales (Junior, entrega B)
+
+> 🔴 **Ninguna tool de Kaizen trae números de Instagram o TikTok** — salen de
+> Windsor y del panel nativo. Los cuatro llevan un bloque que lo declara, con la
+> instrucción de decir que no hay acceso en vez de estimar. Si algún día se le
+> suma un feed social, aplican tal cual.
+
+| Skill | Cuándo lo usa Kaizen |
+|---|---|
+| [`lectura-kpis-social`](../server/skills/lectura-kpis-social/SKILL.md) | Los 5 KPIs del funnel social + el pulso |
+| [`sanidad-datos-social`](../server/skills/sanidad-datos-social/SKILL.md) | Movimiento >20% o dos paneles que no coinciden: distingue tubería rota de realidad rota |
+| [`umbrales-semaforo-social`](../server/skills/umbrales-semaforo-social/SKILL.md) | Semáforo verde/ámbar/rojo. **Los umbrales vigentes están PROPUESTOS y sin firmar** por Junior |
+| [`top-flop-contenido`](../server/skills/top-flop-contenido/SKILL.md) | Leer resultados de piezas publicadas y decidir qué se repite, pausa o prueba |
+
+⚠️ **Los skills de lectura abren con `search_cerebro`, y las notas de Cerebro de
+Junior todavía no están subidas a Drive** (verificado 2026-08-21). Mientras no
+estén, buscan, no encuentran y siguen de largo en silencio. Las sube él.
+
+**Candidatos para Fase 2** (cuando llegue la escritura en Meta): adaptar
+`ad-creative` del mismo repo MIT.
 
 ## Fuentes del ecosistema (por si se buscan más)
 
