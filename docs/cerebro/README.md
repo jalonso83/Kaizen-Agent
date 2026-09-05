@@ -44,3 +44,7 @@ línea sigue funcionando igual que antes.
 | Nota | Sube a | Qué resuelve |
 |---|---|---|
 | [`finzen-cifras-ventanas-y-cac.md`](finzen-cifras-ventanas-y-cac.md) | `10-decisiones/` | El conflicto de CAC/pagos/retención entre el Diagnóstico de Activación (jul) y las notas de Junior (ago) |
+
+[`de-junior/`](de-junior/) es distinto: no son notas nuestras. Son las de Junior,
+con la línea `Ventana de datos:` agregada y nada más tocado, listas para que
+alguien las suba a Drive. Tienen su propio README.
