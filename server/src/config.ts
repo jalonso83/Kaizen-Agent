@@ -48,6 +48,21 @@ export const config = {
   // un error claro en vez de intentar conversar.
   anthropicApiKey: optional('ANTHROPIC_API_KEY'),
 
+  // Indexado del Cerebro.
+  cerebro: {
+    // Lectura de imágenes (2026-09-03): las imágenes se describen con visión y
+    // se indexa esa descripción. Encendido por defecto — es la única forma de
+    // que un storyboard o un pantallazo de panel entren al Cerebro. Se apaga
+    // con CEREBRO_VISION_ENABLED=false si el gasto molesta: el costo es de una
+    // llamada por imagen y por versión (el indexador solo re-lee lo que cambió
+    // de modifiedTime), no por corrida ni por búsqueda.
+    visionEnabled: process.env.CEREBRO_VISION_ENABLED !== 'false',
+    // El mismo modelo del agente, para no tener dos decisiones de modelo en el
+    // proyecto. Se puede bajar a claude-haiku-4-5 con CEREBRO_VISION_MODEL si
+    // hubiera muchas imágenes y la descripción no necesitara tanto detalle.
+    visionModel: optional('CEREBRO_VISION_MODEL') ?? 'claude-opus-4-8',
+  },
+
   // Google Drive (Fase 1 — opcionales hasta que FinZen comparta las carpetas)
   // Credenciales de la service account: por path a JSON (local) o por el JSON
   // en base64 (Railway, donde no hay filesystem para credenciales).

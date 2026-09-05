@@ -7,8 +7,13 @@ import { audit } from '../services/audit';
 // Indexador del Cerebro — DISENO_FASE1.md §9. Listado recursivo de Drive,
 // upsert en CerebroDoc por fileId SOLO si modifiedTime cambió (evita
 // re-exportar/re-descargar todo en cada corrida), y borra las filas de
-// archivos que ya no están en Drive. PDFs quedan fuera de esta v1 (el
-// Cerebro hoy son Google Docs) — se loguean como omitidos, no como error.
+// archivos que ya no están en Drive.
+//
+// Qué se lee está en clients/documentos.ts: Google Docs/Sheets/Slides, PDF,
+// Word, Excel, PowerPoint, HTML, texto plano (desde 2026-08-25) e imágenes
+// descritas con visión (desde 2026-09-03). El upsert por modifiedTime es lo
+// que hace barata la visión: una imagen se describe una vez por versión, no en
+// cada corrida.
 //
 // Arranca al boot de forma ASÍNCRONA (nunca bloquea ni tumba el arranque del
 // server) + se repite cada 6h. Si Drive no está configurado, no hace nada

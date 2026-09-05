@@ -201,6 +201,10 @@ instrucción, compliance financiero) y el catálogo de skills.
   no tiene cuota de almacenamiento, ver `docs/DRIVE_OAUTH.md`), con la Service
   Account como respaldo de lectura. Listado recursivo del Cerebro y extracción
   de texto de Google Docs/Sheets/Slides, PDF, Word, Excel, PowerPoint y HTML.
+- `vision.ts` — describe las imágenes del Cerebro (.png/.jpg/.webp/.gif) para
+  que se puedan buscar. **No es OCR**: es una lectura del modelo, así que la
+  descripción lleva una primera línea que lo dice, para que nadie la cite como
+  si fuera el documento original. Se apaga con `CEREBRO_VISION_ENABLED=false`.
 - `metaApi.ts` — Graph API v21, solo lectura por ahora.
 
 ### 2.9 Cliente de consola (`scripts/chatCli.ts`)
@@ -270,6 +274,10 @@ La prueba que más importa de la lista blanca no es la que comprueba que se
 descarta lo de más: es la que proyecta la **respuesta real del contrato** y
 exige que salga idéntica. Una lista blanca mal escrita borra datos legítimos, y
 lo hace sin romper nada.
+
+`setup.ts` fuerza `CEREBRO_VISION_ENABLED=false` con `=` y no con `??=`: es una
+garantía, no un default. Las pruebas no pueden llamar a la API de visión ni
+aunque quien las corra tenga un `.env` con la lectura de imágenes encendida.
 
 ---
 

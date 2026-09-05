@@ -813,6 +813,155 @@ configuración; el CEO/CTO ve las cuatro pestañas, con su propia fila marcada
 
 ---
 
+## Auditoría de las carpetas de Drive (2026-09-03)
+
+Se recorrieron el Cerebro y Contenidos archivo por archivo y se cruzaron con lo
+que dice esta bitácora. **Cuatro hallazgos.**
+
+### 🔴 No hay documento de tono en el Cerebro, y por eso nunca se inyectó
+
+`agent/tono.ts` busca en **`00-nucleo`** un archivo cuyo nombre matchee
+`/tono|voz|marca/i` e inyecta su contenido en el system prompt. Los cuatro
+archivos que hay ahí son `producto.md`, `mtp-y-norte.md`, `estado-actual.md` y
+`equipo.md`. **Ninguno matchea: `getTonoDeMarca()` devuelve `undefined` siempre.**
+
+Esto corrige una suposición de la auditoría del 2026-08-07, que dio la regla
+dura 10 por probablemente cumplida *"porque el tono viene inyectado
+automáticamente si el indexador corrió"*. El indexador **sí** corre —los
+resúmenes semanales y los CSV lo prueban—; lo que no existe es el documento. La
+regla 10 prohíbe redactar copy sin la guía de tono cargada, así que o Kaizen se
+niega a escribir copy, o lo escribe sin ella.
+
+Los dos manuales de marca existen pero **los dos están en Contenidos**, que el
+indexador no recorre: `assets/finzen-manual-de-marca.pdf` y
+`Documento maestro/Manual de marca/FinZen_AI_Manual_de_Marca.pdf`. **Se arregla
+copiando uno a `00-nucleo/` con "tono", "voz" o "marca" en el nombre** — un
+archivo, y desde el 25-ago el indexador lee PDF.
+
+### Las notas de Junior siguen sin subir (y ya están preparadas)
+
+Verificado por dos caminos: `10-decisiones/` tiene un solo archivo
+(`decisions-log.md`, sin tocar desde el 27-jul) y una búsqueda por título en
+todo el Drive no encuentra ninguna. **Los 9 skills de lectura siguen buscando,
+no encontrando y siguiendo de largo en silencio.**
+
+Quedaron listas en [`docs/cerebro/de-junior/`](cerebro/de-junior/): las 6 que
+suben (la séptima, la nota de rupturas de la entrega A, se descarta por
+duplicada — decisión ya tomada acá), con la línea `Ventana de datos:` agregada y
+**nada más tocado**. Sus cifras tienen corte al 17-ago y las de campañas son
+lifetime, cosa que su `Actualizado: 2026-08-20` no decía.
+
+### 🔴 El Cerebro está 60% lleno de material que no es de FinZen
+
+Inventario real: **83 archivos, de los cuales 50 son podcasts** — 30
+transcripciones (Raoul Pal, Moonshots, ILTB, Jordi Visser) sobre bitcoin, AI y
+mercados, más 20 digests de esos mismos podcasts. Y son los archivos **más
+grandes** del corpus: hasta 148 KB cada uno, contra los 6 KB del
+`decisions-log.md`.
+
+| Carpeta | Archivos |
+|---|---|
+| `30-ingesta/transcripts` | 30 (+2 basura, ver abajo) |
+| `30-ingesta/digests` | 20 |
+| `60-referencias` | 9 |
+| `50-kaizen` | 6 (los resúmenes semanales) |
+| raíz | 5 (README + 4 CSV de adquisición) |
+| `00-nucleo` | 4 |
+| `20-ideas` | 3 — `inbox.md` pesa 92 KB |
+| `40-loops` | 2 |
+| `10-decisiones` | **1** |
+
+Agrava el problema de ranking del 12-ago más de lo que se pensaba: aunque
+`ts_rank` ya normaliza por largo, una búsqueda de "activación" o "CAC" compite
+contra 50 documentos enormes de vocabulario financiero solapado. La decisión de
+negocio de FinZen vive en **un** archivo de 6 KB. No es un bug del código: es
+curaduría, y vale plantear si los podcasts deberían vivir en una carpeta que el
+indexador excluya.
+
+### Lo que sí está funcionando, con evidencia
+
+- **El cron del resumen semanal, sin fallar**: cinco resúmenes en `50-kaizen/` —
+  10, 12, 17, 24 y **31 de agosto**.
+- **El export de adquisición**: cuatro CSV en la raíz del Cerebro, mismas
+  fechas. Diminutos (276-357 bytes), así que traen muy pocas filas.
+- **`save_content_draft` no ha producido nada jamás**: `reels/`, `guiones/` y
+  `carruseles/` solo tienen sus README y dos archivos que Junior subió el
+  11-jul. Confirma con evidencia el criterio 4 de Fase 2.
+
+### Correcciones a esta bitácora
+
+- Los 8 archivos de marca **no son 8 PDF**: son **6 PDF y 2 PNG** (los
+  storyboards de identidad visual). Hasta hoy los PNG eran ilegibles para
+  Kaizen; ver la sección siguiente.
+- Hay **dos archivos basura de 0 bytes** en `30-ingesta/transcripts` (`.wtest` y
+  `.__wtest`, del 17-ago), restos de las pruebas de escritura en Drive. Conviene
+  borrarlos: desde el 25-ago un archivo que se intenta leer y no da texto cuenta
+  como **fallo visible**, así que ensucian el reporte de cada corrida.
+- La carpeta de marketing se llama `" Documento maestro_Instrucciones_IA"`, con
+  un espacio al inicio. Inofensivo hoy; muerde el día que se resuelva por nombre.
+
+---
+
+## Kaizen lee imágenes (2026-09-03)
+
+Una imagen se contaba como "omitida" y quedaba invisible. Los dos storyboards de
+marketing son PNG, así que **dos de sus ocho documentos no los podía leer
+nadie** — y un diagrama, un pantallazo de un panel o una pieza de contenido
+tienen texto y estructura perfectamente describibles.
+
+Ahora las imágenes del Cerebro (`.png`, `.jpg`, `.webp`, `.gif`) se describen
+con visión y **se indexa esa descripción**. El pedido a la que la genera es
+concreto a propósito: qué tipo de pieza es, transcripción literal de todo el
+texto visible, qué muestra —con los números exactos si es un gráfico o un
+panel— y términos de búsqueda. Los números importan: son el motivo por el que
+alguien va a buscar esa imagen.
+
+### Cuatro decisiones
+
+**No es OCR y el texto guardado lo dice.** Cada descripción empieza con una
+línea que la marca como automática y aclara que no es el documento original.
+Sin eso, dentro de tres meses alguien cita una descripción como si fuera una
+transcripción exacta y nadie puede notar la diferencia.
+
+**El costo es por versión, no por corrida.** El indexador ya solo re-lee lo que
+cambió de `modifiedTime`, así que una imagen se describe **una vez** y no se
+vuelve a pagar hasta que alguien la edite. Se apaga entero con
+`CEREBRO_VISION_ENABLED=false`.
+
+**Dos capas contra la inyección por imagen.** Una imagen puede tener texto
+escrito dentro que parezca una orden. El prompt obliga a **transcribir** ese
+texto como dato y no obedecerlo; la regla dura 6 cubre el otro extremo, donde el
+agente lee lo que salió del Cerebro. Son dos capas para el mismo riesgo, a
+propósito.
+
+**El SVG se despacha por la rama de imagen aunque sea texto.** Si cayera por la
+rama de texto plano se indexaría el XML del vector — el mismo ruido de marcado
+que se limpió del HTML el 25-ago. Como la visión no acepta SVG, se omite; lo que
+importa es que no entre como texto.
+
+Un formato de imagen que la visión no acepta (`.bmp`, `.tiff`, `.heic`, `.svg`)
+se **omite**, que es lo correcto; una imagen legible que no se pudo describir
+—muy grande, error de la API, descripción vacía— es un **fallo visible**, igual
+que un PDF escaneado. La distinción es la misma de siempre y por el mismo
+motivo.
+
+### Verificación
+
+**Probado:** 15 casos del despacho — los cuatro formatos y su `media_type`, la
+caída a la extensión cuando Drive no manda un mime útil, los formatos que se
+omiten, el SVG que no debe entrar como texto, un PNG real de 1×1 que no se
+indexa como binario, y que el markdown y el HTML siguen entrando por su rama de
+siempre. Más `tsc --noEmit` limpio.
+
+**NO probado:** la llamada real a la API de visión — hace falta una
+`ANTHROPIC_API_KEY`, que este entorno no tiene. Las pruebas fuerzan
+`CEREBRO_VISION_ENABLED=false` justamente para que no puedan llamarla. **La
+primera corrida real hay que mirarla**: en Auditoría, el desglose por formato
+del indexado debe mostrar `imagen=N`, y conviene abrir la descripción de uno de
+los storyboards para ver si sirve antes de confiar en ella.
+
+---
+
 ## 🚧 Bloqueado — lo que solo puede aportar FinZen
 
 | Qué | Por qué hace falta |

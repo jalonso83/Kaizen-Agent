@@ -2,6 +2,8 @@ import mammoth from 'mammoth';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { extractText, getDocumentProxy } from 'unpdf';
+import { SinTextoError, type Extraccion } from './extraccion';
+import { describirImagen, esImagen } from './vision';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Extracción de texto de documentos binarios del Cerebro.
@@ -30,21 +32,10 @@ const MAX_FILAS = 2_000;
 /** Páginas de PDF. Los reportes del negocio son de 5-20; 200 es un tope de cordura. */
 const MAX_PAGINAS = 200;
 
-export interface Extraccion {
-  texto: string;
-  /** Con qué se extrajo — viaja al audit log para poder diagnosticar. */
-  via: string;
-  /** Aviso que debe llegar al lector (truncado, hojas omitidas, etc.). */
-  aviso?: string;
-}
-
-/** Un archivo soportado del que NO se pudo sacar texto. No es lo mismo que "tipo no soportado". */
-export class SinTextoError extends Error {
-  constructor(public readonly via: string, motivo: string) {
-    super(motivo);
-    this.name = 'SinTextoError';
-  }
-}
+// El contrato vive en su propio módulo para que vision.ts pueda usarlo sin que
+// los dos se importen mutuamente. Se re-exporta para no cambiarle el import a
+// nadie (drive.ts, jobs/cerebroIndex.ts).
+export { SinTextoError, type Extraccion };
 
 function recortar(texto: string, via: string): Extraccion {
   if (texto.length <= MAX_CHARS) return { texto, via };
@@ -234,13 +225,21 @@ const EXT_TEXTO = /\.(md|markdown|txt|csv|tsv|json|jsonl|ya?ml|xml|html?|log|sql
 /**
  * Extrae texto de un archivo binario descargado de Drive.
  *
- * Devuelve `null` SOLO si el tipo no está soportado (imágenes, video, audio,
- * binarios). Si el tipo está soportado pero no se pudo sacar texto, LANZA
- * SinTextoError con el motivo — para que el indexador lo cuente como fallo
- * visible y no como éxito silencioso.
+ * Devuelve `null` SOLO si el tipo no está soportado (video, audio, binarios, y
+ * las imágenes en formatos que la visión no acepta o cuando está apagada). Si
+ * el tipo está soportado pero no se pudo sacar texto, LANZA SinTextoError con
+ * el motivo — para que el indexador lo cuente como fallo visible y no como
+ * éxito silencioso.
  */
 export async function extraerTexto(datos: Buffer, mimeType: string, nombre: string): Promise<Extraccion | null> {
   const mime = (mimeType || '').toLowerCase();
+
+  // Las imágenes van primero: un .svg es técnicamente texto y lo agarraría la
+  // rama de EXT_TEXTO más abajo, devolviendo el XML crudo del vector — que es
+  // exactamente el ruido que se limpió del HTML el 2026-08-25.
+  if (esImagen(mime, nombre)) {
+    return describirImagen(datos, mime, nombre);
+  }
 
   if (mime === 'application/pdf' || /\.pdf$/i.test(nombre)) {
     return dePdf(new Uint8Array(datos));
@@ -275,4 +274,5 @@ export async function extraerTexto(datos: Buffer, mimeType: string, nombre: stri
 /** Para el mensaje de "tipo no soportado": qué SÍ se puede leer. */
 export const FORMATOS_SOPORTADOS =
   'Google Docs, Sheets y Slides · PDF con texto · Word (.docx) · Excel (.xlsx) · PowerPoint (.pptx) · ' +
+  'imágenes .png/.jpg/.webp/.gif (se describen con visión, no es OCR exacto) · ' +
   'y cualquier archivo de texto (.md, .txt, .csv, .tsv, .json, .yaml, .xml, .html)';

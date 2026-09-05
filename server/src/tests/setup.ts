@@ -14,3 +14,9 @@
 process.env.DATABASE_URL ??= 'postgresql://kaizen:kaizen@localhost:5432/kaizen_pruebas';
 process.env.JWT_SECRET ??= 'secreto-de-pruebas-no-usar-en-produccion';
 process.env.FINZEN_API_URL ??= 'http://localhost:4010';
+
+// Las pruebas NUNCA llaman a la API de visión: cuesta dinero y necesitaría una
+// key real. Esto se fuerza con `=` y no con `??=` a propósito — es una garantía,
+// no un default: aunque quien corra las pruebas tenga un .env con la lectura de
+// imágenes encendida, acá queda apagada.
+process.env.CEREBRO_VISION_ENABLED = 'false';
