@@ -908,10 +908,20 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .usuarios-page {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 28px 40px;
+  /* Mismo padding fluido que la pantalla de Metas: respira en monitores anchos
+     sin dejar la lista pegada al borde en una laptop. */
+  padding: 24px clamp(16px, 4vw, 48px) 40px;
   display: flex;
   flex-direction: column;
   gap: 18px;
+
+  /* UNA sola definición de columnas para la cabecera y las filas: si cada una
+     tuviera la suya, se desalinean sin que nadie lo note. La tercera pista es
+     FIJA y no `auto` justamente por eso — con `auto`, el ancho lo decide el
+     contenido (la palabra "Acciones" contra dos botones), las pistas `fr`
+     sobrantes se reparten distinto y los rótulos quedan corridos respecto de
+     la columna que rotulan. 264px es lo que miden los dos botones juntos. */
+  --usuarios-cols: minmax(0, 2.2fr) minmax(150px, 0.8fr) 264px;
 }
 .usuarios-page::-webkit-scrollbar { width: 6px; }
 .usuarios-page::-webkit-scrollbar-track { background: transparent; }
@@ -923,26 +933,54 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
   justify-content: space-between;
   gap: 20px;
   flex-wrap: wrap;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
 }
+.usuarios-header-texto { min-width: 0; }
 .usuarios-titulo { margin: 0; font-size: 20px; font-weight: 600; color: var(--text-primary); }
 .usuarios-sub { margin: 6px 0 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; max-width: 62ch; }
 .usuarios-ok { margin: 0; font-size: 12.5px; color: var(--signal); }
 
+/* Mismo primario que .dialog-confirm (--signal, la variante accesible del verde
+   de marca): es la acción principal de la pantalla y antes se veía igual que un
+   botón secundario cualquiera. */
 .usuarios-nuevo-btn {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-primary);
-  border-radius: 7px;
-  padding: 8px 14px;
+  border: none;
+  background: var(--signal);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 9px 16px;
   font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
   flex-shrink: 0;
 }
-.usuarios-nuevo-btn:hover { border-color: var(--text-muted); }
+.usuarios-nuevo-btn:hover { filter: brightness(1.08); }
+
+/* Cabecera de la lista: da los rótulos de columna que hacen que las filas se
+   lean como tabla. Las anchuras replican las de .usuarios-fila. */
+.usuarios-lista-head {
+  display: grid;
+  grid-template-columns: var(--usuarios-cols);
+  gap: 20px;
+  align-items: center;
+  /* 17px y no 16: las filas suman su borde de 1px al padding. */
+  padding: 0 17px 8px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+.usuarios-lista-conteo { color: var(--text-secondary); }
+.usuarios-lista-col:last-child { text-align: right; }
 
 .usuarios-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 
 .usuarios-fila {
+  display: grid;
+  grid-template-columns: var(--usuarios-cols);
+  gap: 20px;
+  align-items: start;
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 14px 16px;
@@ -952,15 +990,10 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
    para poder volver a habilitarla. */
 .usuarios-fila.is-disabled { opacity: 0.6; }
 
-.usuarios-fila-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.usuarios-identidad { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.usuarios-nombre { font-size: 14.5px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.usuarios-col-identidad { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.usuarios-col-rol { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.usuarios-col-acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.usuarios-nombre { font-size: 14.5px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .usuarios-yo {
   font-size: 10.5px;
   font-weight: 500;
@@ -973,7 +1006,19 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 }
 .usuarios-email { font-size: 12.5px; color: var(--text-secondary); }
 
-.usuarios-controles { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* "Sin acceso" pasa de una línea al pie a una chip junto al nombre: es el dato
+   que se busca al barrer la lista, no un pie de página. */
+.usuarios-chip-off {
+  font-size: 10.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--amber);
+  background: var(--amber-bg);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
 .usuarios-rol-label { display: inline-flex; }
 .usuarios-rol,
 .usuarios-campo select,
@@ -999,31 +1044,73 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 }
 .usuarios-accion:hover:not(:disabled) { color: var(--text-primary); border-color: var(--text-muted); }
 .usuarios-accion:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Quitar el acceso a alguien no debería verse igual que restablecer su clave. */
+.usuarios-accion.is-deshabilitar:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
+.usuarios-accion.is-habilitar { color: var(--signal); border-color: var(--signal); }
+.usuarios-accion.is-habilitar:hover:not(:disabled) { color: var(--signal); border-color: var(--signal); filter: brightness(1.1); }
 
 .usuarios-permisos { margin: 10px 0 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; }
 .usuarios-alta { margin: 6px 0 0; font-size: 12px; color: var(--text-muted); }
 .usuarios-estado-off { color: var(--amber); }
 
+/* El formulario ocupa el ANCHO COMPLETO de la pantalla. Antes vivía dentro del
+   <header> —un flex con space-between— así que era la columna derecha del
+   título y quedaba en un cuarto del ancho, con un max-width de 560px encima.
+   Ahora es un bloque propio debajo del header. */
 .usuarios-form {
   border: 1px solid var(--border);
+  border-left: 3px solid var(--signal);
   border-radius: 10px;
-  padding: 16px;
+  padding: 18px 20px;
   background: var(--surface);
   width: 100%;
-  max-width: 560px;
 }
-.usuarios-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.usuarios-campo { display: flex; flex-direction: column; gap: 5px; }
+.usuarios-form-head { margin-bottom: 16px; }
+.usuarios-form-titulo { margin: 0; font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.usuarios-form-sub { margin: 4px 0 0; font-size: 12.5px; color: var(--text-secondary); }
+
+/* Los cuatro campos en una fila cuando hay ancho; a dos y a uno cuando no.
+   `auto-fit` con un mínimo evita tener que elegir el punto de quiebre a mano. */
+.usuarios-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px 18px;
+}
+.usuarios-campo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .usuarios-campo > span { font-size: 11.5px; color: var(--text-muted); }
+
+.usuarios-form-notas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px 18px;
+  margin-top: 18px;
+}
+.usuarios-form-nota {
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+}
+.usuarios-form-nota.is-aviso { border-left-color: var(--amber); }
+.usuarios-form-nota-tit {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.usuarios-form-nota .usuarios-permisos { margin: 0; }
 .usuarios-aviso {
-  margin: 12px 0 0;
+  margin: 0;
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.55;
-  border-left: 2px solid var(--amber);
-  padding-left: 10px;
 }
-.usuarios-form-acciones { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.usuarios-form-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
 
 /* Sólo para lectores de pantalla. */
 .sr-only {
@@ -1036,8 +1123,23 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
   border: 0;
 }
 
+/* Entre ~720 y 900 las tres columnas todavía entran, pero la de identidad
+   queda en ~240px y el nombre con su correo y su línea de permisos se parte en
+   cuatro renglones. Antes de que eso pase, la identidad se lleva una fila
+   entera y abajo quedan el rol y las acciones. */
+@media (max-width: 900px) {
+  .usuarios-lista-head { display: none; }
+  .usuarios-fila { grid-template-columns: 1fr auto; row-gap: 14px; }
+  .usuarios-col-identidad { grid-column: 1 / -1; }
+}
+
 @media (max-width: 720px) {
   .usuarios-page { padding: 18px 16px 32px; }
-  .usuarios-form-grid { grid-template-columns: 1fr; }
-  .usuarios-fila-head { align-items: flex-start; flex-direction: column; }
+  .usuarios-form-grid,
+  .usuarios-form-notas { grid-template-columns: 1fr; }
+  /* En móvil la fila vuelve a apilarse: tres columnas en 360px no son una
+     tabla, son tres columnas ilegibles. La cabecera de columnas sobra ahí. */
+  .usuarios-fila { grid-template-columns: 1fr; gap: 12px; }
+  .usuarios-col-acciones { justify-content: flex-start; }
+  .usuarios-lista-head { display: none; }
 }

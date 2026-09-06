@@ -44,64 +44,72 @@ function FilaUsuario({
 }) {
   const esYo = u.id === yo.id;
 
+  // Tres columnas alineadas entre filas (identidad · rol · acciones): a lo
+  // ancho, una lista de tarjetas apiladas se lee como un montón de bloques
+  // sueltos; en columnas se lee como una tabla y se compara de un vistazo.
   return (
     <li className={u.disabled ? 'usuarios-fila is-disabled' : 'usuarios-fila'}>
-      <div className="usuarios-fila-head">
-        <div className="usuarios-identidad">
-          <span className="usuarios-nombre">
-            {u.name}
-            {esYo && <span className="usuarios-yo">tú</span>}
-          </span>
-          <span className="usuarios-email">{u.email}</span>
-        </div>
-
-        <div className="usuarios-controles">
-          {/* El propio rol no se edita: el servidor lo rechaza igual, pero
-              deshabilitarlo acá evita ofrecer una acción que va a fallar. */}
-          <label className="usuarios-rol-label">
-            <span className="sr-only">Rol de {u.name}</span>
-            <select
-              className="usuarios-rol"
-              value={u.role}
-              disabled={esYo}
-              title={esYo ? 'No puedes cambiar tu propio rol.' : undefined}
-              onChange={(e) => onCambiarRol(u.id, e.target.value as Rol)}
-            >
-              {roles.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button type="button" className="usuarios-accion" onClick={() => onRestablecer(u)}>
-            Restablecer contraseña
-          </button>
-
-          <button
-            type="button"
-            className="usuarios-accion"
-            disabled={esYo && !u.disabled}
-            title={esYo && !u.disabled ? 'No puedes deshabilitarte a ti mismo.' : undefined}
-            onClick={() => onCambiarHabilitado(u)}
-          >
-            {u.disabled ? 'Habilitar' : 'Deshabilitar'}
-          </button>
-        </div>
+      <div className="usuarios-col-identidad">
+        <span className="usuarios-nombre">
+          {u.name}
+          {esYo && <span className="usuarios-yo">tú</span>}
+          {u.disabled && <span className="usuarios-chip-off">Sin acceso</span>}
+        </span>
+        <span className="usuarios-email">{u.email}</span>
+        <Permisos rol={u.role} roles={roles} />
       </div>
 
-      <Permisos rol={u.role} roles={roles} />
-      <p className="usuarios-alta">
-        {u.disabled && <span className="usuarios-estado-off">Sin acceso · </span>}
-        Dado de alta el {fecha(u.createdAt)}
-      </p>
+      <div className="usuarios-col-rol">
+        {/* El propio rol no se edita: el servidor lo rechaza igual, pero
+            deshabilitarlo acá evita ofrecer una acción que va a fallar. */}
+        <label className="usuarios-rol-label">
+          <span className="sr-only">Rol de {u.name}</span>
+          <select
+            className="usuarios-rol"
+            value={u.role}
+            disabled={esYo}
+            title={esYo ? 'No puedes cambiar tu propio rol.' : undefined}
+            onChange={(e) => onCambiarRol(u.id, e.target.value as Rol)}
+          >
+            {roles.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className="usuarios-alta">Alta el {fecha(u.createdAt)}</span>
+      </div>
+
+      <div className="usuarios-col-acciones">
+        <button type="button" className="usuarios-accion" onClick={() => onRestablecer(u)}>
+          Restablecer contraseña
+        </button>
+        <button
+          type="button"
+          className={u.disabled ? 'usuarios-accion is-habilitar' : 'usuarios-accion is-deshabilitar'}
+          disabled={esYo && !u.disabled}
+          title={esYo && !u.disabled ? 'No puedes deshabilitarte a ti mismo.' : undefined}
+          onClick={() => onCambiarHabilitado(u)}
+        >
+          {u.disabled ? 'Habilitar' : 'Deshabilitar'}
+        </button>
+      </div>
     </li>
   );
 }
 
-function FormularioNuevo({ roles, onCrear }: { roles: RolInfo[]; onCrear: (d: { email: string; name: string; role: Rol; password: string }) => Promise<void> }) {
-  const [abierto, setAbierto] = useState(false);
+function FormularioNuevo({
+  abierto,
+  cerrar,
+  roles,
+  onCrear,
+}: {
+  abierto: boolean;
+  cerrar: () => void;
+  roles: RolInfo[];
+  onCrear: (d: { email: string; name: string; role: Rol; password: string }) => Promise<void>;
+}) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Rol>('USER');
@@ -120,22 +128,21 @@ function FormularioNuevo({ roles, onCrear }: { roles: RolInfo[]; onCrear: (d: { 
       setEmail('');
       setPassword('');
       setRole('USER');
-      setAbierto(false);
+      cerrar();
     } finally {
       setGuardando(false);
     }
   };
 
-  if (!abierto) {
-    return (
-      <button type="button" className="usuarios-nuevo-btn" onClick={() => setAbierto(true)}>
-        Agregar usuario
-      </button>
-    );
-  }
+  if (!abierto) return null;
 
   return (
     <form className="usuarios-form" onSubmit={enviar}>
+      <div className="usuarios-form-head">
+        <h3 className="usuarios-form-titulo">Nuevo usuario</h3>
+        <p className="usuarios-form-sub">Entra con el correo y la contraseña que le pongas acá.</p>
+      </div>
+
       <div className="usuarios-form-grid">
         <label className="usuarios-campo">
           <span>Nombre</span>
@@ -166,18 +173,27 @@ function FormularioNuevo({ roles, onCrear }: { roles: RolInfo[]; onCrear: (d: { 
         </label>
       </div>
 
-      <Permisos rol={role} roles={roles} />
-
-      {/* Se dice en voz alta porque es una consecuencia real de no tener envío
-          de correos: quien crea la cuenta conoce la contraseña hasta que la
-          otra persona la cambie. */}
-      <p className="usuarios-aviso">
-        Tú vas a conocer esta contraseña. Pásasela por un medio privado y dile que la cambie al entrar, desde su
-        propio menú.
-      </p>
+      {/* Las dos notas van lado a lado: con el formulario a lo ancho, apilarlas
+          dejaba una columna de texto flaca contra medio metro de aire. */}
+      <div className="usuarios-form-notas">
+        <div className="usuarios-form-nota">
+          <span className="usuarios-form-nota-tit">Qué podrá hacer</span>
+          <Permisos rol={role} roles={roles} />
+        </div>
+        {/* Se dice en voz alta porque es una consecuencia real de no tener envío
+            de correos: quien crea la cuenta conoce la contraseña hasta que la
+            otra persona la cambie. */}
+        <div className="usuarios-form-nota is-aviso">
+          <span className="usuarios-form-nota-tit">Sobre la contraseña</span>
+          <p className="usuarios-aviso">
+            Tú vas a conocer esta contraseña. Pásasela por un medio privado y dile que la cambie al entrar, desde su
+            propio menú.
+          </p>
+        </div>
+      </div>
 
       <div className="usuarios-form-acciones">
-        <button type="button" className="dialog-cancel" onClick={() => setAbierto(false)}>
+        <button type="button" className="dialog-cancel" onClick={cerrar}>
           Cancelar
         </button>
         <button type="submit" className="dialog-confirm" disabled={!valido || guardando}>
@@ -193,6 +209,7 @@ export function UsuariosPage({ yo }: { yo: Partner }) {
   const [roles, setRoles] = useState<RolInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [nuevoAbierto, setNuevoAbierto] = useState(false);
 
   const cargar = () =>
     Promise.all([api.listarUsuarios(), api.listarRoles()])
@@ -248,21 +265,43 @@ export function UsuariosPage({ yo }: { yo: Partner }) {
     return <div className="audit-loading">{error ?? 'Cargando usuarios…'}</div>;
   }
 
+  const sinAcceso = usuarios.filter((u) => u.disabled).length;
+
   return (
     <div className="usuarios-page">
       <header className="usuarios-header">
-        <div>
+        <div className="usuarios-header-texto">
           <h2 className="usuarios-titulo">Usuarios</h2>
           <p className="usuarios-sub">
             Quién puede entrar a Kaizen y hasta dónde. Los permisos se aplican en el servidor: cambiar un rol tiene
             efecto en la petición siguiente, sin esperar a que la sesión caduque.
           </p>
         </div>
-        <FormularioNuevo roles={roles} onCrear={crear} />
+        <button
+          type="button"
+          className="usuarios-nuevo-btn"
+          onClick={() => setNuevoAbierto((v) => !v)}
+          aria-expanded={nuevoAbierto}
+        >
+          {nuevoAbierto ? 'Cerrar' : 'Agregar usuario'}
+        </button>
       </header>
+
+      {/* Fuera del header a propósito: adentro era un ítem más del flex y el
+          formulario quedaba en una columna angosta al costado del título. */}
+      <FormularioNuevo abierto={nuevoAbierto} cerrar={() => setNuevoAbierto(false)} roles={roles} onCrear={crear} />
 
       {error && <div className="banner-error">{error}</div>}
       {aviso && <p className="usuarios-ok">{aviso}</p>}
+
+      <div className="usuarios-lista-head">
+        <span className="usuarios-lista-conteo">
+          {usuarios.length} {usuarios.length === 1 ? 'usuario' : 'usuarios'}
+          {sinAcceso > 0 && ` · ${sinAcceso} sin acceso`}
+        </span>
+        <span className="usuarios-lista-col">Rol</span>
+        <span className="usuarios-lista-col">Acciones</span>
+      </div>
 
       <ul className="usuarios-lista">
         {usuarios.map((u) => (
