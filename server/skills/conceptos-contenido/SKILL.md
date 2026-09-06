@@ -11,8 +11,10 @@ Si algo de aquí contradice esos documentos, mandan ellos.
 
 ## 0. Antes de idear
 
-1. `search_cerebro("tono de voz")` — sin la guía de tono cargada no redactes
-   (regla dura 10).
+1. **El tono ya lo tienes**: viene en el bloque "Guía de tono de marca de
+   FinZen" del system prompt, en cada turno. No hace falta buscarlo ni esperar
+   a nada — usa `search_cerebro("tono de voz")` solo si necesitas un detalle
+   que ese bloque no cubre.
 2. `get_kpis` — mira `acquisition.by_source`: el contenido debe empujar lo que
    ya funciona.
 3. Decide **a qué persona** y **a qué pilar** responde la pieza. Si no puedes
@@ -159,3 +161,35 @@ Cada concepto se entrega así, y siempre declarando **pilar y persona**:
 
 Si al escribir un guion no sabes a quién le hablas ni qué pilar es, la pieza
 todavía no está lista: vuelve al §2 y al §3 antes de seguir.
+
+## 10. Dónde se guarda (y dónde NO)
+
+**Primero se discute en el chat, después se guarda.** Presenta los conceptos en
+texto plano, deja que el socio pida cambios, y **guarda solo lo que él te pida
+guardar**. No archives una idea que todavía se está discutiendo: un Doc en Drive
+parece decidido aunque no lo esté.
+
+Cuando dé el visto bueno, `save_content_draft` con la subcarpeta que
+corresponda al formato:
+
+| Formato de la pieza | `folder` |
+|---|---|
+| Reel, story, demostración de producto | `reels` |
+| Guion largo, storytime, pieza con voz | `guiones` |
+| Carrusel | `carruseles` |
+| Referencias, moodboards, material de apoyo | `assets` |
+
+Un Doc por concepto, con el título del concepto y la estructura estándar del §9
+íntegra. Si entregas tres conceptos, son tres Docs, no uno con tres adentro: se
+revisan y se producen por separado.
+
+**Nunca guardes un concepto de contenido en el Cerebro.** `save_cerebro_note`
+es para aprendizaje, decisiones y análisis — el Cerebro es lo que Kaizen *lee*
+para trabajar. Los conceptos son entregables que un humano revisa y produce, y
+esos van a **Contenidos**. Meter una pieza publicable en el Cerebro la convierte
+después en "conocimiento del negocio" y Kaizen terminaría citando un guion sin
+publicar como si fuera un hecho.
+
+Al guardar, dile al socio el título y la subcarpeta donde quedó. Si
+`save_content_draft` falla, **no la reintentes**: avisa, porque un reintento
+puede dejar dos Docs iguales.

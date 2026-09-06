@@ -15,7 +15,7 @@ const FRAGMENT_CHARS = 1500;
 // los términos de pasada para que el relevante quedara afuera, sin segunda
 // oportunidad. Cuesta ~1.900 tokens de contexto por búsqueda en vez de ~1.100.
 const MAX_RESULTS = 5;
-const FOLDERS = ['reels', 'guiones', 'carruseles', 'assets'] as const;
+export const FOLDERS = ['reels', 'guiones', 'carruseles', 'assets'] as const;
 type ContentFolder = (typeof FOLDERS)[number];
 
 interface CerebroRow {

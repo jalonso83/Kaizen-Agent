@@ -962,6 +962,83 @@ los storyboards para ver si sirve antes de confiar en ella.
 
 ---
 
+## Kaizen ya puede generar conceptos de contenido (2026-09-06)
+
+Decisión del socio: **arrancar la generación de ideas de marketing sin esperar a
+que los documentos de marca lleguen al Cerebro.** Faltaban dos piezas, y ninguna
+era el documento.
+
+### 1. El tono, con respaldo en el repo
+
+La auditoría del 05-sep encontró que `getTonoDeMarca()` devolvía `undefined`
+siempre porque en `00-nucleo` no hay documento de tono. Combinado con la regla
+dura 10 —*no redactes copy sin la guía de tono cargada*— el resultado era una
+pinza: o Kaizen se negaba a escribir, o escribía sin guía, que es peor porque
+nadie se entera.
+
+Ahora `tono.ts` cae a **`agent/tonoFallback.ts`**: lo esencial del Manual de
+Marca oficial (v1.0, julio 2026) destilado a ~4.500 caracteres — registro
+dominicano de la Gen Z en "tú", los dos arquetipos, personalidad, el
+posicionamiento por contraste, Zenio con voz, y el vocabulario de producto.
+
+**El Cerebro siempre gana.** El respaldo entra solo si la búsqueda en
+`00-nucleo` no encontró nada, así que subir el manual a Drive no requiere tocar
+código ni borrar el respaldo: la comparación la hace `tono.ts` en cada corrida.
+
+**El prompt dice de dónde salió el tono** — "del Cerebro: `<archivo>`" o
+"respaldo del repo" — porque el modelo debe saber si está leyendo la fuente
+oficial o un destilado. Y el bloque del respaldo lo autoriza explícitamente a
+redactar: sin esa frase, "respaldo" se lee como "incompleto" y el modelo se
+niega igual, que es justo el comportamiento que se estaba quitando.
+
+La **regla 10 se reescribió** en consecuencia: la guía viene siempre en el
+prompt, las dos fuentes sirven para escribir, y solo si el bloque dijera que no
+está disponible corresponde negarse.
+
+Un fallo de BD tampoco deja al agente sin tono: `getTonoDeMarca()` atrapa el
+error y devuelve el respaldo. Antes una caída de Postgres se manifestaba como
+Kaizen negándose a redactar, que es un síntoma que no lleva a la causa.
+
+### 2. El circuito a Contenidos, cerrado
+
+El skill definía la estructura del Doc (§9) pero **nunca decía que había que
+guardarlo**, ni en qué subcarpeta. Un concepto se redactaba en el chat y ahí
+moría.
+
+`conceptos-contenido` §10 nuevo: primero se discute en el chat y **solo se
+guarda lo que el socio pida guardar** —un Doc en Drive parece decidido aunque no
+lo esté—, después `save_content_draft` con el mapeo formato → subcarpeta
+(reel/story/demo → `reels`, guion → `guiones`, carrusel → `carruseles`, apoyo →
+`assets`), **un Doc por concepto** (tres conceptos son tres Docs, porque se
+revisan y producen por separado), y sin reintentos si falla.
+
+Y la prohibición explícita: **un concepto de contenido nunca va al Cerebro.** El
+Cerebro es lo que Kaizen *lee* para trabajar; los conceptos son entregables que
+un humano revisa. Meter una pieza publicable ahí la convierte después en
+"conocimiento del negocio", y Kaizen terminaría citando un guion sin publicar
+como si fuera un hecho. (`save_cerebro_note` ya lo decía en su descripción; ahora
+también lo dice el skill, que es donde el modelo está mirando cuando redacta.)
+
+### Verificación
+
+11 pruebas nuevas (55 en total): que el respaldo trae registro, arquetipos y
+audiencia; que **no contiene "democratizar"**, la palabra que él mismo veta; que
+no supera los 6.000 caracteres, porque viaja en cada turno incluso cuando el
+socio solo pregunta por KPIs; los tres estados del bloque de tono en el prompt;
+y que la regla 10 ya no bloquea.
+
+Una es una **prueba de deriva**: las subcarpetas que nombra el skill se cotejan
+contra el enum `FOLDERS` real de la tool. Si alguien cambia el enum, el skill
+queda mandando a una carpeta que la tool rechaza, y sin esta prueba eso aparece
+recién en una conversación real con el concepto ya escrito.
+
+**NO probado:** una conversación real de punta a punta — pedirle conceptos,
+aprobarlos y ver el Doc aterrizar en `Contenidos/reels`. Necesita
+`ANTHROPIC_API_KEY`. Es lo que cierra el **criterio 4 de Fase 2**, y es la
+prueba que hay que correr en el server donde el socio prueba.
+
+---
+
 ## 🚧 Bloqueado — lo que solo puede aportar FinZen
 
 | Qué | Por qué hace falta |
