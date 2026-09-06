@@ -23,6 +23,10 @@
   --signal-bg: #ecf5ef;
   --amber: #b9852b;
   --amber-bg: #f7f0e2;
+  /* --amber sobre --amber-bg da 2.87:1, insuficiente para una etiqueta de
+     texto (WCAG AA pide 4.5:1). Esta variante oscurecida da 4.7:1 y se usa
+     donde el ámbar lleva texto encima, no solo un borde o un punto. */
+  --amber-fuerte: #8a6320;
   --danger: #b33a3a;
   --danger-bg: #fbe9e9;
   --navy: #204274;
@@ -52,8 +56,14 @@
   --signal: #7fc794;
   --signal-brand: #6cad7f;
   --signal-bg: #16301f;
+  /* Texto sobre un fondo --signal. En claro el verde es oscuro y va blanco
+     (el default); acá el verde es CLARO, así que el blanco encima da 2.0:1 y
+     hay que invertirlo: sobre este verde, el fondo de la app da 8.7:1. */
+  --signal-texto: #0f1b2e;
   --amber: #e3a15c;
   --amber-bg: #3a2a16;
+  /* En oscuro --amber ya contrasta 6.25:1 contra --amber-bg. */
+  --amber-fuerte: #e3a15c;
   --danger: #e07a7a;
   --danger-bg: #3a1a1a;
   --navy: #8fb4e0;
@@ -589,12 +599,17 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
   padding: 8px 14px; color: var(--text-secondary);
 }
 .dialog-cancel:hover { background: var(--surface-2); }
+/* Mismo motivo que en .usuarios-nuevo-btn: en tema oscuro --signal es un verde
+   CLARO y el #fff encima daba 2.0:1 — el botón de confirmar de cada diálogo
+   quedaba prácticamente ilegible. Con --signal-texto (el fondo de la app en
+   oscuro) son 8.6:1; en claro sigue siendo blanco, sin cambio. */
 .dialog-confirm {
-  background: var(--signal); color: #fff; border: none; border-radius: var(--radius);
+  background: var(--signal); color: var(--signal-texto, #fff); border: none; border-radius: var(--radius);
   padding: 8px 16px; font-weight: 500;
 }
 .dialog-confirm:hover { filter: brightness(1.08); }
-.dialog-confirm-danger { background: var(--danger); }
+/* El rojo de peligro es oscuro en los dos temas: ahí el blanco sí corresponde. */
+.dialog-confirm-danger { background: var(--danger); color: #fff; }
 .dialog-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ---------- pantalla de Metas ----------
@@ -943,11 +958,15 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 
 /* Mismo primario que .dialog-confirm (--signal, la variante accesible del verde
    de marca): es la acción principal de la pantalla y antes se veía igual que un
-   botón secundario cualquiera. */
+   botón secundario cualquiera.
+   El texto NO es #fff fijo: en tema oscuro --signal es un verde claro (#7fc794)
+   y el blanco encima da 2.0:1, muy por debajo del 4.5:1 que pide WCAG AA. Con
+   el fondo de la app como color de texto son 8.7:1. En claro, el blanco sobre
+   el verde oscuro da 4.18:1 y se mantiene. */
 .usuarios-nuevo-btn {
   border: none;
   background: var(--signal);
-  color: #fff;
+  color: var(--signal-texto, #fff);
   border-radius: var(--radius);
   padding: 9px 16px;
   font-size: 13px;
@@ -1013,7 +1032,7 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--amber);
+  color: var(--amber-fuerte);
   background: var(--amber-bg);
   border-radius: 999px;
   padding: 2px 8px;
