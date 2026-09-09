@@ -72,14 +72,20 @@ const GRUPOS: GrupoConfig[] = [
     ],
   },
   {
-    titulo: 'Redes sociales',
+    // Solo Instagram por ahora (decisión del socio, 2026-09-09). TikTok,
+    // YouTube y LinkedIn quedan para después: cada red se lee distinto, y
+    // dibujar campos para redes que nadie va a leer da la impresión de que
+    // están soportadas.
+    titulo: 'Instagram',
     descripcion:
-      'Los perfiles donde se publica el contenido. Hoy Kaizen no tiene acceso a sus métricas — los skills de lectura de redes lo declaran explícitamente y dicen que no hay datos en vez de estimarlos.',
+      'El perfil que Kaizen va a leer. De la URL se saca el usuario, que es lo que necesita cualquier lectura de perfil; se acepta también el handle pelado (@finzenai).',
     campos: [
-      { clave: 'instagramUrl', label: 'Instagram', placeholder: 'https://instagram.com/finzenai' },
-      { clave: 'tiktokUrl', label: 'TikTok', placeholder: 'https://tiktok.com/@finzenai' },
-      { clave: 'youtubeUrl', label: 'YouTube', placeholder: 'https://youtube.com/@finzenai' },
-      { clave: 'linkedinUrl', label: 'LinkedIn', placeholder: 'https://linkedin.com/company/...' },
+      {
+        clave: 'instagramUrl',
+        label: 'Perfil',
+        placeholder: 'https://instagram.com/finzenai',
+        ayuda: 'La URL del perfil, no la de una publicación ni un reel.',
+      },
     ],
   },
   {
