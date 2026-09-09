@@ -8,6 +8,7 @@ import { Composer } from '../components/Composer';
 import { AgentStatusBar } from '../components/AgentStatusBar';
 import { MenuIcon } from '../components/Icons';
 import { AuditPage } from './AuditPage';
+import { MarketingPage } from './MarketingPage';
 import { MetasPage } from './MetasPage';
 import { UsuariosPage } from './UsuariosPage';
 import type { ConversationSummary, Goal, Partner, Permiso, Proposal, StoredMessage } from '../types';
@@ -20,7 +21,7 @@ interface Props {
 // Calca server/prisma/schema.prisma → Conversation.title @default(...).
 const DEFAULT_CONVERSATION_TITLE = 'Nueva conversación';
 
-type Vista = 'chat' | 'metas' | 'audit' | 'usuarios';
+type Vista = 'chat' | 'metas' | 'audit' | 'marketing' | 'usuarios';
 
 // Qué permiso hace falta para cada pestaña. Esconder una pestaña es cortesía:
 // el servidor niega igual con 403 si alguien llama la API a mano (ver
@@ -29,6 +30,7 @@ const PESTANAS: Array<{ vista: Vista; label: string; permiso: Permiso }> = [
   { vista: 'chat', label: 'Chat', permiso: 'chat' },
   { vista: 'metas', label: 'Metas', permiso: 'metas:ver' },
   { vista: 'audit', label: 'Auditoría', permiso: 'auditoria:ver' },
+  { vista: 'marketing', label: 'Marketing', permiso: 'marketing:ver' },
   { vista: 'usuarios', label: 'Usuarios', permiso: 'usuarios:gestionar' },
 ];
 
@@ -357,6 +359,7 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
 
         {view === 'metas' && <MetasPage />}
         {view === 'audit' && <AuditPage />}
+        {view === 'marketing' && <MarketingPage />}
         {view === 'usuarios' && <UsuariosPage yo={partner} />}
 
         {view === 'chat' && loadError && (

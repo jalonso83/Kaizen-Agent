@@ -25,6 +25,16 @@ export const PERMISOS = [
   'auditoria:ver',
   /** Cambiar la config del resumen semanal y reindexar el Cerebro. */
   'config:editar',
+  /**
+   * Ver el apartado de Marketing (configuración de cuentas y tablero).
+   *
+   * Permiso propio y no reutilizar 'config:editar': ahí adentro van a vivir
+   * las URLs y las cuentas de las redes, que es información de la empresa
+   * hacia afuera. Que hoy los dos los tenga solo ADMIN no los hace lo mismo —
+   * el día que se quiera dar acceso a marketing al tablero sin abrirle la
+   * configuración del Cerebro, se mueve una línea de este archivo.
+   */
+  'marketing:ver',
   /** Crear socios, cambiarles el rol, habilitarlos y deshabilitarlos. */
   'usuarios:gestionar',
 ] as const;
@@ -42,7 +52,7 @@ export const ETIQUETA_ROL: Record<Rol, string> = {
 };
 
 export const DESCRIPCION_ROL: Record<Rol, string> = {
-  ADMIN: 'Acceso completo: chat, metas, auditoría, configuración y gestión de usuarios.',
+  ADMIN: 'Acceso completo: chat, metas, campañas, auditoría, marketing, configuración y gestión de usuarios.',
   ASSISTANT: 'Puede conversar con Kaizen y ver las metas, pero no confirmarlas ni publicar campañas.',
   USER: 'Solo el chat. Puede conversar con Kaizen y ver lo que Kaizen le propone, sin confirmarlo.',
 };

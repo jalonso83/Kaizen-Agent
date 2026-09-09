@@ -15,6 +15,7 @@ export type Permiso =
   | 'campanas:confirmar'
   | 'auditoria:ver'
   | 'config:editar'
+  | 'marketing:ver'
   | 'usuarios:gestionar';
 
 export type Rol = 'ADMIN' | 'ASSISTANT' | 'USER';
