@@ -1,7 +1,18 @@
 import { config } from '../config';
+import { GraphApiError, graphRequest } from './graphApi';
+
+/**
+ * El error de Graph, con el nombre con el que ya se lo conoce en este módulo.
+ * Es la MISMA clase que usa el cliente de Instagram, así que un
+ * `instanceof MetaApiError` sigue funcionando igual que antes.
+ */
+export { GraphApiError as MetaApiError };
 
 // ─────────────────────────────────────────────────────────────────────────
 // Cliente de la Meta Marketing API (Graph API) — Fase 2, PRD §2.1/§2.2.
+//
+// El transporte (auth, timeout, traducción de errores) vive en graphApi.ts,
+// compartido con el cliente de Instagram: es la misma API y el mismo token.
 //
 // La diferencia con clients/finzenApi.ts es que acá hay DINERO REAL del otro
 // lado. Eso cambia tres cosas del diseño, y las tres son estructurales:
@@ -25,87 +36,16 @@ import { config } from '../config';
 // cualquier herramienta que registre la URL completa.
 // ─────────────────────────────────────────────────────────────────────────
 
-const API_VERSION = 'v21.0';
-const BASE = `https://graph.facebook.com/${API_VERSION}`;
-
-export class MetaApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-    /** Código de error de Graph (no HTTP). 190 = token, 4/17/80004 = rate limit. */
-    public readonly code: number | null = null,
-    /** Identificador que Meta pide para reportar un problema en su soporte. */
-    public readonly fbtraceId: string | null = null,
-  ) {
-    super(message);
-    this.name = 'MetaApiError';
-  }
-}
-
-/** Traduce los códigos de Graph que hay que saber distinguir al operar. */
-function explicar(code: number | null, mensaje: string): string {
-  switch (code) {
-    case 190:
-      return `El token de Meta no sirve o expiró (${mensaje}). Hay que regenerar META_SYSTEM_TOKEN.`;
-    case 200:
-    case 294:
-      return `El token no tiene permiso para esta operación (${mensaje}). Revisar que tenga ads_read, y ads_management si es escritura.`;
-    case 4:
-    case 17:
-    case 80004:
-      return `Meta está limitando por volumen de llamadas (${mensaje}). No reintentar en bucle: esperar.`;
-    case 100:
-      return `Meta rechazó los parámetros (${mensaje}). Suele ser un campo mal escrito o un id de cuenta que no existe.`;
-    default:
-      return mensaje;
-  }
-}
-
 /** `act_123` venga como venga: el PRD lo escribe con prefijo, la UI de Meta a veces no. */
 function cuenta(): string {
   const id = config.meta.adAccountId;
   if (!id) {
-    throw new MetaApiError(0, 'Falta META_AD_ACCOUNT_ID. Sin cuenta publicitaria no hay nada que leer.');
+    throw new GraphApiError(0, 'Falta META_AD_ACCOUNT_ID. Sin cuenta publicitaria no hay nada que leer.');
   }
   return id.startsWith('act_') ? id : `act_${id}`;
 }
 
-async function request<T>(
-  method: 'GET' | 'POST',
-  path: string,
-  params: Record<string, string> = {},
-  body?: Record<string, unknown>,
-): Promise<T> {
-  if (!config.meta.systemToken) {
-    throw new MetaApiError(0, 'Falta META_SYSTEM_TOKEN. Kaizen no puede hablar con Meta sin credencial.');
-  }
-
-  const url = new URL(`${config.meta.baseUrl}${path}`);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-
-  const res = await fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${config.meta.systemToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(30_000),
-  });
-
-  const json = (await res.json().catch(() => ({}))) as {
-    error?: { message?: string; code?: number; error_subcode?: number; fbtrace_id?: string };
-  };
-
-  if (!res.ok || json.error) {
-    const e = json.error ?? {};
-    const code = typeof e.code === 'number' ? e.code : null;
-    const crudo = e.message ?? `Meta API error ${res.status}`;
-    throw new MetaApiError(res.status, explicar(code, crudo), code, e.fbtrace_id ?? null);
-  }
-
-  return json as T;
-}
+const request = graphRequest;
 
 // ── Tipos ─────────────────────────────────────────────────────────────────
 
@@ -251,7 +191,7 @@ export async function getSpend(since: string, until: string): Promise<MetaSpendR
  */
 function assertWriteEnabled(): void {
   if (!config.meta.writeEnabled) {
-    throw new MetaApiError(
+    throw new GraphApiError(
       0,
       'La escritura en Meta está deshabilitada (META_WRITE_ENABLED). Fase 2 arranca en solo lectura: ' +
         'primero ≥1 semana de lecturas estables, después se habilita crear borradores.',
@@ -273,17 +213,17 @@ export function assertBudget(dailyBudgetUsd: number, moneda: string): void {
   const tope = config.meta.maxDailyBudgetUsd;
 
   if (moneda !== 'USD') {
-    throw new MetaApiError(
+    throw new GraphApiError(
       0,
       `La cuenta de Meta factura en ${moneda} y el tope está definido en USD (META_MAX_DAILY_BUDGET_USD). ` +
         'No se aplica una conversión automática: hay que definir el tope en la moneda de la cuenta antes de poder crear nada.',
     );
   }
   if (!Number.isFinite(dailyBudgetUsd) || dailyBudgetUsd <= 0) {
-    throw new MetaApiError(0, 'El presupuesto diario tiene que ser un número mayor que cero.');
+    throw new GraphApiError(0, 'El presupuesto diario tiene que ser un número mayor que cero.');
   }
   if (dailyBudgetUsd > tope) {
-    throw new MetaApiError(
+    throw new GraphApiError(
       0,
       `El presupuesto diario pedido (${dailyBudgetUsd} ${moneda}) supera el tope configurado de ${tope} ${moneda}. ` +
         'El tope no se negocia por chat: se cambia en META_MAX_DAILY_BUDGET_USD.',
@@ -315,7 +255,7 @@ export async function createCampaignDraft(input: MetaCampaignDraftInput): Promis
   assertBudget(input.dailyBudgetUsd, account.currency);
 
   if (account.account_status !== 1) {
-    throw new MetaApiError(
+    throw new GraphApiError(
       0,
       `La cuenta de Meta no está activa (account_status=${account.account_status}). No se crea nada sobre una cuenta en ese estado.`,
     );

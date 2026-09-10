@@ -109,6 +109,19 @@ export const config = {
     acquisitionExportFolderId: optional('DRIVE_ACQUISITION_EXPORT_FOLDER_ID'),
   },
 
+  // ── Instagram (Graph API) ───────────────────────────────────────────────
+  // Usa el MISMO token que la publicidad (META_SYSTEM_TOKEN), con dos permisos
+  // más: instagram_basic y pages_read_engagement. No hay una credencial
+  // aparte — es la misma Graph API.
+  instagram: {
+    // El id del nodo de Instagram de FinZen. Hace falta incluso para leer un
+    // perfil ajeno: business_discovery se consulta SOBRE la cuenta propia y
+    // pide el perfil de otro como campo (ver clients/instagramApi.ts).
+    // Se obtiene desde la página de Facebook vinculada:
+    //   GET /{page-id}?fields=instagram_business_account
+    accountId: optional('INSTAGRAM_ACCOUNT_ID'),
+  },
+
   // ── Meta Marketing API (Fase 2) ─────────────────────────────────────────
   // Todo opcional: sin credenciales el server arranca igual y las tools de
   // Meta fallan con un mensaje claro, igual que pasa con las de FinZen.
