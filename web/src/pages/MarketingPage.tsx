@@ -1,22 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api, ApiError } from '../api';
+import type { CuentaMarketing, Partner } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────
-// Apartado de Marketing (solo CEO / CTO — permiso 'marketing:ver').
+// Apartado de Marketing (solo CEO / CTO — permisos 'marketing:ver' para
+// mirarlo y 'marketing:editar' para cambiar las cuentas).
 //
-// ⚠️ ESTO ES EL ESQUELETO. Nada está conectado todavía, a propósito: no hay
-// endpoints, no hay tabla en la BD, no se guarda ni se lee nada. Lo que hay es
-// la navegación, la estructura de las dos secciones y los campos dibujados,
-// para poder decidir sobre algo concreto antes de construir el backend.
+// ESTADO: los PERFILES ya guardan de verdad (tabla MarketingAccount,
+// /api/marketing/accounts). El resto de la Configuración —los enlaces de
+// referencia a Meta y al sitio— y el Dashboard siguen sin conectar, y lo dicen
+// en pantalla.
 //
-// Por eso la sección de Configuración avisa EN PANTALLA que todavía no
-// persiste y el botón de guardar está deshabilitado. Un formulario que parece
-// que guarda y no guarda es peor que uno que no existe: alguien escribe sus
-// URLs, recarga, las pierde y no entiende por qué. Es el mismo patrón de fallo
-// silencioso que ya mordió varias veces en este proyecto.
-//
-// Cuando se conecte hay que: definir dónde vive esta configuración (tabla
-// propia o una fila única como WeeklySummaryConfig), agregar sus rutas con
-// requirePermission('marketing:ver'), y quitar el aviso y el disabled de acá.
+// Esa distinción se mantiene visible a propósito: mezclar campos que guardan
+// con campos que no, sin decir cuál es cuál, es la forma más rápida de que
+// alguien escriba algo, recargue y lo pierda sin entender por qué.
 // ─────────────────────────────────────────────────────────────────────────
 
 type Seccion = 'configuracion' | 'dashboard';
@@ -72,23 +69,6 @@ const GRUPOS: GrupoConfig[] = [
     ],
   },
   {
-    // Solo Instagram por ahora (decisión del socio, 2026-09-09). TikTok,
-    // YouTube y LinkedIn quedan para después: cada red se lee distinto, y
-    // dibujar campos para redes que nadie va a leer da la impresión de que
-    // están soportadas.
-    titulo: 'Instagram',
-    descripcion:
-      'El perfil que Kaizen va a leer. De la URL se saca el usuario, que es lo que necesita cualquier lectura de perfil; se acepta también el handle pelado (@finzenai).',
-    campos: [
-      {
-        clave: 'instagramUrl',
-        label: 'Perfil',
-        placeholder: 'https://instagram.com/finzenai',
-        ayuda: 'La URL del perfil, no la de una publicación ni un reel.',
-      },
-    ],
-  },
-  {
     titulo: 'Sitio y aplicación',
     descripcion: 'A dónde se manda el tráfico. Sirve para revisar que los enlaces de las campañas apunten a donde deben.',
     campos: [
@@ -107,25 +87,206 @@ function AvisoSinConectar({ que }: { que: string }) {
   );
 }
 
-function Configuracion() {
-  // Estado local a propósito: no hay a dónde mandarlo todavía. Se pierde al
-  // cambiar de pestaña, y el aviso de arriba lo dice para que no sorprenda.
+/**
+ * Los perfiles sociales que Kaizen puede leer. Esta sección SÍ persiste.
+ *
+ * La URL se manda tal cual se escribió: el servidor deriva el usuario y la URL
+ * canónica. Por eso lo que se ve en la lista después de guardar puede no ser
+ * literalmente lo que se tipeó — y está bien, es la forma normalizada.
+ */
+function Perfiles({ puedeEditar }: { puedeEditar: boolean }) {
+  const [cuentas, setCuentas] = useState<CuentaMarketing[] | null>(null);
+  const [url, setUrl] = useState('');
+  const [etiqueta, setEtiqueta] = useState('');
+  const [esPropia, setEsPropia] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const cargar = () =>
+    api
+      .listarCuentasMarketing()
+      .then((r) => setCuentas(r.cuentas))
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'No se pudieron cargar las cuentas.'));
+
+  useEffect(() => {
+    void cargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Corre una acción y RECARGA del servidor: el estado que manda es el suyo. */
+  const accion = async (fn: () => Promise<unknown>) => {
+    setError(null);
+    try {
+      await fn();
+      await cargar();
+      return true;
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'No se pudo completar la acción.');
+      return false;
+    }
+  };
+
+  const agregar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!url.trim() || guardando) return;
+    setGuardando(true);
+    try {
+      const ok = await accion(() =>
+        api.agregarCuentaMarketing({ url: url.trim(), etiqueta: etiqueta.trim() || undefined, esPropia }),
+      );
+      if (ok) {
+        setUrl('');
+        setEtiqueta('');
+        setEsPropia(false);
+      }
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <section className="marketing-seccion" aria-labelledby="marketing-perfiles">
+      <header className="marketing-seccion-head">
+        <h3 className="marketing-seccion-titulo" id="marketing-perfiles">
+          Perfiles
+        </h3>
+        <p className="marketing-seccion-sub">
+          Las cuentas que Kaizen puede leer. Por ahora solo Instagram.
+        </p>
+      </header>
+
+      {error && <div className="banner-error">{error}</div>}
+
+      {puedeEditar && (
+        <form className="marketing-grupo" onSubmit={agregar}>
+          <div className="marketing-grupo-head">
+            <h4 className="marketing-grupo-titulo">Agregar un perfil</h4>
+            <p className="marketing-grupo-sub">
+              Pegá la URL del perfil (no la de una publicación ni un reel); también vale el handle,{' '}
+              <code>@finzenai</code>. De ahí se saca el usuario, que es lo que necesita la API de Instagram.
+            </p>
+          </div>
+
+          <div className="marketing-campos">
+            <label className="marketing-campo">
+              <span className="marketing-campo-label">URL o handle</span>
+              <input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://instagram.com/finzenai"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
+            <label className="marketing-campo">
+              <span className="marketing-campo-label">Etiqueta (opcional)</span>
+              <input
+                value={etiqueta}
+                onChange={(e) => setEtiqueta(e.target.value)}
+                placeholder="FinZen, Competidor X…"
+                autoComplete="off"
+              />
+              <span className="marketing-campo-ayuda">Cómo llamarlo en pantalla. Si se deja vacío se muestra el usuario.</span>
+            </label>
+          </div>
+
+          <label className="marketing-check">
+            <input type="checkbox" checked={esPropia} onChange={(e) => setEsPropia(e.target.checked)} />
+            <span>
+              Es la cuenta de FinZen
+              {/* No es cosmético: de la cuenta propia se pueden pedir alcance y
+                  guardados; de un tercero, nunca. */}
+              <span className="marketing-campo-ayuda">
+                Solo de la cuenta propia se pueden obtener alcance y guardados. De un tercero, solo lo público.
+              </span>
+            </span>
+          </label>
+
+          <div className="marketing-acciones">
+            <button type="submit" className="dialog-confirm" disabled={!url.trim() || guardando}>
+              {guardando ? 'Guardando…' : 'Agregar'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {cuentas === null ? (
+        <div className="marketing-vacio">
+          <p>Cargando…</p>
+        </div>
+      ) : cuentas.length === 0 ? (
+        <div className="marketing-vacio">
+          <p>Todavía no hay perfiles guardados.</p>
+        </div>
+      ) : (
+        <ul className="marketing-lista">
+          {cuentas.map((c) => (
+            <li className="marketing-cuenta" key={c.id}>
+              <div className="marketing-cuenta-datos">
+                <span className="marketing-cuenta-nombre">
+                  {c.etiqueta || `@${c.usuario}`}
+                  {c.esPropia && <span className="marketing-chip-propia">FinZen</span>}
+                </span>
+                <a className="marketing-cuenta-url" href={c.url} target="_blank" rel="noreferrer noopener">
+                  {c.url}
+                </a>
+                {c.etiqueta && <span className="marketing-campo-ayuda">@{c.usuario}</span>}
+              </div>
+
+              {puedeEditar && (
+                <div className="marketing-cuenta-acciones">
+                  {!c.esPropia && (
+                    <button
+                      type="button"
+                      className="usuarios-accion"
+                      title="Marcarla como la cuenta de FinZen. La que estuviera marcada deja de estarlo."
+                      onClick={() => void accion(() => api.editarCuentaMarketing(c.id, { esPropia: true }))}
+                    >
+                      Es de FinZen
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="usuarios-accion is-deshabilitar"
+                    onClick={() => void accion(() => api.borrarCuentaMarketing(c.id))}
+                  >
+                    Quitar
+                  </button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function Configuracion({ puedeEditar }: { puedeEditar: boolean }) {
+  // Estado local a propósito: estos enlaces de referencia no tienen a dónde
+  // mandarse todavía. Se pierden al cambiar de sección, y el aviso lo dice.
   const [valores, setValores] = useState<Record<string, string>>({});
 
   const cambiar = (clave: string, valor: string) => setValores((v) => ({ ...v, [clave]: valor }));
 
   return (
-    <section className="marketing-seccion" aria-labelledby="marketing-configuracion">
+    <>
+      {/* Los perfiles son lo único de esta sección que persiste. Van primero
+          porque son lo que de verdad usa Kaizen; el resto son enlaces para
+          abrir a mano. */}
+      <Perfiles puedeEditar={puedeEditar} />
+
+      <section className="marketing-seccion" aria-labelledby="marketing-configuracion">
       <header className="marketing-seccion-head">
         <h3 className="marketing-seccion-titulo" id="marketing-configuracion">
-          Configuración
+          Enlaces de referencia
         </h3>
         <p className="marketing-seccion-sub">
-          Las cuentas y enlaces del negocio hacia afuera, en un solo lugar.
+          Accesos rápidos a las cuentas y al sitio. Kaizen no los lee: son para abrirlos a mano.
         </p>
       </header>
 
-      <AvisoSinConectar que="Lo que escribas acá no se guarda: falta definir dónde vive esta configuración y construir el backend. Los campos son un punto de partida para decidir cuáles hacen falta de verdad." />
+      <AvisoSinConectar que="Estos enlaces todavía no se guardan. A diferencia de los perfiles de arriba, falta decidir si vale la pena persistirlos o si alcanza con tenerlos a mano en otro lado." />
 
       {GRUPOS.map((grupo) => (
         <div className="marketing-grupo" key={grupo.titulo}>
@@ -163,7 +324,8 @@ function Configuracion() {
           Guardar
         </button>
       </div>
-    </section>
+      </section>
+    </>
   );
 }
 
@@ -186,8 +348,11 @@ function Dashboard() {
   );
 }
 
-export function MarketingPage() {
+export function MarketingPage({ yo }: { yo: Partner }) {
   const [seccion, setSeccion] = useState<Seccion>('configuracion');
+  // Esconder los controles de edición es cortesía: el servidor niega igual con
+  // 403 si alguien llama la API a mano (requirePermission('marketing:editar')).
+  const puedeEditar = yo.permisos.includes('marketing:editar');
 
   return (
     <div className="marketing-page">
@@ -215,7 +380,7 @@ export function MarketingPage() {
         ))}
       </nav>
 
-      {seccion === 'configuracion' ? <Configuracion /> : <Dashboard />}
+      {seccion === 'configuracion' ? <Configuracion puedeEditar={puedeEditar} /> : <Dashboard />}
     </div>
   );
 }

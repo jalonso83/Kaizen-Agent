@@ -154,6 +154,48 @@ model CerebroDoc {
   // + columna tsv (tsvector) añadida por SQL manual — ver prisma/manual.sql
 }
 
+model MarketingAccount {
+  // Un perfil social que Kaizen puede leer, guardado desde el apartado de
+  // Marketing (2026-09-10).
+  //
+  // UNA FILA POR PERFIL, y no una columna por red en una fila única de
+  // configuración. El motivo: la lista crece en dos direcciones —competidores
+  // de la misma red, y redes nuevas (TikTok, YouTube)— y con columnas cada una
+  // de esas dos cosas necesitaría una migración. Acá no necesita ninguna.
+  id        String   @id @default(cuid())
+  // 'INSTAGRAM' por ahora. Texto y no enum de Postgres: agregar un valor a un
+  // enum es una migración, y este campo va a crecer.
+  red       String
+  // El handle, SIN arroba y en minúsculas — derivado de la URL con
+  // util/instagram.ts. Es lo que la Graph API pide; la URL es lo que la persona
+  // tiene a mano. Se guardan los dos: la URL para mostrar y abrir, el usuario
+  // para consultar.
+  usuario   String
+  url       String
+  // Cómo llamarlo en pantalla ("FinZen", "Competidor X"). Opcional: si falta,
+  // la interfaz muestra el @usuario.
+  etiqueta  String?
+  // ¿Es la cuenta de FinZen o la de un tercero? No es cosmético: de la propia
+  // se pueden obtener alcance y guardados (con instagram_manage_insights); de
+  // un tercero, jamás. Sin esta marca, el agente no puede saber qué métricas
+  // tiene derecho a esperar de cada fila.
+  //
+  // Debería haber UNA sola propia por red. No se puede expresar como
+  // restricción de Postgres (haría falta un índice único parcial, que Prisma no
+  // declara), así que la garantiza la ruta dentro de una transacción.
+  esPropia  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String? // partnerId de quien la agregó
+
+  // El mismo perfil no se guarda dos veces. Sobre el USUARIO y no sobre la
+  // URL: instagram.com/finzenai y instagram.com/FinZenAI/?hl=es son el mismo
+  // perfil con dos URLs distintas, y la que se compara tiene que ser la forma
+  // normalizada.
+  @@unique([red, usuario])
+  @@index([red, esPropia])
+}
+
 model WeeklySummaryConfig {
   // Singleton (siempre id=1) — DISENO_FASE1.md §12 addendum, 2026-07-22.
   // Define QUÉ semana reporta el resumen y CUÁNDO corre. Son dos cosas

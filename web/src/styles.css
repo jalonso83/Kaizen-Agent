@@ -1029,6 +1029,64 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 
 .marketing-acciones { display: flex; justify-content: flex-end; }
 
+.marketing-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 14px;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.marketing-check input { margin: 2px 0 0; accent-color: var(--signal); flex-shrink: 0; }
+.marketing-check > span { display: flex; flex-direction: column; gap: 3px; }
+
+/* ── La lista de perfiles guardados ─────────────────────────────────────── */
+.marketing-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.marketing-cuenta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+}
+.marketing-cuenta-datos { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.marketing-cuenta-nombre {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.marketing-cuenta-url {
+  font-size: 12px;
+  color: var(--text-secondary);
+  /* Una URL larga no puede empujar la fila y romper el layout. */
+  overflow-wrap: anywhere;
+}
+.marketing-cuenta-url:hover { color: var(--navy); text-decoration: underline; }
+.marketing-cuenta-acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Distingue la cuenta propia de un tercero. No es decoración: de la propia se
+   pueden pedir alcance y guardados, de un tercero nunca — y quien mira la
+   lista tiene que poder saber qué esperar de cada fila. */
+.marketing-chip-propia {
+  font-size: 10.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--signal);
+  background: var(--signal-bg);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
 .marketing-vacio {
   border: 1px dashed var(--border);
   border-radius: 10px;

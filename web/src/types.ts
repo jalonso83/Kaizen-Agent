@@ -16,7 +16,23 @@ export type Permiso =
   | 'auditoria:ver'
   | 'config:editar'
   | 'marketing:ver'
+  | 'marketing:editar'
   | 'usuarios:gestionar';
+
+/** Una cuenta social guardada en el apartado de Marketing. */
+export interface CuentaMarketing {
+  id: string;
+  /** 'INSTAGRAM' por ahora. */
+  red: string;
+  /** El handle normalizado, sin arroba. Es lo que se consulta en la API. */
+  usuario: string;
+  /** La URL canónica, para mostrar y abrir. */
+  url: string;
+  etiqueta: string | null;
+  /** La cuenta de FinZen (true) o la de un tercero. Cambia qué métricas se pueden esperar. */
+  esPropia: boolean;
+  createdAt: string;
+}
 
 export type Rol = 'ADMIN' | 'ASSISTANT' | 'USER';
 

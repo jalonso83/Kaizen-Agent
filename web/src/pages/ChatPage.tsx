@@ -359,7 +359,7 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
 
         {view === 'metas' && <MetasPage />}
         {view === 'audit' && <AuditPage />}
-        {view === 'marketing' && <MarketingPage />}
+        {view === 'marketing' && <MarketingPage yo={partner} />}
         {view === 'usuarios' && <UsuariosPage yo={partner} />}
 
         {view === 'chat' && loadError && (

@@ -1,6 +1,7 @@
 import type {
   AuditEvent,
   AuditOverview,
+  CuentaMarketing,
   GoalHistory,
   ConversationSummary,
   Goal,
@@ -70,6 +71,22 @@ export const api = {
 
   restablecerPassword: (id: string, password: string) =>
     request<{ ok: true }>(`/api/users/${id}/password`, { method: 'POST', body: JSON.stringify({ password }) }),
+
+  // ── Marketing: los perfiles que Kaizen puede leer ───────────────────────
+  // Se manda la URL tal cual la escribió la persona. El servidor deriva el
+  // usuario y la URL canónica — no se hace acá a propósito: es la única capa
+  // que la BD no puede saltarse, y tener el parseo en los dos lados garantiza
+  // que un día se separen.
+  listarCuentasMarketing: () => request<{ cuentas: CuentaMarketing[] }>('/api/marketing/accounts'),
+
+  agregarCuentaMarketing: (datos: { url: string; red?: string; etiqueta?: string; esPropia?: boolean }) =>
+    request<CuentaMarketing>('/api/marketing/accounts', { method: 'POST', body: JSON.stringify(datos) }),
+
+  editarCuentaMarketing: (id: string, cambios: { etiqueta?: string; esPropia?: boolean }) =>
+    request<CuentaMarketing>(`/api/marketing/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(cambios) }),
+
+  borrarCuentaMarketing: (id: string) =>
+    request<void>(`/api/marketing/accounts/${id}`, { method: 'DELETE' }),
 
   listConversations: () => request<{ conversations: ConversationSummary[] }>('/api/conversations'),
 

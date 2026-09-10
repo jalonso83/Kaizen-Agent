@@ -35,6 +35,14 @@ export const PERMISOS = [
    * configuración del Cerebro, se mueve una línea de este archivo.
    */
   'marketing:ver',
+  /**
+   * Agregar, editar o quitar las cuentas de marketing (los perfiles que Kaizen
+   * lee). Separado de 'marketing:ver' por el mismo motivo que 'metas:ver' está
+   * separado de 'metas:confirmar': mirar un tablero y cambiar de qué cuentas se
+   * leen datos no son la misma responsabilidad, aunque hoy las tenga la misma
+   * persona.
+   */
+  'marketing:editar',
   /** Crear socios, cambiarles el rol, habilitarlos y deshabilitarlos. */
   'usuarios:gestionar',
 ] as const;

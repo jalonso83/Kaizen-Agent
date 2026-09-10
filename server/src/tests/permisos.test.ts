@@ -20,6 +20,7 @@ const SOLO_ADMIN = [
   'auditoria:ver',
   'config:editar',
   'marketing:ver',
+  'marketing:editar',
   'usuarios:gestionar',
 ] as const;
 
