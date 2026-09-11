@@ -11,7 +11,7 @@
 
 ---
 
-## 📍 Dónde estamos (actualizado: 2026-08-29)
+## 📍 Dónde estamos (actualizado: 2026-09-10)
 
 **Fase 2 arrancó el 2026-08-18**, con aprobación explícita del equipo el
 2026-08-17. La precondición del PRD (Fase 1 estable en producción ≥2 semanas +
@@ -100,7 +100,7 @@ confirmar una meta ajena recibe 404 y la meta queda intacta.
 | Cliente de la Graph API v21 | `server/src/clients/metaApi.ts` |
 | Simulador local de la Graph API | *no está en el repo — decisión del socio, 2026-08-21* |
 | Tools `get_meta_campaigns` · `get_meta_spend` | `server/src/agent/tools/meta.ts` |
-| Skill `adquisicion-pagada` (mecánica de la integración) | `server/skills/adquisicion-pagada/SKILL.md` |
+| Skill `adquisicion-pagada` (mecánica de la integración) | `server/skills/marketing/adquisicion-pagada/SKILL.md` |
 | Config `META_*` | `server/src/config.ts` · `server/.env.example` |
 
 ### Los tres guardarraíles
@@ -292,6 +292,54 @@ Los **umbrales sociales están PROPUESTOS y sin firmar** por el propio Junior
    7 rupturas de producto están en las dos, y la de B agrega la capa social. Si
    suben ambas, `search_cerebro("rupturas de serie")` devolverá dos archivos
    parecidos y Kaizen citará el que gane en el ranking.
+
+---
+
+## Los dos ámbitos: FinZen y Marketing (2026-09-10)
+
+Hasta este día Kaizen tenía 15 skills en una sola carpeta y 17 tools en una
+sola lista, y el system prompt las presentaba todas juntas. Como el apartado de
+Marketing ya existe en la web (cuentas de Instagram guardadas, el cliente de la
+Graph API listo), el modelo iba a tener cada vez más pares que suenan igual y
+no lo son: una "campaña" de push contra una "campaña" de Meta Ads; los "KPIs"
+del tablero contra los "KPIs" de un perfil de Instagram; `get_kpis` contra lo
+que traiga la tool social cuando exista. Elegir a ojo entre esos pares es
+justo el tipo de cosa que un prompt largo hace mal.
+
+**Qué se hizo:**
+
+- `server/skills/` se partió en `finzen/` (8: campañas internas, tablero,
+  retención, experimentos, resumen semanal) y `marketing/` (7: contenido,
+  redes, pauta en Meta, adquisición). **La carpeta es la clasificación**; un
+  `SKILL.md` suelto ya no entra al catálogo.
+- Cada tool lleva `ambito: finzen | marketing | comun` (obligatorio en
+  el tipo: no compila sin él).
+- El system prompt reemplazó "Tus herramientas y tu mundo" por **"Tus dos
+  ámbitos"**, y esa sección **se genera desde los dos registros** — tools por
+  su campo, skills por su carpeta. La definición de cada ámbito (qué es y qué
+  señales del mensaje lo delatan) vive en un solo archivo,
+  `server/src/agent/ambitos.ts`.
+- Instrucción al modelo: antes de llamar a cualquier tool, ubicar de qué
+  ámbito habla el socio *en ese mensaje*; ante uno cruzado, usar cada lado para
+  su parte y decir de dónde sale cada dato; ante uno indecidible, preguntar en
+  una línea ("¿de la app o de las redes?").
+
+**Qué NO se hizo, a propósito:** no se restringen las tools según una
+clasificación automática del mensaje. Un clasificador que se equivoque
+bloquearía una consulta legítima sin que nadie lo vea, y el criterio del
+proyecto es que los candados de código sean solo para lo que no puede fallar
+(gate de confirmación, Meta solo lectura) — ninguno de esos depende del ámbito.
+El ámbito es una instrucción con estructura detrás, no un candado.
+
+**Verificación:** `npm test` → 90/90. `ambitos.test.ts` cubre que no queden
+skills sueltos, que cada uno esté en el catálogo con el ámbito de su carpeta,
+que las tools de escritura hacia FinZen sigan en `finzen` y las de Meta en
+`marketing`, y que el prompt liste cada tool y skill en su lado y no en el
+otro. `docs/SKILLS.md` v1.2 tiene el catálogo partido.
+
+**Lo que sigue en este hilo:** la tool del agente para leer los perfiles
+guardados (`get_instagram_profile`, sobre `clients/instagramApi.ts`), que
+entra en `marketing` y aparece en el prompt sola.
 
 ---
 

@@ -575,7 +575,7 @@ cargan bajo demanda. La especificación completa y el catálogo están en
 
 Lo que el pasante construye (encaja en la semana 2, junto al system prompt):
 
-1. **Loader** (`agent/skills.ts`): al boot lee `server/skills/*/SKILL.md`,
+1. **Loader** (`agent/skills.ts`): al boot lee `server/skills/<ambito>/*/SKILL.md`,
    parsea el frontmatter (name, description) y arma el catálogo en memoria.
    Un frontmatter inválido → warning y se omite ese skill, nunca crash.
 2. **Catálogo en el system prompt**: sección "Skills disponibles" con una línea

@@ -9,6 +9,7 @@ import type { KaizenTool } from './guard';
 
 export const listSegmentsTool: KaizenTool = {
   name: 'list_segments',
+  ambito: 'finzen',
   description:
     'Devuelve el catálogo de segmentos curados de usuarios (slug, descripción y parámetros combinables: plans, platforms, country, days). ' +
     'El catálogo puede crecer: consúltalo EN VIVO, no asumas que conoces los slugs. Es el primer paso para elegir a quién dirigir una campaña.',
@@ -21,6 +22,7 @@ export const listSegmentsTool: KaizenTool = {
 
 export const evaluateSegmentTool: KaizenTool = {
   name: 'evaluate_segment',
+  ambito: 'finzen',
   description:
     'Evalúa un segmento y devuelve su tamaño real (count), YA con los opt-outs de marketing descontados (ese es el alcance real de una campaña). ' +
     'LLÁMALA SIEMPRE antes de proponer una campaña. Acepta filtros combinables (plans, platforms, country, days) para afinar el segmento sin inventar uno nuevo.',

@@ -66,6 +66,7 @@ function comoErrorDeTool(e: unknown): never {
 
 export const getMetaCampaignsTool: KaizenTool = {
   name: 'get_meta_campaigns',
+  ambito: 'marketing',
   description:
     'Lista las campañas publicitarias de la cuenta de Meta (Facebook/Instagram) de FinZen: nombre, estado, objetivo y presupuesto. ' +
     'Úsala para saber qué publicidad pagada está corriendo antes de hablar de adquisición pagada o de proponer algo relacionado. ' +
@@ -110,6 +111,7 @@ export const getMetaCampaignsTool: KaizenTool = {
 
 export const getMetaSpendTool: KaizenTool = {
   name: 'get_meta_spend',
+  ambito: 'marketing',
   description:
     'Gasto y rendimiento de las campañas de Meta en un rango de fechas: spend, impresiones, clics, CPM, CPC y CTR por campaña. ' +
     'LLÁMALA SIEMPRE antes de afirmar cuánto se gastó en publicidad; nunca respondas cifras de gasto de memoria. ' +

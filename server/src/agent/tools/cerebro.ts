@@ -97,6 +97,7 @@ function extractFragment(text: string, query: string): string {
 
 export const searchCerebroTool: KaizenTool = {
   name: 'search_cerebro',
+  ambito: 'comun',
   description:
     'Busca en el Cerebro de FinZen (Drive: marca, decisiones, análisis) por palabras clave. Devuelve hasta 5 documentos con un fragmento relevante, su nombre/ruta como fuente, la FECHA en que se modificó el archivo y la VENTANA de datos que el documento declara (o "no declarada"). ' +
     'Los documentos del Cerebro cubren ventanas de tiempo distintas y algunos se contradicen por eso: al citar una cifra de acá, di siempre de qué documento sale y de qué ventana — no de la fecha del archivo, que es cuándo se editó y no de cuándo son sus datos. ' +
@@ -172,6 +173,7 @@ export const searchCerebroTool: KaizenTool = {
 
 export const saveContentDraftTool: KaizenTool = {
   name: 'save_content_draft',
+  ambito: 'marketing',
   description:
     'Guarda contenido (Markdown) como un Google Doc en la carpeta Contenidos de FinZen. Úsala para conceptos de contenido, guiones, o el resumen semanal — nunca para campañas (eso es propose_campaign/create_campaign_draft). ' +
     'Sin reintentos: si falla, no la reintentes automáticamente, avisa al socio.',
@@ -209,6 +211,7 @@ export const saveContentDraftTool: KaizenTool = {
 
 export const saveCerebroNoteTool: KaizenTool = {
   name: 'save_cerebro_note',
+  ambito: 'comun',
   description:
     'Guarda una nota (Markdown) en el Cerebro. Por defecto va a 50-kaizen/, que es donde el socio revisa los lunes: úsala así para el resumen semanal, propuestas de campaña en texto y discrepancias de datos. ' +
     'Si la nota pertenece claramente a otra sección del Cerebro, pasa "subcarpeta" con el nombre exacto de una subcarpeta existente (puedes consultarlas con list_cerebro_folders). NUNCA la uses para contenido de redes: eso es save_content_draft, que va a Contenidos. ' +
@@ -250,6 +253,7 @@ export const saveCerebroNoteTool: KaizenTool = {
  */
 export const listCerebroFoldersTool: KaizenTool = {
   name: 'list_cerebro_folders',
+  ambito: 'comun',
   description:
     'Lista las subcarpetas del Cerebro. Úsala ANTES de save_cerebro_note cuando quieras guardar algo fuera de 50-kaizen/, para pasar un nombre de carpeta que exista de verdad.',
   inputSchema: { type: 'object', properties: {}, required: [] },

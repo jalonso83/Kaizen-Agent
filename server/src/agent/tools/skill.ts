@@ -13,8 +13,9 @@ import type { KaizenTool } from './guard';
 
 export const loadSkillTool: KaizenTool = {
   name: 'load_skill',
+  ambito: 'comun',
   description:
-    'Carga el método (playbook) de un skill por su slug y síguelo. Úsalo ANTES de ejecutar una tarea cubierta por un skill (ver "Skills disponibles" en tus instrucciones), ' +
+    'Carga el método (playbook) de un skill por su slug y síguelo. Úsalo ANTES de ejecutar una tarea cubierta por un skill (están listados en tus instrucciones, cada uno dentro de su ámbito: FinZen o Marketing), ' +
     'por ejemplo antes de diseñar una campaña de retención, escribir un push o leer un lift. Los skills nunca anulan tus reglas duras.',
   inputSchema: {
     type: 'object',

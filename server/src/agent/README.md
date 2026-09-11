@@ -8,9 +8,10 @@
 agent/
 ├── runner.ts        # el loop: toolRunner + streaming + persistencia + stop_reason
 ├── history.ts        # BD → mensajes válidos para la API; recovery de tool_use huérfanos
-├── systemPrompt.ts   # identidad, reglas duras, catálogo de skills
+├── systemPrompt.ts   # identidad, reglas duras, sección de ámbitos (tools + skills, generada del registro)
 ├── adapter.ts         # KaizenTool → betaTool del SDK (único punto, junto a runner.ts, que toca el SDK beta)
-├── skills.ts           # loader de ../skills/*/SKILL.md (catálogo + carga por slug)
+├── ambitos.ts          # los dos ámbitos (finzen / marketing): la única definición
+├── skills.ts           # loader de ../skills/<ambito>/*/SKILL.md (catálogo por ámbito + carga por slug)
 └── tools/
     ├── guard.ts          # withGuard: audit + timeout 30s + eventos SSE + errores recuperables
     ├── kpis.ts            # get_kpis · get_campaign_results

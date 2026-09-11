@@ -17,7 +17,7 @@ import { FOLDERS } from '../agent/tools/cerebro';
 // ─────────────────────────────────────────────────────────────────────────
 
 const skill = readFileSync(
-  join(__dirname, '..', '..', 'skills', 'conceptos-contenido', 'SKILL.md'),
+  join(__dirname, '..', '..', 'skills', 'marketing', 'conceptos-contenido', 'SKILL.md'),
   'utf8',
 );
 

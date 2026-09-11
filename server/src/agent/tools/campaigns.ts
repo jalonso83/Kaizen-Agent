@@ -204,6 +204,7 @@ export async function verificarSegmentCount(
 
 export const proposeCampaignTool: KaizenTool = {
   name: 'propose_campaign',
+  ambito: 'finzen',
   description:
     'Registra una propuesta de campaña en la tarjeta del chat para que el socio la confirme o rechace. NO envía nada a FinZen — eso solo pasa después, con create_campaign_draft, y solo si el socio confirmó. ' +
     'Llama SIEMPRE después de evaluar el segmento real (evaluate_segment) y consultar KPIs/resultados de campañas comparables. Antes de elegir message_type, considera consultar get_message_type_performance para ver qué tipo tuvo mejor lift histórico. ' +
@@ -291,6 +292,7 @@ export const proposeCampaignTool: KaizenTool = {
 
 export const createCampaignDraftTool: KaizenTool = {
   name: 'create_campaign_draft',
+  ambito: 'finzen',
   description:
     'Crea el borrador REAL en FinZen (PENDING_APPROVAL) a partir de una propuesta ya CONFIRMADA por el socio. ' +
     'Recibe SOLO proposal_id — el título/mensaje/segmento salen de la BD, no de este llamado. ' +
@@ -383,6 +385,7 @@ export const createCampaignDraftTool: KaizenTool = {
 
 export const getMessageTypePerformanceTool: KaizenTool = {
   name: 'get_message_type_performance',
+  ambito: 'finzen',
   description:
     'Agrega el lift real (vs holdout) de las campañas que Kaizen propuso y ejecutó, agrupado por message_type, para ver qué enfoque de mensaje funcionó mejor históricamente. ' +
     'Úsala ANTES de elegir el message_type de una propuesta nueva, cuando ya haya campañas ejecutadas previas para comparar. ' +

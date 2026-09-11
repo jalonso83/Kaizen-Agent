@@ -1,4 +1,5 @@
 import { audit } from '../../services/audit';
+import type { AmbitoTool } from '../ambitos';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Infraestructura común de TODAS las tools — DISENO_FASE1.md §6.
@@ -33,6 +34,13 @@ export interface ToolContext {
  */
 export interface KaizenTool {
   name: string;
+  /**
+   * A qué conversación pertenece (ambitos.ts): 'finzen' (la app y su
+   * tablero), 'marketing' (redes, contenido, pauta) o 'comun' (sirve en las
+   * dos). Obligatorio a propósito: el system prompt arma la sección de
+   * ámbitos leyendo este campo, así que una tool sin ámbito no compila.
+   */
+  ambito: AmbitoTool;
   description: string;
   inputSchema: Record<string, unknown>; // JSON Schema del input
   execute(input: Record<string, unknown>, ctx: ToolContext): Promise<string>;

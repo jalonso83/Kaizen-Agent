@@ -40,6 +40,7 @@ const WEEK_MODES = ['rolling', 'calendar'] as const;
 
 export const getKpisTool: KaizenTool = {
   name: 'get_kpis',
+  ambito: 'finzen',
   description:
     'Obtiene los KPIs del negocio de FinZen (adquisición, activación, engagement, retención, ingresos y campañas pasadas con su lift) para un rango de fechas. ' +
     'LLÁMALA SIEMPRE antes de afirmar cualquier cifra del negocio; nunca respondas métricas de memoria. ' +
@@ -76,6 +77,7 @@ export const getKpisTool: KaizenTool = {
 
 export const getCampaignResultsTool: KaizenTool = {
   name: 'get_campaign_results',
+  ambito: 'finzen',
   description:
     'Devuelve los resultados medidos (lift vs holdout) de las campañas YA ENVIADAS en un período; sale del bloque "campaigns" de get_kpis. ' +
     'Úsala cuando el socio pregunte cómo le fue a una campaña, y ANTES de proponer una campaña similar (para citar el lift real de referencia). ' +

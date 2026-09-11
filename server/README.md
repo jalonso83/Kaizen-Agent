@@ -171,7 +171,7 @@ mock:finzen`) implementa el mismo contrato de FinZen con datos de ejemplo
 ejercita las 5 tools directo contra eso, sin Claude ni Postgres. Ver
 `../TESTING.md`.
 
-### 2.6 Skills (`agent/skills.ts` + `../skills/*/SKILL.md`)
+### 2.6 Skills (`agent/skills.ts` + `../skills/<ambito>/*/SKILL.md`)
 
 5 playbooks de marketing ya escritos en `../skills/` (fuera de `src/`, viven en
 el repo — nunca en el Cerebro de Drive, por diseño: son instrucciones que se

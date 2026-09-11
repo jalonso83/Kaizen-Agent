@@ -41,6 +41,7 @@ export function resumenMeta(g: { metricLabel: string; direction: string; target:
 
 export const getActiveGoalTool: KaizenTool = {
   name: 'get_active_goal',
+  ambito: 'finzen',
   description:
     'Devuelve la meta vigente del negocio (métrica, número objetivo y desde cuándo está activa), o avisa que no hay ninguna. ' +
     'Úsala antes de proponer una campaña para saber hacia qué estás optimizando, y cuando el socio pregunte "qué estamos midiendo".',
@@ -72,6 +73,7 @@ export const getActiveGoalTool: KaizenTool = {
 
 export const proposeGoalTool: KaizenTool = {
   name: 'propose_goal',
+  ambito: 'finzen',
   description:
     'Propone la meta a perseguir: qué métrica se va a medir y con qué número objetivo. Genera una tarjeta en el chat con botón Confirmar — igual que propose_campaign, la meta NO queda activa hasta que el socio la confirme. ' +
     'Úsala (1) después de proponer una campaña cuando todavía no hay meta activa, y (2) cuando el socio PIDA cambiar la meta vigente. ' +
@@ -143,6 +145,7 @@ export const proposeGoalTool: KaizenTool = {
 
 export const markGoalAchievedTool: KaizenTool = {
   name: 'mark_goal_achieved',
+  ambito: 'finzen',
   description:
     'Marca la meta vigente como LOGRADA. Úsala solo cuando un tool te haya devuelto un número real que cumple el objetivo (p.ej. el lift de una campaña ya medida). ' +
     'La comparación contra el target la hace el sistema: si el valor no cumple, la llamada falla y la meta sigue activa. ' +

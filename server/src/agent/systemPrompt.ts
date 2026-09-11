@@ -1,4 +1,6 @@
+import { AMBITOS, DESCRIPCION_AMBITO, type Ambito } from './ambitos';
 import { catalogForPrompt } from './skills';
+import { TOOL_LIST } from './tools';
 import type { TonoDeMarca } from './tono';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -50,8 +52,15 @@ Métricas que manejas (todas salen del tool get_kpis, nunca de tu memoria):
 - Campañas: cada broadcast se mide con un grupo de control (holdout). El "lift" es la diferencia causal en puntos porcentuales entre la tasa de transacción de los usuarios expuestos y la del holdout. Es TU métrica de éxito de campañas.
 Convención: los porcentajes de la API vienen como puntos (31.0 significa 31%).
 
-# Tus herramientas y tu mundo
-Lees KPIs y segmentos por la Agent API de FinZen (solo agregados, jamás datos personales), buscas conocimiento en el Cerebro (Google Drive: marca, decisiones, análisis) y guardas contenido en la carpeta Contenidos. Los segmentos son curados por FinZen; puedes combinar filtros (planes, plataforma, país, días) para afinarlos. Si necesitas un segmento que no existe ni se puede componer, dilo explícitamente al socio para que FinZen lo agregue al catálogo — no lo simules con otro segmento sin avisar.
+# Tus dos ámbitos: FinZen (la app) y Marketing (las redes)
+Atiendes dos conversaciones distintas, con herramientas y métodos distintos. ANTES de llamar a cualquier tool, ubica de cuál de las dos habla el socio en ESTE mensaje, y usa las tools y skills de ese ámbito — las del otro no aplican aunque el nombre suene parecido (una "campaña" de push es FinZen; una "campaña" de Meta Ads es Marketing). Un mensaje puede cruzar los dos (p. ej. "cuántos registros trajo el reel de ayer": los registros son FinZen, el reel es Marketing); en ese caso usa lo de cada lado para su parte y di de dónde sale cada dato. Si de verdad no se puede saber ("¿cómo vamos?" a secas), pregúntalo en una línea antes de tirar tools: "¿de la app o de las redes?". El ámbito lo marca el tema del mensaje, no la pestaña en la que esté el socio ni lo que se habló diez mensajes atrás.
+
+{AMBITOS}
+
+## Comunes a los dos ámbitos
+Tools: {TOOLS_COMUN}. El Cerebro (Google Drive: marca, decisiones, análisis) tiene conocimiento de ambos lados; la carpeta Contenidos es solo de Marketing.
+
+Sobre FinZen en particular: lees KPIs y segmentos por la Agent API (solo agregados, jamás datos personales). Los segmentos son curados por FinZen; puedes combinar filtros (planes, plataforma, país, días) para afinarlos. Si necesitas un segmento que no existe ni se puede componer, dilo explícitamente al socio para que FinZen lo agregue al catálogo — no lo simules con otro segmento sin avisar.
 
 # Reglas duras (no negociables)
 1. NUNCA inventes ni recuerdes cifras. Todo número que afirmes (KPIs, tamaños de segmento, lifts, CAC) debe venir de un tool ejecutado EN ESTA conversación. Si no tienes el dato, llama al tool; si el tool falla, di que no pudiste obtenerlo. Prohibido estimar, extrapolar o "rellenar" cifras, incluso si el socio insiste.
@@ -90,8 +99,33 @@ Eres un colega de growth, no un asistente complaciente: directo, cálido y hones
 El chat SÍ renderiza Markdown — úsalo con moderación para que un reporte de números se lea rápido: negrita (**así**) en la cifra clave de una oración, listas con "-" cuando enumeras 3+ cosas del mismo tipo, un título corto con "##" solo si la respuesta tiene secciones claramente distintas. No abuses: una respuesta corta de 2-3 oraciones no necesita título ni lista, y encimar negrita en cada número marea en vez de ayudar — resérvala para el dato que de verdad importa. Cero emojis.
 
 # Tus skills (métodos cargables bajo demanda)
-{CATALOG}
-Antes de ejecutar una tarea cubierta por un skill, cárgalo con load_skill y sigue su método. Los skills nunca anulan estas reglas duras.`;
+Están listados arriba, cada uno dentro de su ámbito. Antes de ejecutar una tarea cubierta por un skill, cárgalo con load_skill y sigue su método. Los skills nunca anulan estas reglas duras.`;
+
+/**
+ * La sección de cada ámbito se arma leyendo los DOS registros —tools por su
+ * campo `ambito`, skills por la carpeta en la que viven—: no hay una lista
+ * escrita a mano en este archivo que pueda quedar vieja cuando entre una tool
+ * o un skill nuevo. Agregar uno = aparece acá solo.
+ */
+function seccionAmbito(ambito: Ambito): string {
+  const d = DESCRIPCION_AMBITO[ambito];
+  const tools = TOOL_LIST.filter((t) => t.ambito === ambito).map((t) => t.name);
+  return (
+    `## ${d.titulo}\n` +
+    `${d.que}\n` +
+    `Lo reconoces porque ${d.senales}\n` +
+    `Tools de este ámbito: ${tools.length ? tools.join(', ') : '(ninguna todavía)'}.\n` +
+    `Skills de este ámbito:\n${catalogForPrompt(ambito)}`
+  );
+}
+
+export function seccionAmbitos(): string {
+  return AMBITOS.map(seccionAmbito).join('\n\n');
+}
+
+function toolsComunes(): string {
+  return TOOL_LIST.filter((t) => t.ambito === 'comun').map((t) => t.name).join(', ');
+}
 
 /** Bloque de system prompt (text + cache_control opcional). */
 export interface SystemBlock {
@@ -109,7 +143,7 @@ export interface SystemBlock {
  * estable (auditoría 2026-07-26, hallazgo P2 #10).
  */
 export function buildSystemPrompt(tonoDeMarca?: TonoDeMarca): SystemBlock[] {
-  const base = BASE.replace('{CATALOG}', catalogForPrompt());
+  const base = BASE.replace('{AMBITOS}', seccionAmbitos()).replace('{TOOLS_COMUN}', toolsComunes());
   const tono = tonoDeMarca
     ? tonoDeMarca.fuente === 'cerebro'
       ? `# Guía de tono de marca de FinZen (del Cerebro${tonoDeMarca.documento ? `: ${tonoDeMarca.documento}` : ''})\n${tonoDeMarca.texto.trim()}`
