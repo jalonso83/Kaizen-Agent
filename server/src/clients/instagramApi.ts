@@ -69,7 +69,7 @@ function explicarErrorInstagram(code: number | null, mensaje: string): string {
       'No hay forma oficial de obtener datos de una cuenta personal.';
   }
   if (m.includes('instagram_basic') || m.includes('pages_read_engagement') || m.includes('permission')) {
-    return `Al token le falta un permiso de Instagram (${mensaje}). Hacen falta instagram_basic y pages_read_engagement.`;
+    return `Al token le falta un permiso de Instagram (${mensaje}). Para leer perfiles hacen falta instagram_basic y pages_read_engagement; para los insights de la cuenta propia (alcance, guardados), además instagram_manage_insights.`;
   }
 
   return explicarErrorGraph(code, mensaje);
@@ -197,4 +197,110 @@ export function construirCampoBusinessDiscovery(usuario: string, limite: number)
 /** ¿Está configurado lo mínimo para poder leer Instagram? */
 export function instagramConfigurado(): boolean {
   return Boolean(config.meta.systemToken && config.instagram.accountId);
+}
+
+// ── Insights de la cuenta PROPIA ──────────────────────────────────────────
+//
+// Lo que business_discovery no da: alcance, views, guardados, compartidos,
+// cuentas que interactuaron, taps al link, altas y bajas de seguidores. Solo
+// existe para la cuenta de FinZen (nodo /{INSTAGRAM_ACCOUNT_ID}/insights) y
+// necesita el permiso instagram_manage_insights además de los dos de lectura.
+//
+// Se piden en GRUPOS y no en una sola llamada a propósito: Meta agrega,
+// renombra y retira métricas por versión (impressions → views, 2025), y una
+// sola métrica desconocida hace fallar la llamada entera. Con grupos, lo que
+// no esté disponible se reporta como tal y el resto llega igual.
+// (Referencia: developers.facebook.com/docs/instagram-platform/.../ig-user/insights)
+
+export interface InsightsPropios {
+  /** Ventana consultada, en días de la cuenta. */
+  ventana: { desde: string; hasta: string; dias: number };
+  /** Totales de la ventana. Solo las métricas que Meta devolvió. */
+  totales: Partial<Record<MetricaInsight, number>>;
+  /** Seguidores nuevos por día (follower_count). Vacío si no vino. */
+  seguidores_por_dia: Array<{ fecha: string; valor: number }>;
+  /** Grupos que no se pudieron leer y por qué — para mostrarlo, no para esconderlo. */
+  no_disponible: Array<{ metricas: string[]; motivo: string }>;
+}
+
+export type MetricaInsight =
+  | 'reach'
+  | 'views'
+  | 'accounts_engaged'
+  | 'total_interactions'
+  | 'likes'
+  | 'comments'
+  | 'saves'
+  | 'shares'
+  | 'profile_links_taps'
+  | 'follows_and_unfollows';
+
+const GRUPOS_TOTALES: MetricaInsight[][] = [
+  ['reach', 'accounts_engaged', 'total_interactions', 'likes', 'comments', 'saves', 'shares'],
+  ['views'],
+  ['profile_links_taps', 'follows_and_unfollows'],
+];
+
+const DIAS_POR_DEFECTO = 28;
+/** Meta topea el rango de insights diarios en 30 días. */
+const DIAS_MAXIMO = 30;
+
+function unix(d: Date): string {
+  return String(Math.floor(d.getTime() / 1000));
+}
+
+export async function getInsightsPropios(dias = DIAS_POR_DEFECTO): Promise<InsightsPropios> {
+  const cuenta = cuentaPropia();
+  const n = Math.max(1, Math.min(dias, DIAS_MAXIMO));
+  const hasta = new Date();
+  const desde = new Date(hasta.getTime() - n * 86_400_000);
+  const base = { period: 'day', since: unix(desde), until: unix(hasta) };
+
+  const out: InsightsPropios = {
+    ventana: { desde: desde.toISOString().slice(0, 10), hasta: hasta.toISOString().slice(0, 10), dias: n },
+    totales: {},
+    seguidores_por_dia: [],
+    no_disponible: [],
+  };
+
+  interface Fila {
+    name?: string;
+    total_value?: { value?: unknown };
+    values?: Array<{ value?: unknown; end_time?: string }>;
+  }
+
+  for (const grupo of GRUPOS_TOTALES) {
+    try {
+      const r = await graphRequest<{ data?: Fila[] }>(
+        'GET',
+        `/${cuenta}/insights`,
+        { ...base, metric: grupo.join(','), metric_type: 'total_value' },
+        undefined,
+        explicarErrorInstagram,
+      );
+      for (const fila of r.data ?? []) {
+        if (fila.name && grupo.includes(fila.name as MetricaInsight)) {
+          out.totales[fila.name as MetricaInsight] = numeroGraph(fila.total_value?.value);
+        }
+      }
+    } catch (e) {
+      out.no_disponible.push({ metricas: grupo, motivo: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  try {
+    const r = await graphRequest<{ data?: Fila[] }>(
+      'GET',
+      `/${cuenta}/insights`,
+      { ...base, metric: 'follower_count' },
+      undefined,
+      explicarErrorInstagram,
+    );
+    const serie = r.data?.find((f) => f.name === 'follower_count')?.values ?? [];
+    out.seguidores_por_dia = serie.map((v) => ({ fecha: String(v.end_time ?? '').slice(0, 10), valor: numeroGraph(v.value) }));
+  } catch (e) {
+    out.no_disponible.push({ metricas: ['follower_count'], motivo: e instanceof Error ? e.message : String(e) });
+  }
+
+  return out;
 }

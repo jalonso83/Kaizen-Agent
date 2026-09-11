@@ -1,8 +1,13 @@
-import { Prisma } from '@prisma/client';
-import { db } from '../../db';
-import { getPerfil, instagramConfigurado, type PublicacionInstagram } from '../../clients/instagramApi';
 import { GraphApiError } from '../../clients/graphApi';
 import { perfilDeInstagram, UrlInstagramInvalida } from '../../util/instagram';
+import {
+  analizarPerfil,
+  cuentasGuardadas,
+  faltaConfiguracion,
+  PUBLICACIONES_MAXIMO,
+  PUBLICACIONES_POR_DEFECTO,
+  type CuentaGuardada,
+} from '../../services/instagramAnalisis';
 import type { KaizenTool } from './guard';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -10,7 +15,9 @@ import type { KaizenTool } from './guard';
 //
 // Cierra el circuito que abrió el apartado de Marketing: los socios guardan
 // perfiles en Configuración (routes/marketing.ts → MarketingAccount), y con
-// esto Kaizen los puede leer por chat.
+// esto Kaizen los puede leer por chat. El análisis en sí (métricas, resumen,
+// insights) vive en services/instagramAnalisis.ts y es el MISMO que muestra
+// el Dashboard: un solo número para cada cosa.
 //
 // LA REGLA QUE ESTRUCTURA TODO: Kaizen solo lee perfiles que estén GUARDADOS
 // en ese apartado. No es un límite técnico —business_discovery lee cualquier
@@ -23,158 +30,31 @@ import type { KaizenTool } from './guard';
 // El patrón de los avisos que viajan CON el dato es el de kpis.ts y meta.ts:
 // las notas de abajo son formas concretas de leer mal un perfil, y el system
 // prompt solo no alcanza para evitarlas. La más importante es la del pulso:
-// likes y comentarios son lo único que da esta API, y el skill
-// lectura-kpis-social es tajante en que eso contextualiza pero no decide.
+// likes y comentarios contextualizan pero no deciden (skill
+// lectura-kpis-social); lo que sí decide —alcance, guardados, taps al link—
+// solo viene en `insights`, y solo para la cuenta de FinZen.
 // ─────────────────────────────────────────────────────────────────────────
 
 const PULSO_NOTE =
-  'LO QUE ESTO ES Y LO QUE NO: business_discovery da solo lo PÚBLICO del perfil — seguidores, y por publicación likes y comentarios. ' +
-  'NO trae alcance, impresiones, guardados, clicks al link ni registros atribuidos. Según el skill lectura-kpis-social, likes y comentarios son PULSO: ' +
-  'sirven para contextualizar ("qué pieza llamó más la atención"), no para decidir qué contenido repetir ni para afirmar que una pieza "funcionó". ' +
-  'Si el socio pregunta por alcance, retención de video o registros que trajo una pieza, di que esta fuente no lo tiene.';
+  'CÓMO LEER ESTO: `perfil` y `publicaciones` son lo PÚBLICO (business_discovery): seguidores, y por pieza likes y comentarios. ' +
+  'Según el skill lectura-kpis-social eso es PULSO: sirve para contextualizar ("qué pieza llamó más la atención"), no para decidir qué contenido repetir ni para afirmar que una pieza "funcionó". ' +
+  '`tasa_engagement_pct` es interacciones promedio por pieza sobre seguidores, la definición estándar para comparar cuentas; dilo así si la citas. ' +
+  'Los promedios, la mediana y el top ya vienen calculados en `resumen_publicaciones`: úsalos tal cual, no los recalcules.';
+
+const INSIGHTS_NOTE =
+  '`insights` es lo que SÍ decide (solo existe para la cuenta de FinZen): alcance, views, cuentas que interactuaron, guardados, compartidos, taps al link, altas/bajas de seguidores y seguidores nuevos por día, de los últimos 28 días. ' +
+  'Si `insights.no_disponible` trae algo, esas métricas no llegaron por el motivo que dice (casi siempre falta el permiso instagram_manage_insights): dilo, no las estimes.';
 
 const INSTANTE_NOTE =
-  'OJO con el tiempo: los números son de ESTE instante (leido_en). La API no da histórico, así que no puedes decir cuánto creció una cuenta ' +
-  'ni comparar con "la semana pasada" salvo que tengas una lectura anterior en ESTA conversación. Y los likes de una pieza de hace 2 días no son comparables con los de una de hace 2 meses: la nueva sigue sumando.';
+  'OJO con el tiempo: `perfil` y `publicaciones` son de ESTE instante (leido_en), sin histórico — no puedes decir cuánto creció una cuenta salvo que tengas una lectura anterior en ESTA conversación o uses `insights.seguidores_por_dia`. ' +
+  'Y los likes de una pieza de hace 2 días no son comparables con los de una de hace 2 meses: la nueva sigue sumando.';
 
 const AJENA_NOTE =
-  'Este perfil NO es el de FinZen: es un tercero. Lo que se ve es lo mismo que vería cualquiera desde la app. No infieras su estrategia, gasto ni resultados de negocio a partir de likes.';
-
-/** Cuántas publicaciones se piden si el modelo no dice. Alcanza para un mes típico. */
-const PUBLICACIONES_POR_DEFECTO = 25;
-const PUBLICACIONES_MAXIMO = 50;
-
-// ── Resumen calculado en código ───────────────────────────────────────────
-
-export interface ResumenPublicaciones {
-  cantidad: number;
-  /** Promedios sobre las publicaciones leídas, redondeados a 1 decimal. */
-  likes_promedio: number;
-  comentarios_promedio: number;
-  /** Mediana de likes: con una pieza viral el promedio miente. */
-  likes_mediana: number;
-  /** Conteo y promedio de likes por tipo (REELS, FEED, ...). */
-  por_tipo: Array<{ tipo: string; cantidad: number; likes_promedio: number }>;
-  /** Las 3 con más likes, para "qué llamó más la atención". */
-  top_likes: Array<{ permalink: string; likes: number; comentarios: number; tipo: string; fecha: string; caption_inicio: string }>;
-  /** Fecha de la más vieja y la más nueva leídas: es la ventana real del resumen. */
-  desde: string | null;
-  hasta: string | null;
-}
-
-function redondear(n: number): number {
-  return Math.round(n * 10) / 10;
-}
-
-function mediana(valores: number[]): number {
-  if (valores.length === 0) return 0;
-  const orden = [...valores].sort((a, b) => a - b);
-  const mitad = Math.floor(orden.length / 2);
-  return orden.length % 2 ? orden[mitad] : (orden[mitad - 1] + orden[mitad]) / 2;
-}
-
-/** REELS / FEED si Graph lo dice; si no, el tipo grueso (IMAGE, VIDEO, CAROUSEL_ALBUM). */
-function tipoDe(p: PublicacionInstagram): string {
-  return p.media_product_type ?? p.media_type;
-}
-
-/**
- * Los promedios, la mediana y el top se calculan ACÁ y no se le pide al modelo
- * que los saque de la lista: promediar 25 números a ojo es justo el error
- * silencioso que termina en un reporte con una cifra que nadie reproduce.
- *
- * Exportada para probarla sin red.
- */
-export function resumirPublicaciones(pubs: PublicacionInstagram[]): ResumenPublicaciones {
-  if (pubs.length === 0) {
-    return { cantidad: 0, likes_promedio: 0, comentarios_promedio: 0, likes_mediana: 0, por_tipo: [], top_likes: [], desde: null, hasta: null };
-  }
-  const likes = pubs.map((p) => p.like_count);
-  const comentarios = pubs.map((p) => p.comments_count);
-  const suma = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
-
-  const grupos = new Map<string, number[]>();
-  for (const p of pubs) {
-    const t = tipoDe(p);
-    grupos.set(t, [...(grupos.get(t) ?? []), p.like_count]);
-  }
-  const por_tipo = [...grupos.entries()]
-    .map(([tipo, ls]) => ({ tipo, cantidad: ls.length, likes_promedio: redondear(suma(ls) / ls.length) }))
-    .sort((a, b) => b.cantidad - a.cantidad);
-
-  const top_likes = [...pubs]
-    .sort((a, b) => b.like_count - a.like_count)
-    .slice(0, 3)
-    .map((p) => ({
-      permalink: p.permalink,
-      likes: p.like_count,
-      comentarios: p.comments_count,
-      tipo: tipoDe(p),
-      fecha: p.timestamp.slice(0, 10),
-      caption_inicio: p.caption.replace(/\s+/g, ' ').trim().slice(0, 80),
-    }));
-
-  const fechas = pubs.map((p) => p.timestamp).filter(Boolean).sort();
-
-  return {
-    cantidad: pubs.length,
-    likes_promedio: redondear(suma(likes) / pubs.length),
-    comentarios_promedio: redondear(suma(comentarios) / pubs.length),
-    likes_mediana: mediana(likes),
-    por_tipo,
-    top_likes,
-    desde: fechas[0]?.slice(0, 10) ?? null,
-    hasta: fechas[fechas.length - 1]?.slice(0, 10) ?? null,
-  };
-}
-
-// ── Cuentas guardadas ─────────────────────────────────────────────────────
-
-interface CuentaGuardada {
-  usuario: string;
-  url: string;
-  etiqueta: string | null;
-  esPropia: boolean;
-}
-
-/**
- * Las cuentas de Instagram guardadas en Marketing → Configuración. Un fallo de
- * BD acá se traduce: el caso concreto que va a pasar es que la migración de
- * MarketingAccount no esté aplicada en producción, y "table does not exist" a
- * secas no le dice al modelo (ni al socio) qué hacer.
- */
-async function cuentasGuardadas(): Promise<CuentaGuardada[]> {
-  try {
-    return await db.marketingAccount.findMany({
-      where: { red: 'INSTAGRAM' },
-      select: { usuario: true, url: true, etiqueta: true, esPropia: true },
-      orderBy: [{ esPropia: 'desc' }, { createdAt: 'asc' }],
-    });
-  } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2021') {
-      throw new Error(
-        'La tabla de cuentas de marketing no existe todavía en esta base de datos (falta aplicar la migración 20260910120000_marketing_account). ' +
-          'NO reintentes: dile al socio que quien administra Railway tiene que correr `prisma migrate deploy`.',
-      );
-    }
-    throw e;
-  }
-}
+  'Este perfil NO es el de FinZen: es un tercero. Lo que se ve es lo mismo que vería cualquiera desde la app, y no hay `insights`. No infieras su estrategia, gasto ni resultados de negocio a partir de likes.';
 
 function describirCuenta(c: CuentaGuardada): string {
   return `@${c.usuario}${c.esPropia ? ' (la de FinZen)' : ''}${c.etiqueta ? ` — ${c.etiqueta}` : ''}`;
 }
-
-function verificarConfig(): void {
-  if (!instagramConfigurado()) {
-    throw new Error(
-      'La lectura de Instagram todavía no está configurada (faltan META_SYSTEM_TOKEN y/o INSTAGRAM_ACCOUNT_ID). ' +
-        'NO reintentes: dile al socio que esas variables las carga FinZen en Railway.',
-    );
-  }
-}
-
-// ── Tools ─────────────────────────────────────────────────────────────────
 
 export const listMarketingAccountsTool: KaizenTool = {
   name: 'list_marketing_accounts',
@@ -197,9 +77,10 @@ export const getInstagramProfileTool: KaizenTool = {
   name: 'get_instagram_profile',
   ambito: 'marketing',
   description:
-    'Lee un perfil de Instagram GUARDADO en Marketing → Configuración: seguidores, seguidos, cantidad de publicaciones, y las últimas N publicaciones con likes y comentarios, más un resumen ya calculado (promedios, mediana, por tipo, top 3). ' +
+    'Lee un perfil de Instagram GUARDADO en Marketing → Configuración: seguidores, seguidos, publicaciones totales, tasa de engagement, las últimas N publicaciones con likes y comentarios, y un resumen ya calculado (promedios, mediana, interacciones, por tipo, top 3, ritmo de publicación). ' +
+    'Para la cuenta de FinZen trae además `insights` de los últimos 28 días (alcance, views, guardados, compartidos, taps al link, seguidores nuevos por día) si el token tiene permiso. ' +
     'Sin parámetros lee la cuenta de FinZen; con "usuario" lee ese perfil, que tiene que estar guardado (si no, la tool te dice cuáles hay). ' +
-    'LLÁMALA SIEMPRE antes de afirmar cualquier cifra de Instagram. SOLO trae lo público: likes y comentarios son pulso, no funnel — no trae alcance, guardados, clicks ni registros atribuidos, y los números son del instante en que se lee (sin histórico).',
+    'LLÁMALA SIEMPRE antes de afirmar cualquier cifra de Instagram. Es lo mismo que muestra el Dashboard de Marketing: si el socio pregunta por un número que vio ahí, sale de acá.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -214,7 +95,8 @@ export const getInstagramProfileTool: KaizenTool = {
     },
   },
   async execute(input) {
-    verificarConfig();
+    const falta = faltaConfiguracion();
+    if (falta) throw new Error(falta);
 
     const cuentas = await cuentasGuardadas();
     const entrada = (input.usuario as string | undefined)?.trim();
@@ -250,34 +132,16 @@ export const getInstagramProfileTool: KaizenTool = {
       }
     }
 
-    const cuantas = Math.min(Math.max(Number(input.publicaciones) || PUBLICACIONES_POR_DEFECTO, 1), PUBLICACIONES_MAXIMO);
-
-    let perfil;
+    let analisis;
     try {
-      perfil = await getPerfil(cuenta.usuario, cuantas);
+      analisis = await analizarPerfil(cuenta, { publicaciones: Number(input.publicaciones) || undefined });
     } catch (e) {
       // Los errores del cliente ya vienen redactados para el modelo.
       if (e instanceof GraphApiError) throw new Error(e.message);
       throw e;
     }
 
-    const payload = {
-      cuenta: { usuario: perfil.usuario, url: cuenta.url, etiqueta: cuenta.etiqueta, es_de_finzen: cuenta.esPropia },
-      perfil: {
-        nombre: perfil.nombre,
-        biografia: perfil.biografia,
-        sitio_web: perfil.sitio_web,
-        seguidores: perfil.seguidores,
-        seguidos: perfil.seguidos,
-        publicaciones_totales: perfil.publicaciones_totales,
-      },
-      leido_en: perfil.leido_en,
-      resumen_publicaciones: resumirPublicaciones(perfil.publicaciones),
-      publicaciones: perfil.publicaciones,
-    };
-
-    const notas = [PULSO_NOTE, INSTANTE_NOTE];
-    if (!cuenta.esPropia) notas.push(AJENA_NOTE);
-    return [...notas, JSON.stringify(payload)].join('\n');
+    const notas = [PULSO_NOTE, INSTANTE_NOTE, cuenta.esPropia ? INSIGHTS_NOTE : AJENA_NOTE];
+    return [...notas, JSON.stringify(analisis)].join('\n');
   },
 };

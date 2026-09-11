@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api';
 import type { CuentaMarketing, Partner } from '../types';
+import { MarketingDashboard } from './MarketingDashboard';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Apartado de Marketing (solo CEO / CTO — permisos 'marketing:ver' para
 // mirarlo y 'marketing:editar' para cambiar las cuentas).
 //
-// ESTADO: los PERFILES ya guardan de verdad (tabla MarketingAccount,
-// /api/marketing/accounts). El resto de la Configuración —los enlaces de
-// referencia a Meta y al sitio— y el Dashboard siguen sin conectar, y lo dicen
-// en pantalla.
+// ESTADO: los PERFILES guardan de verdad (tabla MarketingAccount,
+// /api/marketing/accounts) y el DASHBOARD lee Instagram de verdad
+// (MarketingDashboard.tsx, /api/marketing/instagram/:usuario). Lo único que
+// sigue sin conectar son los enlaces de referencia a Meta y al sitio, y lo
+// dicen en pantalla.
 //
 // Esa distinción se mantiene visible a propósito: mezclar campos que guardan
 // con campos que no, sin decir cuál es cuál, es la forma más rápida de que
@@ -329,25 +331,6 @@ function Configuracion({ puedeEditar }: { puedeEditar: boolean }) {
   );
 }
 
-function Dashboard() {
-  return (
-    <section className="marketing-seccion" aria-labelledby="marketing-dashboard">
-      <header className="marketing-seccion-head">
-        <h3 className="marketing-seccion-titulo" id="marketing-dashboard">
-          Dashboard
-        </h3>
-        <p className="marketing-seccion-sub">Cómo va el marketing, de un vistazo.</p>
-      </header>
-
-      <AvisoSinConectar que="Falta definir qué va acá. El espacio está reservado y la navegación funciona; el contenido se decide antes de construirlo." />
-
-      <div className="marketing-vacio">
-        <p>Sin contenido todavía.</p>
-      </div>
-    </section>
-  );
-}
-
 export function MarketingPage({ yo }: { yo: Partner }) {
   const [seccion, setSeccion] = useState<Seccion>('configuracion');
   // Esconder los controles de edición es cortesía: el servidor niega igual con
@@ -380,7 +363,7 @@ export function MarketingPage({ yo }: { yo: Partner }) {
         ))}
       </nav>
 
-      {seccion === 'configuracion' ? <Configuracion puedeEditar={puedeEditar} /> : <Dashboard />}
+      {seccion === 'configuracion' ? <Configuracion puedeEditar={puedeEditar} /> : <MarketingDashboard />}
     </div>
   );
 }

@@ -376,10 +376,51 @@ fallo legible sin credenciales). **No se probó contra Instagram real**: hace
 falta el token con `instagram_basic` + `pages_read_engagement` y el
 `INSTAGRAM_ACCOUNT_ID` en Railway, y la migración aplicada.
 
-**Lo que sigue en este hilo:** insights de la cuenta propia (alcance,
-guardados, retención de video) con `instagram_manage_insights`, que es lo que
-convierte el pulso en funnel. Y el Dashboard de Marketing, cuando el socio
-diga qué va ahí.
+### El Dashboard de Marketing, y los insights de la cuenta propia (2026-09-11)
+
+El socio definió el Dashboard: **los datos que se leen de las redes**, y para
+Instagram lo que importa a una cuenta de empresa — seguidores, likes,
+comentarios, interacciones, etc. Se construyó junto con lo que faltaba del
+lado de la API para que "importante" no fuera solo likes.
+
+**Un solo análisis para el chat y la pantalla.** Lo que muestra el Dashboard
+(`/api/marketing/instagram/:usuario`) y lo que devuelve `get_instagram_profile`
+salen de la misma función, `services/instagramAnalisis.ts → analizarPerfil()`,
+con la misma caché en memoria (10 min por usuario, por el límite de llamadas
+de Meta). Si un número se ve raro, hay un solo lugar donde mirar, y arreglarlo
+ahí lo arregla para los dos.
+
+**Qué se considera importante, y de dónde sale:**
+
+| Capa | Fuente | Qué |
+|---|---|---|
+| Perfil | `business_discovery` (cualquier cuenta profesional pública) | seguidores, seguidos, publicaciones totales, últimas N piezas con likes y comentarios |
+| Calculado en código | las piezas | interacciones (likes + comentarios) totales y por pieza, **mediana** de likes, tasa de engagement (interacciones por pieza / seguidores), piezas por semana, mezcla REELS/FEED, top 3 por interacciones |
+| Insights | `/{cuenta}/insights`, **solo la propia**, permiso `instagram_manage_insights` | alcance, views, cuentas que interactuaron, interacciones totales, likes, comentarios, guardados, compartidos, taps al link, altas/bajas, y seguidores nuevos por día (28 días) |
+
+Los insights se piden **por grupos** y no en una llamada: Meta renombra y
+retira métricas por versión (`impressions` → `views`, 2025), y una métrica
+desconocida hace fallar la llamada entera. Con grupos, lo que no está llega
+como `no_disponible` con su motivo —y el Dashboard lo muestra en un aviso—
+en vez de esconder todo el bloque.
+
+**La tasa de engagement tiene una definición dicha**: interacciones promedio
+por pieza sobre seguadores × 100, la estándar para comparar cuentas. El campo
+se llama `tasa_engagement_pct` y la tarjeta lo explica. Si algún día se
+quiere la tasa sobre alcance, es otro campo con otro nombre.
+
+**Verificación:** `tsc` limpio en server y web; 95/95 (el test del resumen
+ahora cubre interacciones, top por interacciones y piezas por semana). El
+Dashboard se revisó en el navegador con datos de ejemplo, en claro y oscuro.
+**No se probó contra Instagram real** (mismas tres cosas pendientes en
+Railway: token con `instagram_basic` + `pages_read_engagement` —y
+`instagram_manage_insights` para los insights—, `INSTAGRAM_ACCOUNT_ID`, y
+la migración aplicada). `server/public` reconstruido.
+
+**Lo que sigue en este hilo:** histórico. La API no lo da (salvo seguidores
+por día de la cuenta propia), así que "cuánto creció esta semana" de un
+tercero necesita guardar lecturas — una tabla de snapshots diarios y un cron.
+Y TikTok, que necesita fuente antes que pantalla.
 
 ---
 

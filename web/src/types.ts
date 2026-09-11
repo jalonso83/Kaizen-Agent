@@ -34,6 +34,64 @@ export interface CuentaMarketing {
   createdAt: string;
 }
 
+// Calca server/src/services/instagramAnalisis.ts → AnalisisInstagram. Es lo
+// que muestra el Dashboard y lo mismo que lee Kaizen con get_instagram_profile.
+export interface PublicacionInstagram {
+  id: string;
+  caption: string;
+  like_count: number;
+  comments_count: number;
+  media_type: string;
+  media_product_type: string | null;
+  permalink: string;
+  timestamp: string;
+}
+
+export interface ResumenPublicaciones {
+  cantidad: number;
+  likes_promedio: number;
+  comentarios_promedio: number;
+  interacciones_promedio: number;
+  likes_mediana: number;
+  likes_total: number;
+  comentarios_total: number;
+  interacciones_total: number;
+  por_tipo: Array<{ tipo: string; cantidad: number; likes_promedio: number; interacciones_promedio: number }>;
+  top: Array<{ permalink: string; likes: number; comentarios: number; interacciones: number; tipo: string; fecha: string; caption_inicio: string }>;
+  desde: string | null;
+  hasta: string | null;
+  piezas_por_semana: number | null;
+}
+
+export interface InsightsInstagram {
+  ventana: { desde: string; hasta: string; dias: number };
+  totales: Partial<Record<
+    'reach' | 'views' | 'accounts_engaged' | 'total_interactions' | 'likes' | 'comments' | 'saves' | 'shares' | 'profile_links_taps' | 'follows_and_unfollows',
+    number
+  >>;
+  seguidores_por_dia: Array<{ fecha: string; valor: number }>;
+  no_disponible: Array<{ metricas: string[]; motivo: string }>;
+}
+
+export interface AnalisisInstagram {
+  cuenta: { usuario: string; url: string; etiqueta: string | null; es_de_finzen: boolean };
+  perfil: {
+    nombre: string;
+    biografia: string;
+    sitio_web: string | null;
+    seguidores: number;
+    seguidos: number;
+    publicaciones_totales: number;
+    ratio_seguidores_seguidos: number | null;
+  };
+  tasa_engagement_pct: number | null;
+  resumen_publicaciones: ResumenPublicaciones;
+  publicaciones: PublicacionInstagram[];
+  insights: InsightsInstagram | null;
+  leido_en: string;
+  desde_cache: boolean;
+}
+
 export type Rol = 'ADMIN' | 'ASSISTANT' | 'USER';
 
 export interface Partner {

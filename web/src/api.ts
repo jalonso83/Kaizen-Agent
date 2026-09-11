@@ -1,5 +1,6 @@
 import type {
   AuditEvent,
+  AnalisisInstagram,
   AuditOverview,
   CuentaMarketing,
   GoalHistory,
@@ -87,6 +88,10 @@ export const api = {
 
   borrarCuentaMarketing: (id: string) =>
     request<void>(`/api/marketing/accounts/${id}`, { method: 'DELETE' }),
+
+  /** El análisis de un perfil guardado — el mismo que lee Kaizen. `refresh` salta la caché de 10 min del servidor. */
+  leerInstagram: (usuario: string, refresh = false) =>
+    request<AnalisisInstagram>(`/api/marketing/instagram/${encodeURIComponent(usuario)}${refresh ? '?refresh=1' : ''}`),
 
   listConversations: () => request<{ conversations: ConversationSummary[] }>('/api/conversations'),
 

@@ -5,6 +5,8 @@ import { requireAuth, requirePermission } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { audit } from '../services/audit';
 import { perfilDeInstagram, UrlInstagramInvalida } from '../util/instagram';
+import { GraphApiError } from '../clients/graphApi';
+import { analizarPerfil, cuentasGuardadas, faltaConfiguracion } from '../services/instagramAnalisis';
 
 // ─────────────────────────────────────────────────────────────────────────
 // /api/marketing/accounts — los perfiles sociales que Kaizen puede leer.
@@ -229,6 +231,57 @@ router.delete(
     });
 
     res.status(204).end();
+  }),
+);
+
+// ── Dashboard: la lectura de un perfil ────────────────────────────────────
+//
+// El MISMO análisis que devuelve la tool get_instagram_profile del agente
+// (services/instagramAnalisis.ts): lo que el socio ve en el dashboard y lo que
+// Kaizen le cuenta por chat salen de la misma función, con la misma caché.
+//
+// Los errores de Meta llegan como 502 con el texto ya traducido por el
+// cliente (permiso que falta, cuenta privada, etc.): es el mismo mensaje que
+// leería el agente, y sirve tal cual para mostrarlo en pantalla.
+
+router.get(
+  '/instagram/:usuario',
+  requirePermission('marketing:ver'),
+  asyncRoute(async (req, res) => {
+    const falta = faltaConfiguracion();
+    if (falta) {
+      res.status(503).json({ message: 'La lectura de Instagram no está configurada: faltan META_SYSTEM_TOKEN y/o INSTAGRAM_ACCOUNT_ID en las variables del servidor.', configurado: false });
+      return;
+    }
+
+    let usuario: string;
+    try {
+      usuario = perfilDeInstagram(String(req.params.usuario)).usuario;
+    } catch (err) {
+      if (err instanceof UrlInstagramInvalida) {
+        res.status(400).json({ message: err.message });
+        return;
+      }
+      throw err;
+    }
+
+    const cuenta = (await cuentasGuardadas()).find((c) => c.usuario === usuario);
+    if (!cuenta) {
+      res.status(404).json({ message: `@${usuario} no está entre los perfiles guardados.` });
+      return;
+    }
+
+    try {
+      const analisis = await analizarPerfil(cuenta, { forzar: req.query.refresh === '1' });
+      res.json(analisis);
+    } catch (err) {
+      if (err instanceof GraphApiError) {
+        await audit.log({ conversationId: null, actor: `partner:${req.partner!.id}`, action: 'marketing:instagram-error', input: { usuario }, resultSummary: err.message.slice(0, 2000), isError: true });
+        res.status(502).json({ message: err.message });
+        return;
+      }
+      throw err;
+    }
   }),
 );
 

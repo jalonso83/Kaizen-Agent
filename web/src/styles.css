@@ -1340,3 +1340,76 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
   .usuarios-col-acciones { justify-content: flex-start; }
   .usuarios-lista-head { display: none; }
 }
+
+/* ── Marketing · Dashboard (MarketingDashboard.tsx) ─────────────────────── */
+.mkd-barra-cuentas { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mkd-cuentas { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.mkd-perfil {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.mkd-perfil-datos { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: 68ch; }
+.mkd-perfil-nombre { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.mkd-perfil-bio { margin: 4px 0 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; white-space: pre-line; }
+.mkd-leido { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+
+.mkd-tarjetas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+.mkd-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  min-width: 0;
+}
+.mkd-tarjeta.is-destacada { border-color: var(--signal); }
+.mkd-tarjeta-label { font-size: 11.5px; color: var(--text-muted); }
+.mkd-tarjeta-valor { font-size: 22px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1.15; }
+.mkd-tarjeta-ayuda { font-size: 11.5px; color: var(--text-secondary); line-height: 1.4; }
+.mkd-ventana { font-weight: 400; color: var(--text-muted); font-size: 12px; }
+.mkd-subtitulo { margin: 16px 0 8px; font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
+
+.mkd-tabla { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 12.5px; }
+.mkd-tabla th, .mkd-tabla td { padding: 7px 10px; border-bottom: 1px solid var(--border); text-align: left; color: var(--text-primary); }
+.mkd-tabla th { font-size: 11.5px; font-weight: 500; color: var(--text-muted); }
+.mkd-tabla .is-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.mkd-top { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; counter-reset: top; }
+.mkd-top-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: var(--surface);
+}
+.mkd-top-datos { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 260px; }
+.mkd-top-caption { font-size: 12.5px; color: var(--text-primary); text-decoration: none; overflow-wrap: anywhere; }
+.mkd-top-caption:hover { color: var(--navy); text-decoration: underline; }
+.mkd-top-cifras { font-size: 12px; color: var(--text-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mkd-top-cifras strong { color: var(--text-primary); font-size: 14px; }
+
+.mkd-serie { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.mkd-serie-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.mkd-serie-total { font-size: 12.5px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.mkd-barras { display: flex; align-items: flex-end; gap: 3px; height: 72px; }
+.mkd-barra { flex: 1 1 0; min-width: 4px; background: var(--signal); border-radius: 2px 2px 0 0; opacity: 0.85; }
+.mkd-barra.is-negativa { background: var(--danger); }
+.mkd-barras-ejes { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
+
+.mkd-lista-motivos { margin: 6px 0 0; padding-left: 18px; }
+.mkd-lista-motivos li { margin: 2px 0; overflow-wrap: anywhere; }
+.mkd-lista-motivos code { font-family: var(--mono); font-size: 11.5px; }

@@ -1,7 +1,8 @@
 import './setup';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resumirPublicaciones, getInstagramProfileTool, listMarketingAccountsTool } from '../agent/tools/instagram';
+import { getInstagramProfileTool, listMarketingAccountsTool } from '../agent/tools/instagram';
+import { resumirPublicaciones } from '../services/instagramAnalisis';
 import type { PublicacionInstagram } from '../clients/instagramApi';
 import { TOOL_LIST, CRON_TOOL_LIST } from '../agent/tools';
 
@@ -27,7 +28,7 @@ const pub = (n: Partial<PublicacionInstagram>): PublicacionInstagram => ({
   ...n,
 });
 
-test('el resumen promedia, saca la mediana y agrupa por tipo', () => {
+test('el resumen promedia, saca la mediana, cuenta interacciones y agrupa por tipo', () => {
   const r = resumirPublicaciones([
     pub({ id: 'a', like_count: 10, comments_count: 1, media_product_type: 'REELS', media_type: 'VIDEO', timestamp: '2026-08-01T00:00:00+0000' }),
     pub({ id: 'b', like_count: 20, comments_count: 3, media_product_type: 'REELS', media_type: 'VIDEO', timestamp: '2026-08-15T00:00:00+0000' }),
@@ -38,24 +39,30 @@ test('el resumen promedia, saca la mediana y agrupa por tipo', () => {
   // Con una pieza viral (300) el promedio (110) miente; la mediana (20) es la lectura honesta.
   assert.equal(r.likes_mediana, 20);
   assert.equal(r.comentarios_promedio, 2);
+  assert.equal(r.interacciones_total, 336);
+  assert.equal(r.interacciones_promedio, 112);
   assert.deepEqual(r.por_tipo, [
-    { tipo: 'REELS', cantidad: 2, likes_promedio: 15 },
-    { tipo: 'FEED', cantidad: 1, likes_promedio: 300 },
+    { tipo: 'REELS', cantidad: 2, likes_promedio: 15, interacciones_promedio: 17 },
+    { tipo: 'FEED', cantidad: 1, likes_promedio: 300, interacciones_promedio: 302 },
   ]);
   assert.equal(r.desde, '2026-08-01');
   assert.equal(r.hasta, '2026-09-01');
+  // 3 piezas en 31 días ≈ 0.7 por semana.
+  assert.equal(r.piezas_por_semana, 0.7);
 });
 
-test('el top 3 va por likes y recorta el caption', () => {
+test('el top 3 va por interacciones (likes + comentarios) y recorta el caption', () => {
   const r = resumirPublicaciones([
     pub({ id: 'a', like_count: 1, permalink: 'p1' }),
     pub({ id: 'b', like_count: 5, permalink: 'p2', caption: 'Hola\n\n  mundo   ' + 'x'.repeat(200) }),
-    pub({ id: 'c', like_count: 3, permalink: 'p3' }),
+    // 3 likes + 3 comentarios = 6 interacciones: pasa por encima de p4 (4+0).
+    pub({ id: 'c', like_count: 3, comments_count: 3, permalink: 'p3' }),
     pub({ id: 'd', like_count: 4, permalink: 'p4' }),
   ]);
-  assert.deepEqual(r.top_likes.map((t) => t.permalink), ['p2', 'p4', 'p3']);
-  assert.equal(r.top_likes[0].caption_inicio.length, 80);
-  assert.ok(r.top_likes[0].caption_inicio.startsWith('Hola mundo'));
+  assert.deepEqual(r.top.map((t) => t.permalink), ['p3', 'p2', 'p4']);
+  assert.equal(r.top[1].caption_inicio.length, 80);
+  assert.ok(r.top[1].caption_inicio.startsWith('Hola mundo'));
+  assert.equal(r.piezas_por_semana, null, 'todas el mismo día: no hay ritmo que medir');
 });
 
 test('sin publicaciones el resumen es cero, no NaN', () => {
@@ -63,6 +70,7 @@ test('sin publicaciones el resumen es cero, no NaN', () => {
   assert.equal(r.likes_promedio, 0);
   assert.equal(r.likes_mediana, 0);
   assert.equal(r.desde, null);
+  assert.equal(r.piezas_por_semana, null);
 });
 
 test('las dos tools están registradas en el ámbito marketing y disponibles para el cron (solo leen)', () => {
