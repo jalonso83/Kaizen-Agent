@@ -6,6 +6,7 @@ import { proposeCampaignTool, createCampaignDraftTool, getMessageTypePerformance
 import { searchCerebroTool, saveContentDraftTool, saveCerebroNoteTool, listCerebroFoldersTool } from './cerebro';
 import { proposeGoalTool, getActiveGoalTool, markGoalAchievedTool } from './goals';
 import { getMetaCampaignsTool, getMetaSpendTool } from './meta';
+import { listMarketingAccountsTool, getInstagramProfileTool } from './instagram';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Registro de tools de Kaizen — DISENO_FASE1.md §6. Las 9 originales +
@@ -18,7 +19,9 @@ import { getMetaCampaignsTool, getMetaSpendTool } from './meta';
 //   get_message_type_performance (aprendizaje por estadística acumulada real)
 //
 // Fase 2 (2026-08-20) suma las de Meta, SOLO LECTURA: get_meta_campaigns ·
-// get_meta_spend. La de escritura entra cuando FinZen habilite ads_management,
+// get_meta_spend. Y (2026-09-11) las de Instagram, también solo lectura y
+// solo sobre perfiles guardados en Marketing → Configuración:
+// list_marketing_accounts · get_instagram_profile. La de escritura entra cuando FinZen habilite ads_management,
 // y va a pasar por el mismo gate de confirmación que las de Fase 1.
 //
 // El runner (único módulo que toca el SDK beta de Anthropic, §14) adapta esta
@@ -48,6 +51,9 @@ export const TOOL_LIST: KaizenTool[] = [
   // Fase 2 — Meta, solo lectura (PRD §2.1: ads_read primero).
   getMetaCampaignsTool,
   getMetaSpendTool,
+  // Instagram — solo lectura, solo perfiles guardados (tools/instagram.ts).
+  listMarketingAccountsTool,
+  getInstagramProfileTool,
 ];
 
 /**

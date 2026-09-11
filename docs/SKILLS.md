@@ -25,7 +25,7 @@ estructura lo refleja en vez de dejárselo al criterio del modelo:
 | Ámbito | Carpeta | De qué se habla | Tools propias |
 |---|---|---|---|
 | **finzen** — la app y su tablero | `server/skills/finzen/` | KPIs de la Agent API, segmentos, campañas internas por push, metas, retención, experimentos de producto | `get_kpis`, `get_campaign_results`, `list_segments`, `evaluate_segment`, `propose_campaign`, `create_campaign_draft`, `get_message_type_performance`, `propose_goal`, `get_active_goal`, `mark_goal_achieved` |
-| **marketing** — redes, contenido y pauta | `server/skills/marketing/` | Instagram (TikTok después), ideas y piezas de contenido, resultados de piezas, Meta Ads, los perfiles guardados en el apartado de Marketing | `save_content_draft`, `get_meta_campaigns`, `get_meta_spend` |
+| **marketing** — redes, contenido y pauta | `server/skills/marketing/` | Instagram (TikTok después), ideas y piezas de contenido, resultados de piezas, Meta Ads, los perfiles guardados en el apartado de Marketing | `save_content_draft`, `get_meta_campaigns`, `get_meta_spend`, `list_marketing_accounts`, `get_instagram_profile` |
 | *(comunes)* | — | Sirven en los dos | `load_skill`, `search_cerebro`, `save_cerebro_note`, `list_cerebro_folders` |
 
 **La carpeta ES la clasificación del skill** (no hay campo en el frontmatter
@@ -190,12 +190,13 @@ partir de un número — esa capa faltaba entera hasta que Junior la entregó el
 
 ### Lectura de redes sociales (Junior, entrega B)
 
-> 🔴 **Ninguna tool de Kaizen trae números de Instagram o TikTok todavía** —
-> salen de Windsor y del panel nativo. El cliente de la Graph API
-> (`clients/instagramApi.ts`) ya existe; falta la tool del agente. Los cuatro
-> llevan un bloque que lo declara, con la
-> instrucción de decir que no hay acceso en vez de estimar. Si algún día se le
-> suma un feed social, aplican tal cual.
+> 🟡 **Instagram parcial, TikTok nada (2026-09-11).** `get_instagram_profile`
+> lee los perfiles guardados en Marketing → Configuración y trae lo público:
+> seguidores y, por pieza, likes y comentarios — **pulso, no funnel**. Alcance,
+> guardados, retención de video, clicks y registros atribuidos siguen sin
+> tool (necesitan `instagram_manage_insights` sobre la cuenta propia; segundo
+> paso). Los cuatro skills llevan un bloque que lo declara, con la instrucción
+> de decir que no hay acceso en vez de estimar.
 
 | Skill | Cuándo lo usa Kaizen |
 |---|---|

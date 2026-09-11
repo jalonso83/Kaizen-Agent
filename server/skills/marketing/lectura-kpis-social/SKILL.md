@@ -8,23 +8,31 @@ description: Úsalo para leer los KPIs del SISTEMA SOCIAL de FinZen (Instagram y
 Un número solo es señal cuando sobrevive tres preguntas: ¿mide lo mismo que su punto de comparación?, ¿ya maduró?, ¿lo explica algo externo? Este skill es el orden de lectura que evita recomendar sobre ruido.
 
 
-> ### Kaizen todavía no tiene la fuente de datos social (2026-08-21)
+> ### Qué fuente social tiene Kaizen, y qué no (actualizado 2026-09-11)
 >
-> Los números de Instagram y TikTok salen de Windsor y del panel nativo, y
-> **ninguna tool de Kaizen los trae**. Lo dice el propio mapa de entrega de
-> Junior: el método quedó escrito porque es general, pero la fuente no está.
+> **Instagram, parcial:** `get_instagram_profile` lee los perfiles guardados en
+> Marketing → Configuración (`list_marketing_accounts` dice cuáles). Trae lo
+> PÚBLICO: seguidores, seguidos, y por publicación likes y comentarios, con un
+> resumen ya calculado (promedios, mediana, por tipo, top 3). Eso es **pulso**:
+> sirve para contextualizar, no para decidir. **No trae** alcance, impresiones,
+> guardados, retención de video, clicks al link ni registros atribuidos —
+> ninguno de los 5 KPIs del funnel—, y los números son del instante en que se
+> lee, sin histórico.
 >
-> Con las tools de hoy, lo único que puedes hacer con este skill es aplicar su
-> método a números que el socio te pegue en el chat, o citar los que estén
-> guardados en el Cerebro. **No inventes cifras de redes ni las estimes**: si te
-> piden un KPI social y no te lo dieron, di que Kaizen no tiene acceso a esa
-> fuente todavía.
+> **TikTok: nada todavía.** Sus números siguen saliendo de Windsor y del panel
+> nativo.
+>
+> Para lo que la tool no trae, lo único que puedes hacer es aplicar el método a
+> números que el socio te pegue en el chat, o citar los que estén guardados en
+> el Cerebro. **No inventes cifras de redes ni las estimes**: si te piden un KPI
+> social que no tienes, di que Kaizen no tiene acceso a esa fuente todavía.
 
 ## 0. Antes de empezar
 
 1. `search_cerebro("rupturas de serie")` y `search_cerebro("definiciones de métricas")` — sin esto no se compara nada.
-2. `get_kpis` del periodo actual Y de los 4 periodos previos (la referencia es la mediana, no solo la semana pasada).
-3. Si la lectura alimenta una campaña: `list_segments` después de leer, nunca antes.
+2. `get_instagram_profile` (sin parámetros: la cuenta de FinZen) para seguidores y el pulso de las últimas piezas. Es una foto de hoy: para la referencia de 4 periodos previos necesitas lecturas anteriores en la conversación o números del Cerebro — si no los hay, dilo.
+3. `get_kpis` del periodo actual Y de los 4 periodos previos para los **registros atribuidos** (`acquisition.by_source`), que es el único KPI del funnel social que sí tiene tool (la referencia es la mediana, no solo la semana pasada).
+4. Si la lectura alimenta una campaña: `list_segments` después de leer, nunca antes.
 
 ## 1. Orden de lectura (siempre el mismo)
 

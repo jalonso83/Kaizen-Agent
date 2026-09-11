@@ -11,7 +11,7 @@
 
 ---
 
-## 📍 Dónde estamos (actualizado: 2026-09-10)
+## 📍 Dónde estamos (actualizado: 2026-09-11)
 
 **Fase 2 arrancó el 2026-08-18**, con aprobación explícita del equipo el
 2026-08-17. La precondición del PRD (Fase 1 estable en producción ≥2 semanas +
@@ -337,9 +337,49 @@ que las tools de escritura hacia FinZen sigan en `finzen` y las de Meta en
 `marketing`, y que el prompt liste cada tool y skill en su lado y no en el
 otro. `docs/SKILLS.md` v1.2 tiene el catálogo partido.
 
-**Lo que sigue en este hilo:** la tool del agente para leer los perfiles
-guardados (`get_instagram_profile`, sobre `clients/instagramApi.ts`), que
-entra en `marketing` y aparece en el prompt sola.
+### La tool de Instagram (2026-09-11)
+
+Con la partición hecha, entró la primera tool nueva del lado de Marketing, y
+apareció en el prompt sin tocar `systemPrompt.ts` — que era el punto.
+
+- `list_marketing_accounts` — los perfiles guardados en Marketing →
+  Configuración (usuario, URL, etiqueta, cuál es el de FinZen).
+- `get_instagram_profile` — lee UNO de esos perfiles por business_discovery
+  (`clients/instagramApi.ts`): seguidores, seguidos, publicaciones totales, y
+  las últimas N piezas con likes y comentarios. Sin parámetros lee la cuenta
+  de FinZen. El resumen (promedio, **mediana**, por tipo REELS/FEED, top 3,
+  ventana real de fechas) se calcula en código, no se le pide al modelo.
+
+**La regla que estructura las dos:** Kaizen **solo lee perfiles que un socio
+guardó en Configuración**. No es un límite de la API —business_discovery lee
+cualquier cuenta profesional pública— sino una decisión: qué mira Kaizen lo
+decide un socio desde el apartado, no el modelo a pedido en un chat. Pedir
+uno que no está devuelve un error que lista los guardados y dice dónde
+agregarlo.
+
+**Lo que viaja con el dato** (patrón de `kpis.ts`/`meta.ts`): likes y
+comentarios son pulso, no funnel (skill `lectura-kpis-social`); los números
+son del instante, sin histórico; y si el perfil es ajeno, que no se infiera
+estrategia ni resultados de negocio de sus likes. Los cuatro skills sociales
+cambiaron su bloque "no hay fuente" por uno que dice exactamente qué trae la
+tool y qué no; `lectura-kpis-social` y `top-flop-contenido` la llaman en su §0.
+
+**Errores que se traducen:** sin `META_SYSTEM_TOKEN`/`INSTAGRAM_ACCOUNT_ID`
+→ "lo carga FinZen en Railway, no reintentes"; tabla `MarketingAccount`
+inexistente (P2021, que es lo que va a pasar en producción hasta que se
+aplique la migración) → "falta `prisma migrate deploy`", en vez del
+"relation does not exist" crudo.
+
+**Verificación:** 95/95 (`instagramTool.test.ts`: resumen con mediana y por
+tipo, top 3, vacío sin NaN, ámbito y presencia en el cron por ser lectura,
+fallo legible sin credenciales). **No se probó contra Instagram real**: hace
+falta el token con `instagram_basic` + `pages_read_engagement` y el
+`INSTAGRAM_ACCOUNT_ID` en Railway, y la migración aplicada.
+
+**Lo que sigue en este hilo:** insights de la cuenta propia (alcance,
+guardados, retención de video) con `instagram_manage_insights`, que es lo que
+convierte el pulso en funnel. Y el Dashboard de Marketing, cuando el socio
+diga qué va ahí.
 
 ---
 

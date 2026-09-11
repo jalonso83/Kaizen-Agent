@@ -64,6 +64,11 @@ const LABELS: Record<string, string> = {
   get_active_goal: 'Revisando la meta vigente…',
   propose_goal: 'Preparando la meta…',
   mark_goal_achieved: 'Cerrando la meta…',
+  list_cerebro_folders: 'Mirando las carpetas del Cerebro…',
+  get_meta_campaigns: 'Consultando las campañas de Meta…',
+  get_meta_spend: 'Consultando el gasto en Meta…',
+  list_marketing_accounts: 'Revisando los perfiles guardados…',
+  get_instagram_profile: 'Leyendo el perfil de Instagram…',
 };
 
 function truncate(s: string, n = 2000): string {

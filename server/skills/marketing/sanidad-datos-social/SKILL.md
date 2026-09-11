@@ -8,17 +8,24 @@ description: Úsalo cuando una cifra de redes se mueva >20%, cuando dos paneles 
 La pregunta que ordena todo: ¿se rompió el dato o se rompió el negocio? Actuar sobre un dato roto quema una semana; ignorar una caída real la quema dos.
 
 
-> ### Kaizen todavía no tiene la fuente de datos social (2026-08-21)
+> ### Qué fuente social tiene Kaizen, y qué no (actualizado 2026-09-11)
 >
-> Los números de Instagram y TikTok salen de Windsor y del panel nativo, y
-> **ninguna tool de Kaizen los trae**. Lo dice el propio mapa de entrega de
-> Junior: el método quedó escrito porque es general, pero la fuente no está.
+> **Instagram, parcial:** `get_instagram_profile` lee los perfiles guardados en
+> Marketing → Configuración (`list_marketing_accounts` dice cuáles). Trae lo
+> PÚBLICO: seguidores, seguidos, y por publicación likes y comentarios, con un
+> resumen ya calculado (promedios, mediana, por tipo, top 3). Eso es **pulso**:
+> sirve para contextualizar, no para decidir. **No trae** alcance, impresiones,
+> guardados, retención de video, clicks al link ni registros atribuidos —
+> ninguno de los 5 KPIs del funnel—, y los números son del instante en que se
+> lee, sin histórico.
 >
-> Con las tools de hoy, lo único que puedes hacer con este skill es aplicar su
-> método a números que el socio te pegue en el chat, o citar los que estén
-> guardados en el Cerebro. **No inventes cifras de redes ni las estimes**: si te
-> piden un KPI social y no te lo dieron, di que Kaizen no tiene acceso a esa
-> fuente todavía.
+> **TikTok: nada todavía.** Sus números siguen saliendo de Windsor y del panel
+> nativo.
+>
+> Para lo que la tool no trae, lo único que puedes hacer es aplicar el método a
+> números que el socio te pegue en el chat, o citar los que estén guardados en
+> el Cerebro. **No inventes cifras de redes ni las estimes**: si te piden un KPI
+> social que no tienes, di que Kaizen no tiene acceso a esa fuente todavía.
 
 ## 0. Antes de empezar
 

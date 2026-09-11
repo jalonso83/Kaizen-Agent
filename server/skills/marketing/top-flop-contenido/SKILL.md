@@ -8,21 +8,28 @@ description: Úsalo al leer resultados de PIEZAS DE CONTENIDO publicadas en rede
 Una tabla de resultados no decide nada. Lo que decide es la pareja top/flop con una hipótesis falsable de POR QUÉ, convertida en la variación del siguiente ciclo.
 
 
-> ### Kaizen todavía no tiene la fuente de datos social (2026-08-21)
+> ### Qué fuente social tiene Kaizen, y qué no (actualizado 2026-09-11)
 >
-> Los números de Instagram y TikTok salen de Windsor y del panel nativo, y
-> **ninguna tool de Kaizen los trae**. Lo dice el propio mapa de entrega de
-> Junior: el método quedó escrito porque es general, pero la fuente no está.
+> **Instagram, parcial:** `get_instagram_profile` lee los perfiles guardados en
+> Marketing → Configuración (`list_marketing_accounts` dice cuáles). Trae lo
+> PÚBLICO: seguidores, seguidos, y por publicación likes y comentarios, con un
+> resumen ya calculado (promedios, mediana, por tipo, top 3). Eso es **pulso**:
+> sirve para contextualizar, no para decidir. **No trae** alcance, impresiones,
+> guardados, retención de video, clicks al link ni registros atribuidos —
+> ninguno de los 5 KPIs del funnel—, y los números son del instante en que se
+> lee, sin histórico.
 >
-> Con las tools de hoy, lo único que puedes hacer con este skill es aplicar su
-> método a números que el socio te pegue en el chat, o citar los que estén
-> guardados en el Cerebro. **No inventes cifras de redes ni las estimes**: si te
-> piden un KPI social y no te lo dieron, di que Kaizen no tiene acceso a esa
-> fuente todavía.
+> **TikTok: nada todavía.** Sus números siguen saliendo de Windsor y del panel
+> nativo.
+>
+> Para lo que la tool no trae, lo único que puedes hacer es aplicar el método a
+> números que el socio te pegue en el chat, o citar los que estén guardados en
+> el Cerebro. **No inventes cifras de redes ni las estimes**: si te piden un KPI
+> social que no tienes, di que Kaizen no tiene acceso a esa fuente todavía.
 
 ## 0. Antes de empezar
 
-1. `get_message_type_performance` o `get_campaign_results` de la ventana + las 4 previas.
+1. `get_instagram_profile` con `publicaciones: 50` (la cuenta de FinZen): la lista de piezas con likes y comentarios, y el resumen con la mediana **por tipo** (REELS vs FEED). Solo hay pulso, así que el ranking que sale de acá es de atención, no de resultado; dilo así. Si el socio te pega alcance, retención o clicks del panel nativo, eso manda sobre los likes.
 2. `search_cerebro("pausado")` y `search_cerebro("decisiones de contenido")` — no reproponer lo que ya se pausó ni relitigar lo cerrado.
 3. El output alimenta `propose_campaign` / `save_content_draft`, pero este skill NO los llama: primero la lectura, después la propuesta.
 
