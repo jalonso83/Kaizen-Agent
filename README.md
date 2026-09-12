@@ -2,8 +2,9 @@
 
 Kaizen es un agente de crecimiento autónomo y conversacional: lee los KPIs del
 negocio, conversa con los socios en lenguaje natural, encuentra segmentos de
-usuarios y propone campañas. **Un humano siempre aprueba antes de que se envíe
-o publique nada.**
+usuarios y propone campañas; del lado de marketing, lee las cuentas de redes
+(Instagram por ahora) y la pauta en Meta, y genera conceptos de contenido.
+**Un humano siempre aprueba antes de que se envíe o publique nada.**
 
 Este es un proyecto **independiente** de FinZen: repo, deploy y credenciales
 propios. Toda la comunicación con FinZen pasa por la Agent API (API Key + 3
@@ -18,10 +19,13 @@ endpoints). **No** se toca el código ni la base de datos de FinZen.
 > cualquier persona o agente que retome el trabajo, y se actualiza en el
 > mismo commit que cambie el estado.
 >
-> ⚠️ **Drive: la escritura NO está habilitada todavía.** La service account puede
-> leer pero no crear archivos (limitación de Google, no de permisos). Los pasos
-> para arreglarlo están en **[`docs/DRIVE_OAUTH.md`](docs/DRIVE_OAUTH.md)** —
-> hasta hacerlos, el resumen semanal y los borradores de contenido fallan.
+> 📓 La bitácora de la **Fase 2** (Meta, la capa de lectura de Junior, el
+> sistema de marca, Marketing e Instagram) es
+> **[`docs/ESTADO_FASE_2.md`](docs/ESTADO_FASE_2.md)**; los skills y sus dos
+> ámbitos, **[`docs/SKILLS.md`](docs/SKILLS.md)**.
+>
+> ☁️ Drive escribe por OAuth de usuario (la service account solo puede leer —
+> limitación de Google). Cómo se configuró: **[`docs/DRIVE_OAUTH.md`](docs/DRIVE_OAUTH.md)**.
 >
 > 🛠️ **Cómo funciona lo que ya está construido** (arquitectura, capa por
 > capa, cómo correrlo) está en **[`server/README.md`](server/README.md)** y
@@ -32,18 +36,23 @@ endpoints). **No** se toca el código ni la base de datos de FinZen.
 
 ```
 Kaizen-Agent/
+├── docs/                  # PRD, diseño de Fase 1, ESTADO (Fase 1) y ESTADO_FASE_2, SKILLS, cerebro/
 ├── server/
-│   ├── skills/            # 5 playbooks de marketing (ver docs/SKILLS.md)
+│   ├── skills/            # 15 playbooks en dos ámbitos: finzen/ (8) y marketing/ (7) — ver docs/SKILLS.md
+│   ├── prisma/            # schema + 14 migraciones SQL (se aplican con prisma migrate deploy)
+│   ├── public/            # la web compilada (committeada; la regenera npm run build)
 │   └── src/
-│       ├── app.ts            # Express — /health, /api/auth, /api/conversations
-│       ├── config.ts          # Env vars validadas al boot
-│       ├── check.ts            # Smoke tests de conexiones (npm run check)
-│       ├── clients/             # finzenApi.ts (Agent API) · drive.ts (Cerebro)
-│       ├── routes/               # auth.ts · chat.ts
-│       ├── middleware/            # requireAuth.ts · asyncRoute.ts
-│       ├── scripts/                # seedPartners.ts · chatCli.ts (chat por consola)
-│       └── agent/                   # el loop, las tools, el system prompt, el loader de skills
-└── web/                # Chat de socios — React + Vite (dev: npm run dev, puerto 5173)
+│       ├── app.ts            # Express: rutas, estático de la web, arranque de los crons
+│       ├── config.ts         # Env vars validadas al boot
+│       ├── auth/permisos.ts  # roles → permisos: LA fuente de verdad de quién puede qué
+│       ├── clients/          # finzenApi (Agent API) · drive · graphApi/metaApi/instagramApi · vision · documentos
+│       ├── routes/           # auth · chat · proposals · goals · goalsHistory · audit · config · users · marketing
+│       ├── services/         # audit (append-only) · instagramAnalisis (un solo análisis para chat y dashboard) · acquisitionExport
+│       ├── jobs/             # cerebroIndex (boot + 6h) · weeklySummary (lunes) · acquisitionExport (lunes) · instagramSnapshot (diario)
+│       ├── agent/            # el loop, las 19 tools, el system prompt, los dos ámbitos, el loader de skills
+│       ├── tests/            # npm test (tsx --test): lógica pura, sin BD ni red
+│       └── scripts/          # seedPartners · chatCli (chat por consola) · testTools
+└── web/                   # Web de socios — React + Vite: chat, metas, auditoría, marketing, usuarios
 ```
 
 ## Arranque (día 1)
@@ -71,7 +80,19 @@ Guía de pruebas paso a paso, capa por capa: [`TESTING.md`](TESTING.md).
 ## Variables de entorno
 
 Ver `server/.env.example`. Las credenciales las entrega FinZen — **nunca** se
-commitean (el `.gitignore` ya protege `.env` y los JSON de service accounts).
+commitean (el `.gitignore` ya protege `.env` y los JSON de service accounts) y
+**nunca viajan por chat, WhatsApp ni correo**: van directo a las variables de
+Railway. Las de Meta/Instagram (`META_SYSTEM_TOKEN`, `META_AD_ACCOUNT_ID`,
+`INSTAGRAM_ACCOUNT_ID`) están pendientes de FinZen a 2026-09-12.
+
+## Migraciones
+
+**No se aplican solas en el deploy** (el `start` es `node dist/app.js`; hay un
+commit del 19-jul que dice lo contrario y no lo hace). Quien administre Railway
+corre `railway run npx prisma migrate deploy` después de cada cambio en
+`server/prisma/migrations/`. A 2026-09-12 hay **dos pendientes** en producción
+(`MarketingAccount`, `InstagramSnapshot`); el código las tolera ausentes, pero
+Marketing no guarda perfiles ni acumula histórico hasta que se apliquen.
 
 ## Reglas del proyecto
 
@@ -80,5 +101,11 @@ commitean (el `.gitignore` ya protege `.env` y los JSON de service accounts).
   un humano aprueba en el panel de FinZen.
 - Nunca inventar números: todo dato sale de la Agent API.
 - Nada de PII: la Agent API solo devuelve agregados, y así se queda.
-- Cada acción contra FinZen/Drive/Meta queda en el audit log (Fase 1).
+- Cada acción contra FinZen/Drive/Meta/Instagram queda en el audit log.
+- Los candados de verdad son de código, no de prompt: el gate de confirmación,
+  la lista blanca del contrato, Meta solo lectura, Instagram solo sobre
+  perfiles guardados. El prompt instruye; el código garantiza.
+- Un fallo se dice ("omitido", "no disponible: motivo"), nunca se traga.
+- Si cambia algo en `web/src`, se corre `npm run build` en `server/` y se
+  commitea `server/public/` — si no, producción sigue con la web vieja.
 - Trabajo en ramas + Pull Request; `main` está protegida.

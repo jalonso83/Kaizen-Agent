@@ -241,8 +241,13 @@ npm run typecheck
 
 Cubren **lógica pura**: no tocan la BD ni la red, así que corren sin `.env` real
 (`src/tests/setup.ts` pone valores con forma válida para los módulos que
-arrastran `config.ts`/`db.ts`). Hoy cubren la lista blanca del contrato de
-FinZen, el backstop del `segment_count` y la ventana de datos del Cerebro.
+arrastran `config.ts`/`db.ts`, y fuerza la visión apagada). A 2026-09-12 son
+98 pruebas: la lista blanca del contrato de FinZen, el backstop del
+`segment_count`, la ventana de datos del Cerebro, el despacho de documentos y
+la visión, el tono de respaldo, los permisos por rol, el parseo y el cliente
+de Instagram, el análisis del perfil (mediana, interacciones, top, deltas del
+histórico) y la partición por ámbitos (ningún skill suelto; cada tool en su
+lado). La tabla completa está en `server/README.md` §3.2.
 
 Lo que **no** cubren y sigue siendo manual: el runner, el historial
 `tool_use`/`tool_result`, el gate de confirmación y todo lo que necesite un
@@ -297,3 +302,32 @@ segmento **sin** dejar que evalúe primero (por ejemplo, dándole tú un número
 `evaluate_segment`, y Kaizen debe llamarlo y volver con el count real — que
 casi nunca va a ser el que le dijiste. En el audit log queda la llamada fallida
 a `tool:propose_campaign` con `isError = true`.
+
+## 12. Marketing e Instagram (cuando lleguen las credenciales)
+
+Nada de esto tiene mock: se prueba recién con `META_SYSTEM_TOKEN`,
+`INSTAGRAM_ACCOUNT_ID` y las dos migraciones en producción.
+
+1. **Perfiles.** Como CEO/CTO, Marketing → Configuración: agregar
+   `https://www.instagram.com/finzenai/?hl=es` marcándolo como la cuenta de
+   FinZen. Tiene que quedar como `@finzenai`. Agregarlo de nuevo escrito
+   distinto (`instagram.com/FinZenAI`) tiene que dar "ya está guardado", no
+   duplicarlo. Agregar un competidor sin la marca.
+2. **Dashboard.** Elegir la cuenta de FinZen: tarjetas con seguidores,
+   engagement, últimas piezas y —si el token tiene
+   `instagram_manage_insights`— la sección de insights. Si falta el permiso,
+   tiene que aparecer el aviso ámbar con el motivo, no un bloque vacío. El
+   competidor no muestra insights. "Recargar" salta la caché de 10 min.
+3. **Histórico.** El primer día dice "una sola lectura guardada"; al día
+   siguiente (cron de las 2am RD, o abrir el Dashboard) la curva tiene dos
+   puntos y las tarjetas muestran la variación. En Auditoría tiene que
+   aparecer `cron:instagram-snapshot`.
+4. **Por chat.** "¿Cómo va el Instagram de FinZen?" → Kaizen llama a
+   `get_instagram_profile` (visible en Auditoría) y cita los mismos números
+   del Dashboard, diciendo que likes y comentarios son pulso. "Mirá el perfil
+   de @banco" con una cuenta NO guardada → tiene que decir que no está entre
+   los guardados y dónde agregarla, no leerla igual.
+5. **Ámbitos.** "¿Cuántos registros trajo el reel de ayer?" → tiene que usar
+   `get_kpis` para los registros y el perfil para el reel, y decir de dónde
+   sale cada dato. "¿Cómo vamos?" a secas → tiene que preguntar si de la app o
+   de las redes antes de llamar tools.

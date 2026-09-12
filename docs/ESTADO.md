@@ -15,10 +15,15 @@
 
 ---
 
-## 📍 Dónde estamos (actualizado: 2026-09-03)
+## 📍 Dónde estamos (actualizado: 2026-09-12)
 
 **Fase 1 cerrada; el trabajo activo es la Fase 2** — su bitácora es
-[`ESTADO_FASE_2.md`](ESTADO_FASE_2.md) y ahí está lo que pasó desde el 18-ago.
+[`ESTADO_FASE_2.md`](ESTADO_FASE_2.md) y ahí está lo que pasó desde el 18-ago:
+Meta (solo lectura), la capa de lectura de Junior, el sistema de marca, la
+lectura de imágenes del Cerebro, y —del 10 al 12 de septiembre— el apartado
+de **Marketing**: los dos ámbitos del agente (FinZen / Marketing), las tools
+de Instagram, el Dashboard y su histórico diario. Este documento queda como
+la bitácora de Fase 1 más la infraestructura; lo nuevo va allá.
 De los 7 criterios de aceptación de Fase 1 del PRD quedan **dos** abiertos: la
 prueba adversarial del gate (necesita una conversación real, protocolo escrito
 en [`TESTING.md`](../TESTING.md) §10) y la validación de la taxonomía de
@@ -109,11 +114,57 @@ variables de arriba). Para Drive se puede usar `GOOGLE_SERVICE_ACCOUNT_PATH`
 (ruta al JSON) en vez de la base64. Las credenciales las entrega FinZen por
 canal privado.
 
-Pendientes de Fase 2: las de Meta.
+**Pendientes de Fase 2 (a 2026-09-12, las entrega FinZen directo en Railway, nunca por chat):**
+`META_SYSTEM_TOKEN` (System User de Business Manager con `ads_read`,
+`instagram_basic`, `pages_read_engagement`, y `instagram_manage_insights` para
+los insights de la cuenta propia) · `META_AD_ACCOUNT_ID` · `INSTAGRAM_ACCOUNT_ID`
+· `META_MAX_DAILY_BUDGET_USD` (acordado con el equipo). `META_WRITE_ENABLED`
+queda en `false` hasta que `ads_read` lleve una semana estable.
+`CEREBRO_VISION_ENABLED` (opcional, default encendido) controla la lectura de
+imágenes del Cerebro.
+
+**Migraciones pendientes en producción:** `20260910120000_marketing_account`
+y `20260912090000_instagram_snapshot`. No corren solas en el deploy (ver
+`server/README.md` §2.1); el documento de entrega para quien administra
+Railway está fuera del repo.
 
 ---
 
 ## Historial de hitos
+
+### 2026-09-05 al 2026-09-12 — Marketing: los dos ámbitos, Instagram, el Dashboard y su histórico
+
+Registrado en detalle en [`ESTADO_FASE_2.md`](ESTADO_FASE_2.md); acá el
+resumen para quien lea solo este documento:
+
+- **Tono de marca con respaldo en el repo** (05-sep): en `00-nucleo` no hay
+  documento de tono, así que la regla 10 dejaba a Kaizen sin poder redactar.
+  Ahora el prompt lleva lo esencial del Manual de Marca desde el repo y el
+  Cerebro gana automáticamente cuando alguien suba el documento.
+- **Lectura de imágenes del Cerebro** (`clients/vision.ts`): las .png/.jpg se
+  describen con el modelo para poder buscarlas; la descripción se marca como
+  lectura, no OCR. Y `Ventana de datos:` en la cabecera de una nota separa la
+  fecha del archivo de la ventana real del dato.
+- **Apartado de Marketing** (CEO/CTO; permisos `marketing:ver`/`marketing:editar`):
+  Configuración con los perfiles de Instagram que Kaizen puede leer (tabla
+  `MarketingAccount`, URL normalizada a usuario en el servidor) y Dashboard.
+- **Los dos ámbitos del agente** (10-sep): `server/skills/` partido en
+  `finzen/` y `marketing/`, cada tool con su `ambito`, y el system prompt
+  genera la sección "Tus dos ámbitos" desde los registros. No es un candado
+  (las tools del otro lado siguen disponibles a propósito): es una instrucción
+  con estructura detrás.
+- **Instagram por la Graph API** (`business_discovery`): `get_instagram_profile`
+  y `list_marketing_accounts`, solo sobre perfiles guardados. El análisis
+  (`services/instagramAnalisis.ts`) es uno solo para el chat y el Dashboard:
+  perfil, interacciones, mediana, tasa de engagement, mezcla por tipo, top 3,
+  insights de la cuenta propia (alcance, guardados, taps al link, seguidores
+  por día) pedidos por grupos para tolerar métricas retiradas.
+- **Histórico** (12-sep): `InstagramSnapshot`, una lectura por día por perfil,
+  escrita en cada lectura real y por un cron a las 2am RD; deltas a 7 y 30
+  días calculados en código; curva de seguidores en el Dashboard.
+- **Nada de esto corrió contra Instagram real**: faltan las credenciales en
+  Railway y las dos migraciones. El código tolera las dos ausencias sin
+  romperse y lo dice.
 
 ### 2026-09-03 — Los dos backstops de la auditoría, y la deuda de documentación
 
@@ -508,7 +559,16 @@ real pendiente, no verificación.
 - [ ] Tope duro de fatiga de notificaciones por usuario (P1 #8)
 - [ ] Límites de alcance, criterios de éxito del propio agente, manejo de discrepancia de datos, cierre del loop de aprendizaje (P3 #13-16)
 
-**Pendiente (Fase 2):** Meta Ads — requiere Fase 1 estable ≥ 2 semanas + aprobación explícita de FinZen.
+**Fase 2 (bitácora completa en `ESTADO_FASE_2.md`):**
+- [x] Meta Ads solo lectura (`get_meta_campaigns`, `get_meta_spend`), guardarraíles en código — sin probar contra Meta real
+- [x] Capa de lectura de Junior (9 skills) y sistema de marca adoptados
+- [x] Tono de marca con respaldo en el repo; lectura de imágenes del Cerebro
+- [x] Apartado de Marketing: perfiles persistidos, Dashboard de Instagram, histórico diario
+- [x] Los dos ámbitos del agente (FinZen / Marketing) en estructura y prompt
+- [ ] Credenciales de Meta/Instagram en Railway y las dos migraciones aplicadas — **lo único que falta para probar todo lo anterior de verdad**
+- [ ] Escritura en Meta (`create_meta_campaign_draft`), solo cuando `ads_read` lleve una semana estable
+- [ ] TikTok: decisión del CTO sobre la fuente (API propia + proveedor para terceros; nunca scraping)
+- [ ] Notas de Junior al Cerebro y manual de marca a `00-nucleo/` (dependen de ellos)
 
 ---
 

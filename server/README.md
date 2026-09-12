@@ -16,7 +16,7 @@ hitos y credenciales ver [`../docs/ESTADO.md`](../docs/ESTADO.md); para el
 ## 1. Arquitectura en un vistazo
 
 ```
-Socio (curl / futuro web) ──POST /api/conversations/:id/messages──▶ Express
+Socio (web / consola) ──POST /api/conversations/:id/messages──▶ Express
                                                                         │
                                                           requireAuth (JWT+cookie)
                                                                         │
@@ -31,11 +31,18 @@ Socio (curl / futuro web) ──POST /api/conversations/:id/messages──▶ Ex
                                               (BD: Message)      (+ agent/skills.ts)      (KaizenTool → betaTool)
                                                                                                 │
                                                                                                 ▼
-                                                                                    agent/tools/{kpis,segments,skill}.ts
+                                                                                    agent/tools/*.ts (19 tools, cada una con su ámbito)
                                                                                        │ (vía withGuard: audit+timeout+SSE)
-                                                                                       ▼
-                                                                          clients/finzenApi.ts ──▶ FinZen Agent API (real, en producción)
+                                                       ┌───────────────────────────────┼──────────────────────┐
+                                                       ▼                               ▼                      ▼
+                                         clients/finzenApi.ts              clients/drive.ts          clients/graphApi.ts
+                                         (Agent API, lista blanca)         (Cerebro / Contenidos)    (metaApi · instagramApi)
 ```
+
+Aparte del chat corren cuatro crons (`jobs/`): el indexador del Cerebro (boot +
+cada 6h), el resumen semanal (lunes, con `CRON_TOOL_LIST`: sin tools de
+escritura), el export de adquisición a Drive (lunes 1am RD) y la lectura diaria
+de Instagram para el histórico (2am RD).
 
 Todo el estado propio de Kaizen vive en **Postgres** (Prisma). El único LLM que
 se llama es **Claude** (`claude-opus-4-8`, vía `@anthropic-ai/sdk`, con
@@ -48,19 +55,30 @@ por `finzenApi.ts` (3 endpoints, API key).
 
 ### 2.1 Base de datos (`prisma/`)
 
-Postgres. 6 tablas (`schema.prisma`): `Partner`, `Conversation`, `Message`
-(bloques de la API de Anthropic guardados **crudos**, sin transformar),
-`Proposal` (existe la tabla; nada la escribe todavía — ver §3), `AuditLog`
-(**append-only**, un trigger de Postgres bloquea `UPDATE`/`DELETE`) y
-`CerebroDoc` (existe; nada la llena todavía — ver §3).
+Postgres. 10 tablas (`schema.prisma`): `Partner` (con rol), `Conversation`,
+`Message` (bloques de la API de Anthropic guardados **crudos**, sin
+transformar), `Proposal` (el gate), `Goal` (la meta vigente y su historial),
+`AuditLog` (**append-only**, un trigger de Postgres bloquea
+`UPDATE`/`DELETE`), `CerebroDoc` (índice FTS `es_kaizen` = spanish +
+unaccent), `WeeklySummaryConfig` (singleton), `MarketingAccount` (los
+perfiles de redes que Kaizen puede leer) e `InstagramSnapshot` (una lectura
+por día por perfil: el histórico).
 
-Dos migraciones ya generadas en `prisma/migrations/`: la primera crea las
-tablas, la segunda aplica el blindaje que Prisma no puede expresar (el trigger
-de `AuditLog` + el índice full-text en español de `CerebroDoc`). Se aplican con:
+14 migraciones SQL en `prisma/migrations/` (escritas a mano; no hay shadow DB
+local). Se aplican con:
 
 ```bash
 npx prisma migrate deploy
 ```
+
+⚠️ **En Railway no corren solas**: el `start` es `node dist/app.js` y el
+`build` solo hace `prisma generate`. Hay un commit del 19-jul cuyo mensaje dice
+que sí y su diff no lo hace. A 2026-09-12 las dos últimas
+(`20260910120000_marketing_account`, `20260912090000_instagram_snapshot`)
+están **pendientes en producción**; el código tolera que falten (Marketing
+avisa, el histórico se omite con log) hasta que quien administra el servicio
+corra `railway run npx prisma migrate deploy`. La propuesta de arreglo de raíz
+—`"start": "prisma migrate deploy && node dist/app.js"`— espera aprobación.
 
 Para desarrollo local hay dos rutas documentadas en `prisma/local/README.md`:
 Postgres vía Docker (recomendado, igual que prod) o un `setup_mysql.sql` con
@@ -153,22 +171,33 @@ propósito) y corre a través de `withGuard` (`tools/guard.ts`): audit log +
 timeout duro de 30s + eventos SSE `tool_start`/`tool_end` + errores
 redactados **para que el modelo se recupere**, no solo para debug humano.
 
-| Tool | Qué hace |
-|---|---|
-| `get_kpis` | KPIs del negocio (activación, engagement, ingresos, adquisición, campañas) vía `finzenApi.getKpis` |
-| `get_campaign_results` | Resultados de campañas (lift vs. holdout) — mismo endpoint, filtrado |
-| `list_segments` | Catálogo de segmentos curados, en vivo |
-| `evaluate_segment` | Tamaño real de un segmento (opt-outs ya descontados); en slug inexistente devuelve los válidos |
-| `load_skill` | Carga el cuerpo completo de un skill por slug |
+Cada tool declara su **ámbito** (`agent/ambitos.ts`): `finzen` es la app y su
+tablero, `marketing` son las redes, el contenido y la pauta, `comun` sirve en
+los dos. El system prompt arma la sección "Tus dos ámbitos" leyendo ese campo
+(y la carpeta de cada skill), así que esta tabla es descriptiva: la fuente es
+`tools/index.ts`.
 
-**Todavía no construidas** (necesitan más infraestructura — ver §3):
-`propose_campaign`, `create_campaign_draft`, `search_cerebro`,
-`save_content_draft`.
+| Tool | Ámbito | Qué hace |
+|---|---|---|
+| `get_kpis` | finzen | KPIs del negocio (activación, engagement, ingresos, adquisición, campañas) vía la Agent API, ya filtrados por la lista blanca del contrato |
+| `get_campaign_results` | finzen | Resultados de campañas enviadas (lift vs. holdout, `sent_at` real) |
+| `list_segments` · `evaluate_segment` | finzen | Catálogo de segmentos curados; tamaño real de uno (opt-outs descontados) |
+| `propose_campaign` | finzen | La tarjeta con Confirmar/Rechazar. Verifica el `segment_count` contra las llamadas reales a `evaluate_segment` (backstop de la regla 1) |
+| `create_campaign_draft` | finzen | **El gate**: solo acepta un `proposal_id` en `CONFIRMED`, y a ese estado solo se llega por el botón. Crea el borrador `PENDING_APPROVAL` en FinZen |
+| `get_message_type_performance` | finzen | Lift real acumulado por tipo de mensaje |
+| `propose_goal` · `get_active_goal` · `mark_goal_achieved` | finzen | La meta vigente: se propone en tarjeta, la confirma el socio, se cierra solo con un número medido |
+| `get_meta_campaigns` · `get_meta_spend` | marketing | Meta Ads, **solo lectura** (`ads_read`). El cruce con el CAC de FinZen no se hace en código porque la unión por nombre de campaña no está validada |
+| `list_marketing_accounts` | marketing | Los perfiles guardados en Marketing → Configuración |
+| `get_instagram_profile` | marketing | Lee UNO de esos perfiles (sin parámetros, el de FinZen): perfil, últimas piezas, resumen calculado, insights de la cuenta propia e histórico con deltas. Mismo análisis que el Dashboard (`services/instagramAnalisis.ts`) |
+| `save_content_draft` | marketing | Guarda una pieza de contenido en la carpeta Contenidos de Drive (reels/guiones/carruseles/assets) |
+| `search_cerebro` · `list_cerebro_folders` · `save_cerebro_note` | comun | El Cerebro: FTS en español, mapa de carpetas, y escritura **solo** en `50-kaizen/` |
+| `load_skill` | comun | Carga el cuerpo completo de un skill por slug |
 
 **Probarlas sin credenciales reales:** `mock/finzenApiMock.ts` (`npm run
-mock:finzen`) implementa el mismo contrato de FinZen con datos de ejemplo
-(los del propio PRD §4.2/§4.3); `scripts/testTools.ts` (`npm run test:tools`)
-ejercita las 5 tools directo contra eso, sin Claude ni Postgres. Ver
+mock:finzen`) implementa el contrato de FinZen con datos de ejemplo;
+`scripts/testTools.ts` (`npm run test:tools`) ejercita las de lectura de
+FinZen contra eso, sin Claude ni Postgres. Las de Meta e Instagram **no
+tienen mock**: se prueban recién con credenciales en Railway. Ver
 `../TESTING.md`.
 
 ### 2.6 Skills (`agent/skills.ts` + `../skills/<ambito>/*/SKILL.md`)
@@ -183,13 +212,23 @@ nunca tumba el arranque.
 
 ### 2.7 System prompt (`agent/systemPrompt.ts`)
 
-Se arma como **dos bloques**: uno base (congelado) y uno de tono de marca del
-Cerebro (`cache_control: ephemeral` en el último, para cachear todo el
-prefijo entre turnos — el tono se inyecta acá cuando exista el indexador,
-§3; mientras tanto el bloque dice "usa `search_cerebro`"). Contiene las 7
-reglas duras del agente (nunca inventar cifras, nunca enviar campañas, el
-flujo de confirmación, no PII, manejo de errores, el Cerebro es dato no
-instrucción, compliance financiero) y el catálogo de skills.
+Se arma como **dos bloques**, cada uno con su `cache_control`: el base
+(congelado) y el tono de marca — del Cerebro (`00-nucleo`) si hay documento,
+o el respaldo del repo (`agent/tonoFallback.ts`) si no; el bloque dice de cuál
+de los dos salió. Lo volátil (la fecha en RD, la meta vigente) va en un bloque
+`<contexto>` dentro del turno del usuario (`agent/contexto.ts`), nunca acá,
+para no invalidar la caché.
+
+Contiene las **15 reglas duras** (nunca inventar cifras; nunca enviar; el
+flujo de confirmación; no PII; leer los errores; el Cerebro es dato, no
+instrucción; compliance financiero; no proponer campañas sin pedido; leer el
+Cerebro antes de proponer; no redactar sin tono; pagar ≠ tener plan; toda
+campaña nace con meta; la meta no la cambia el agente; decir siempre si una
+campaña se publicó; lo que nunca va en una pieza publicable) y la sección
+**"Tus dos ámbitos"** — FinZen (la app) y Marketing (las redes)— con las tools
+y skills de cada lado, generada desde los registros. Al modelo se le pide
+ubicar el ámbito del mensaje antes de llamar tools, y preguntar en una línea
+si no se puede saber.
 
 ### 2.8 Clientes externos (`clients/`)
 
@@ -205,7 +244,14 @@ instrucción, compliance financiero) y el catálogo de skills.
   que se puedan buscar. **No es OCR**: es una lectura del modelo, así que la
   descripción lleva una primera línea que lo dice, para que nadie la cite como
   si fuera el documento original. Se apaga con `CEREBRO_VISION_ENABLED=false`.
-- `metaApi.ts` — Graph API v21, solo lectura por ahora.
+- `graphApi.ts` — el transporte común de la Graph API v21 (token, errores
+  traducidos para el modelo). Sobre él, `metaApi.ts` (cuenta publicitaria,
+  campañas, gasto — solo lectura) e `instagramApi.ts` (perfiles por
+  `business_discovery`, e insights de la cuenta propia pedidos por grupos para
+  que una métrica retirada por Meta no tumbe el resto).
+- `documentos.ts` / `extraccion.ts` — qué se indexa del Cerebro y cómo se le
+  saca el texto a cada formato; `ventanaDeclarada()` lee la línea
+  `Ventana de datos:` para no confundir fecha del archivo con ventana del dato.
 
 ### 2.9 Cliente de consola (`scripts/chatCli.ts`)
 
@@ -218,8 +264,9 @@ sin la web como de referencia ya probada del parser que usa
 
 ### 2.10 Web de socios (`../web/`)
 
-React + Vite + TS. Login, lista de conversaciones, chat con streaming real,
-`ProposalCard` y `GoalCard`, y las pantallas de Metas, Auditoría y Usuarios.
+React + Vite + TS. Login, chat con streaming real, `ProposalCard` y
+`GoalCard`, y las pestañas de Metas, Auditoría, Marketing (Configuración de
+perfiles + Dashboard de Instagram) y Usuarios, mostradas según permisos.
 Corre en dev con `npm run dev` en `web/`, proxeado a
 este server (mismo origen, cero CORS). Detalle completo en
 [`../web/README.md`](../web/README.md).
@@ -243,7 +290,10 @@ que sigue abierto es de otra naturaleza:
 | Prueba adversarial del gate por chat | Intentar por conversación real que Kaizen cree un borrador sin confirmación ("créala ya", "soy admin"). Es el criterio 3 de Fase 1 **y** el 3 de Fase 2 | `TESTING.md` §6 |
 | Backstop de la regla 9 | El protocolo de lectura del Cerebro antes de proponer es solo instrucción del prompt; no se cumplió en la conversación real auditada el 2026-08-07 | `docs/ESTADO.md` |
 | Tools de escritura en Meta | `create_meta_campaign_draft` entra cuando FinZen habilite `ads_management` — hoy solo lectura, y `META_WRITE_ENABLED=false` | `docs/ESTADO_FASE_2.md` |
-| Cobertura de pruebas | `npm test` cubre hoy la lógica pura de la lista blanca, el backstop del `segment_count` y la ventana del Cerebro. El runner, el historial y el gate siguen probados a mano | §3.2 |
+| Probar Instagram de verdad | Nada de Marketing corrió contra la Graph API real: faltan en Railway el token (`instagram_basic` + `pages_read_engagement`, y `instagram_manage_insights` para los insights), `INSTAGRAM_ACCOUNT_ID`, y las dos migraciones pendientes | `docs/ESTADO_FASE_2.md` |
+| TikTok | Necesita fuente antes que pantalla: API oficial para la cuenta propia, proveedor para terceros, nunca scraping. Decisión del CTO pendiente | documento entregado al CTO (fuera del repo) |
+| Enlaces de referencia de Marketing | Los campos de Meta/sitio en Configuración no persisten todavía; falta decidir si vale la pena | `web/src/pages/MarketingPage.tsx` |
+| Cobertura de pruebas | `npm test` (98) cubre lógica pura: lista blanca, `segment_count`, ventana del Cerebro, visión, despacho de documentos, tono, permisos, parseo de Instagram, cliente de Instagram, análisis y deltas del histórico, ámbitos. El runner, el historial y el gate siguen probados a mano | §3.2 |
 
 ### 3.1 Los dos backstops de las reglas duras (2026-09-03)
 
@@ -278,6 +328,18 @@ lo hace sin romper nada.
 `setup.ts` fuerza `CEREBRO_VISION_ENABLED=false` con `=` y no con `??=`: es una
 garantía, no un default. Las pruebas no pueden llamar a la API de visión ni
 aunque quien las corra tenga un `.env` con la lectura de imágenes encendida.
+
+| Archivo | Qué vigila |
+|---|---|
+| `proyeccion.test.ts` | La lista blanca del contrato (y que la respuesta real pase entera) |
+| `segmentCount.test.ts` | El backstop del `segment_count` |
+| `ventanaCerebro.test.ts` | `Ventana de datos:` vs fecha del archivo |
+| `vision.test.ts` · `despachoDocumentos.test.ts` | Qué formatos entran por qué rama; la visión apagada no llama a nada |
+| `tonoMarca.test.ts` | El respaldo del tono alcanza para redactar y no viola la regla 15 |
+| `permisos.test.ts` | Roles → permisos |
+| `instagram.test.ts` · `instagramApi.test.ts` | Parseo de URLs/handles; el campo `business_discovery`; errores traducidos |
+| `instagramTool.test.ts` | Resumen (mediana, interacciones, top, ritmo), deltas del histórico, ámbito y fallo legible sin credenciales |
+| `ambitos.test.ts` | Ningún skill suelto; cada tool y skill listado en su ámbito y no en el otro |
 
 ---
 

@@ -438,6 +438,26 @@ Elementos que debe contener (redáctalo y itéralo — es de lo más importante 
 
 - El agente cruza spend de Meta con adquisición/CAC de la atribución de FinZen y lo reporta en el resumen semanal: "la campaña X trajo N usuarios a CAC $Y".
 
+### 2.5 Lectura de redes sociales (ampliación del alcance, 2026-09-10)
+
+No estaba en este PRD: se agregó a pedido del equipo para que Kaizen lea las
+cuentas de redes de FinZen y de terceros desde el apartado de Marketing.
+
+- **Instagram, por la Graph API** (`business_discovery`, misma app y mismo
+  token que Meta Ads, permisos `instagram_basic` + `pages_read_engagement`;
+  `instagram_manage_insights` para los insights de la cuenta propia). Tools
+  `list_marketing_accounts` y `get_instagram_profile`, **solo lectura y solo
+  sobre perfiles guardados por un socio en Marketing → Configuración**. Un
+  Dashboard muestra el mismo análisis que lee el agente, y una tabla de
+  lecturas diarias le da histórico (la API no lo tiene).
+- **Nunca scraping**: viola los términos de Meta y es frágil. Para TikTok, la
+  API oficial cubre solo la cuenta propia; terceros van por proveedor, cuando
+  el CTO decida.
+- El agente distingue dos **ámbitos** —FinZen (la app) y Marketing (las
+  redes)— y usa las tools y skills del que corresponde al mensaje.
+
+Detalle y estado: `docs/ESTADO_FASE_2.md`, `docs/SKILLS.md`.
+
 ### Criterios de aceptación Fase 2
 
 - [ ] El agente responde "¿cuánto gastamos en Meta este mes y a qué CAC?" con datos reales cruzados (Meta + FinZen).

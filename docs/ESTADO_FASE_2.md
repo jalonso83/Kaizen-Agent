@@ -11,13 +11,13 @@
 
 ---
 
-## 📍 Dónde estamos (actualizado: 2026-09-11)
+## 📍 Dónde estamos (actualizado: 2026-09-12)
 
 **Fase 2 arrancó el 2026-08-18**, con aprobación explícita del equipo el
 2026-08-17. La precondición del PRD (Fase 1 estable en producción ≥2 semanas +
 aprobación de FinZen) está cumplida.
 
-Lo hecho hasta ahora se parte en cuatro bloques que no se parecen entre sí:
+Lo hecho hasta ahora se parte en cinco bloques que no se parecen entre sí:
 
 1. **La meta (goal) del negocio** — construida y probada. Es la pieza que hace
    que las campañas dejen de ser sueltas y persigan un número. Terminada y en
@@ -33,6 +33,11 @@ Lo hecho hasta ahora se parte en cuatro bloques que no se parecen entre sí:
 4. **El sistema de marca y contenidos** — 8 documentos que subió marketing el
    2026-08-18. Adoptados por un humano en los skills; Kaizen todavía NO los lee,
    por decisión del socio, hasta resolver un conflicto de cifras.
+5. **Marketing e Instagram** (2026-09-10 al 12) — el apartado de Marketing con
+   sus perfiles, los dos ámbitos del agente, las tools de Instagram, el
+   Dashboard y su histórico diario. Construido y probado en local con datos de
+   ejemplo; **nunca contra Instagram real** — faltan las credenciales en
+   Railway y dos migraciones. Es lo que sigue más abajo, después del Bloque 3.
 
 **El riesgo dominante de esta fase es distinto al de la Fase 1.** Acá hay dinero
 real: lo peor que podía pasar antes era mandar un push malo; ahora es gastar.
