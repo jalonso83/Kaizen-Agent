@@ -1413,3 +1413,7 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .mkd-lista-motivos { margin: 6px 0 0; padding-left: 18px; }
 .mkd-lista-motivos li { margin: 2px 0; overflow-wrap: anywhere; }
 .mkd-lista-motivos code { font-family: var(--mono); font-size: 11.5px; }
+.mkd-variacion { font-size: 12px; font-weight: 500; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.mkd-variacion.is-sube { color: var(--signal); }
+.mkd-variacion.is-baja { color: var(--danger); }
+.mkd-curva { width: 100%; height: 120px; color: var(--signal); display: block; }

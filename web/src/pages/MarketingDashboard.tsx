@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api';
-import type { AnalisisInstagram, CuentaMarketing, InsightsInstagram } from '../types';
+import type { AnalisisInstagram, CuentaMarketing, DeltaHistorico, HistoricoInstagram, InsightsInstagram } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Dashboard de Marketing — la lectura de las cuentas de redes.
@@ -37,11 +37,24 @@ const INSIGHTS: Array<{ clave: keyof InsightsInstagram['totales']; label: string
   { clave: 'follows_and_unfollows', label: 'Altas y bajas', ayuda: 'Seguidores ganados y perdidos en la ventana.' },
 ];
 
-function Tarjeta({ label, valor, ayuda, destacada }: { label: string; valor: string; ayuda?: string; destacada?: boolean }) {
+/** "+120 en 7 días" / "−3 en 8 días". Con signo siempre: el cero también es información. */
+function Variacion({ delta, valor, decimales = 0, sufijo = '' }: { delta: DeltaHistorico | null; valor: number | null; decimales?: number; sufijo?: string }) {
+  if (!delta || valor === null) return null;
+  const signo = valor > 0 ? '+' : valor < 0 ? '−' : '';
+  const clase = valor > 0 ? 'mkd-variacion is-sube' : valor < 0 ? 'mkd-variacion is-baja' : 'mkd-variacion';
+  return (
+    <span className={clase} title={`Contra la lectura del ${dia(delta.desde)}`}>
+      {signo}{Math.abs(valor).toLocaleString('es-DO', { maximumFractionDigits: decimales })}{sufijo} en {delta.dias} días
+    </span>
+  );
+}
+
+function Tarjeta({ label, valor, ayuda, destacada, variacion }: { label: string; valor: string; ayuda?: string; destacada?: boolean; variacion?: React.ReactNode }) {
   return (
     <div className={destacada ? 'mkd-tarjeta is-destacada' : 'mkd-tarjeta'}>
       <span className="mkd-tarjeta-label">{label}</span>
       <span className="mkd-tarjeta-valor">{valor}</span>
+      {variacion}
       {ayuda && <span className="mkd-tarjeta-ayuda">{ayuda}</span>}
     </div>
   );
@@ -71,6 +84,48 @@ function SeguidoresPorDia({ serie }: { serie: InsightsInstagram['seguidores_por_
       <div className="mkd-barras-ejes">
         <span>{dia(serie[0].fecha)}</span>
         <span>{dia(serie[serie.length - 1].fecha)}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * La curva de seguidores sobre las lecturas guardadas. SVG a mano: es una
+ * polilínea y dos etiquetas, y así no entra una librería de gráficos por esto.
+ */
+function CurvaSeguidores({ h }: { h: HistoricoInstagram }) {
+  const puntos = h.puntos;
+  if (puntos.length < 2) {
+    return (
+      <p className="marketing-campo-ayuda">
+        {puntos.length === 0
+          ? 'Todavía no hay lecturas guardadas de esta cuenta. Desde hoy se guarda una por día.'
+          : 'Hay una sola lectura guardada (la de hoy). Mañana empieza la curva.'}
+      </p>
+    );
+  }
+  const W = 600, H = 120, PAD = 6;
+  const min = Math.min(...puntos.map((p) => p.seguidores));
+  const max = Math.max(...puntos.map((p) => p.seguidores));
+  const rango = Math.max(max - min, 1);
+  const t0 = Date.parse(puntos[0].fecha), t1 = Date.parse(puntos[puntos.length - 1].fecha);
+  const x = (f: string) => PAD + ((Date.parse(f) - t0) / Math.max(t1 - t0, 1)) * (W - 2 * PAD);
+  const y = (v: number) => H - PAD - ((v - min) / rango) * (H - 2 * PAD);
+  const d = puntos.map((p, i) => `${i ? 'L' : 'M'}${x(p.fecha).toFixed(1)},${y(p.seguidores).toFixed(1)}`).join(' ');
+  const ultimo = puntos[puntos.length - 1];
+  return (
+    <div className="mkd-serie">
+      <div className="mkd-serie-head">
+        <span className="mkd-tarjeta-label">Seguidores, lecturas guardadas ({puntos.length} días)</span>
+        <span className="mkd-serie-total">{num(min)} – {num(max)}</span>
+      </div>
+      <svg className="mkd-curva" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`Seguidores del ${dia(puntos[0].fecha)} al ${dia(ultimo.fecha)}: de ${num(puntos[0].seguidores)} a ${num(ultimo.seguidores)}`}>
+        <path d={d} fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+        <circle cx={x(ultimo.fecha)} cy={y(ultimo.seguidores)} r="3" fill="currentColor" vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div className="mkd-barras-ejes">
+        <span>{dia(puntos[0].fecha)}</span>
+        <span>{dia(ultimo.fecha)}</span>
       </div>
     </div>
   );
@@ -146,15 +201,39 @@ export function AnalisisInstagramVista({ a }: { a: AnalisisInstagram }) {
       </div>
 
       <div className="mkd-tarjetas">
-        <Tarjeta label="Seguidores" valor={num(a.perfil.seguidores)} destacada />
+        <Tarjeta
+          label="Seguidores"
+          valor={num(a.perfil.seguidores)}
+          destacada
+          variacion={<Variacion delta={a.historico.delta_7d} valor={a.historico.delta_7d?.seguidores ?? null} />}
+          ayuda={a.historico.delta_30d ? `${a.historico.delta_30d.seguidores >= 0 ? '+' : '−'}${num(Math.abs(a.historico.delta_30d.seguidores))} en ${a.historico.delta_30d.dias} días` : undefined}
+        />
         <Tarjeta label="Seguidos" valor={num(a.perfil.seguidos)} ayuda={a.perfil.ratio_seguidores_seguidos !== null ? `${num(a.perfil.ratio_seguidores_seguidos)} seguidores por cada seguido` : undefined} />
-        <Tarjeta label="Publicaciones" valor={num(a.perfil.publicaciones_totales)} ayuda={r.piezas_por_semana !== null ? `${num(r.piezas_por_semana)} por semana, últimas ${r.cantidad}` : undefined} />
+        <Tarjeta
+          label="Publicaciones"
+          valor={num(a.perfil.publicaciones_totales)}
+          variacion={<Variacion delta={a.historico.delta_7d} valor={a.historico.delta_7d?.publicaciones_totales ?? null} />}
+          ayuda={r.piezas_por_semana !== null ? `${num(r.piezas_por_semana)} por semana, últimas ${r.cantidad}` : undefined}
+        />
         <Tarjeta
           label="Tasa de engagement"
           valor={pct(a.tasa_engagement_pct)}
           ayuda="Interacciones promedio por pieza sobre seguidores."
           destacada
+          variacion={<Variacion delta={a.historico.delta_7d} valor={a.historico.delta_7d?.tasa_engagement_pct ?? null} decimales={2} sufijo=" pts" />}
         />
+      </div>
+
+      <div className="marketing-grupo">
+        <div className="marketing-grupo-head">
+          <h4 className="marketing-grupo-titulo">Evolución</h4>
+          <p className="marketing-grupo-sub">
+            Una lectura guardada por día (la de quien abre esto, o la del cron de las 2am). Instagram no da histórico: esta serie
+            existe porque Kaizen la guarda.
+            {a.historico.primera_lectura && ` Hay datos desde el ${dia(a.historico.primera_lectura)}.`}
+          </p>
+        </div>
+        <CurvaSeguidores h={a.historico} />
       </div>
 
       <div className="marketing-grupo">

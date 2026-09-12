@@ -417,10 +417,46 @@ Railway: token con `instagram_basic` + `pages_read_engagement` —y
 `instagram_manage_insights` para los insights—, `INSTAGRAM_ACCOUNT_ID`, y
 la migración aplicada). `server/public` reconstruido.
 
-**Lo que sigue en este hilo:** histórico. La API no lo da (salvo seguidores
-por día de la cuenta propia), así que "cuánto creció esta semana" de un
-tercero necesita guardar lecturas — una tabla de snapshots diarios y un cron.
-Y TikTok, que necesita fuente antes que pantalla.
+### Histórico: una lectura por día (2026-09-12)
+
+La Graph API devuelve el instante. Para que el Dashboard (y Kaizen) puedan
+decir "creció 120 seguidores esta semana" —de la cuenta propia o de un
+competidor— hay que haber guardado cuántos había hace una semana.
+
+**Qué se construyó:**
+
+- Tabla `InstagramSnapshot`: una fila por (usuario, día civil RD) con
+  seguidores, seguidos, publicaciones, interacciones promedio, mediana de
+  likes, tasa de engagement, y los totales de insights (JSON) si los hubo.
+  Migración `20260912090000_instagram_snapshot` — **pendiente en Railway**,
+  junto con la anterior (documento de entrega actualizado).
+- Se escribe desde dos lados: cada lectura real de `analizarPerfil` hace
+  upsert de la fila de HOY (la última del día gana), y un **cron diario a las
+  2am RD** (`jobs/instagramSnapshot.ts`) lee todas las cuentas guardadas,
+  para que la serie exista aunque nadie abra la pestaña. Un fallo de una cuenta
+  no frena a las demás; el resultado va al audit log como `cron:instagram-snapshot`.
+- El análisis lleva ahora `historico`: la serie de 90 días y **`delta_7d` /
+  `delta_30d` calculados en código** contra la lectura más reciente con al
+  menos esa antigüedad. "Al menos" a propósito: si el cron falló un día, el
+  punto de hace 8 sirve, y el campo `dias` dice la distancia real. Sin punto
+  tan viejo, null — no se estima. La tool lo recibe con la nota de que un delta
+  null significa "no hay dato", no "cero".
+- Dashboard: variación a 7 días en las tarjetas de seguidores, publicaciones y
+  tasa (verde/rojo), la de 30 días debajo, y una sección **Evolución** con la
+  curva de seguidores (SVG a mano, sin librería) que dice desde cuándo hay
+  datos.
+
+**Robustez ante la migración pendiente:** guardar o leer el histórico con la
+tabla ausente **no rompe la lectura** — se registra en el log y el análisis
+sale con serie vacía. Así el Dashboard funciona hoy y gana la evolución el día
+que apliquen la migración, sin deploy nuevo.
+
+**Verificación:** 98/98 (`calcularDelta`: elige el punto correcto, null sin
+dato, tasa null no rompe la resta). Pantalla revisada con 45 días de ejemplo.
+Sin BD ni Meta reales, mismo pendiente de siempre.
+
+**Lo que sigue en este hilo:** TikTok, que necesita fuente antes que pantalla
+(decisión del CTO pendiente sobre API vs proveedor).
 
 ---
 

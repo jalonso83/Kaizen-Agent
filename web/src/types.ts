@@ -73,6 +73,33 @@ export interface InsightsInstagram {
   no_disponible: Array<{ metricas: string[]; motivo: string }>;
 }
 
+export interface PuntoHistorico {
+  fecha: string;
+  seguidores: number;
+  seguidos: number;
+  publicaciones_totales: number;
+  interacciones_promedio: number;
+  likes_mediana: number;
+  tasa_engagement_pct: number | null;
+}
+
+export interface DeltaHistorico {
+  desde: string;
+  dias: number;
+  seguidores: number;
+  publicaciones_totales: number;
+  interacciones_promedio: number;
+  tasa_engagement_pct: number | null;
+}
+
+export interface HistoricoInstagram {
+  ventana_dias: number;
+  puntos: PuntoHistorico[];
+  delta_7d: DeltaHistorico | null;
+  delta_30d: DeltaHistorico | null;
+  primera_lectura: string | null;
+}
+
 export interface AnalisisInstagram {
   cuenta: { usuario: string; url: string; etiqueta: string | null; es_de_finzen: boolean };
   perfil: {
@@ -88,6 +115,7 @@ export interface AnalisisInstagram {
   resumen_publicaciones: ResumenPublicaciones;
   publicaciones: PublicacionInstagram[];
   insights: InsightsInstagram | null;
+  historico: HistoricoInstagram;
   leido_en: string;
   desde_cache: boolean;
 }

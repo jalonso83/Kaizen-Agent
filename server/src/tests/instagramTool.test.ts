@@ -2,7 +2,7 @@ import './setup';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { getInstagramProfileTool, listMarketingAccountsTool } from '../agent/tools/instagram';
-import { resumirPublicaciones } from '../services/instagramAnalisis';
+import { resumirPublicaciones, calcularDelta, armarHistorico, type PuntoHistorico } from '../services/instagramAnalisis';
 import type { PublicacionInstagram } from '../clients/instagramApi';
 import { TOOL_LIST, CRON_TOOL_LIST } from '../agent/tools';
 
@@ -87,4 +87,46 @@ test('sin credenciales, get_instagram_profile falla visible y sin tocar la BD', 
     getInstagramProfileTool.execute({}, { conversationId: null }),
     /INSTAGRAM_ACCOUNT_ID.*NO reintentes/s,
   );
+});
+
+// ── Histórico ────────────────────────────────────────────────────────────
+
+const punto = (fecha: string, seguidores: number, extra: Partial<PuntoHistorico> = {}): PuntoHistorico => ({
+  fecha, seguidores, seguidos: 100, publicaciones_totales: 50, interacciones_promedio: 10, likes_mediana: 8, tasa_engagement_pct: 1, ...extra,
+});
+
+test('el delta compara contra el punto más reciente con al menos N días de antigüedad', () => {
+  const serie = [
+    punto('2026-09-01', 1000, { publicaciones_totales: 40, interacciones_promedio: 8, tasa_engagement_pct: 0.8 }),
+    punto('2026-09-04', 1050),
+    punto('2026-09-05', 1060),
+    punto('2026-09-12', 1200, { publicaciones_totales: 45, interacciones_promedio: 12.5, tasa_engagement_pct: 1.04 }),
+  ];
+  const d7 = calcularDelta(serie, 7);
+  // 09-05 está exactamente a 7 días: es el más reciente con ≥7 y gana sobre 09-04 (8) y 09-01 (11).
+  assert.deepEqual(d7, { desde: '2026-09-05', dias: 7, seguidores: 140, publicaciones_totales: -5, interacciones_promedio: 2.5, tasa_engagement_pct: 0.04 });
+  const d30 = calcularDelta(serie, 30);
+  assert.equal(d30, null, 'sin lectura de hace 30 días no se estima');
+  // Con 8 no existe el exacto: el más reciente con ≥8 es 09-04, y `dias` lo dice.
+  const d8 = calcularDelta(serie, 8);
+  assert.equal(d8?.desde, '2026-09-04');
+  assert.equal(d8?.dias, 8);
+  const d11 = calcularDelta(serie, 11);
+  assert.equal(d11?.desde, '2026-09-01');
+  assert.equal(d11?.publicaciones_totales, 5);
+});
+
+test('con una sola lectura no hay delta, y la tasa null no rompe la resta', () => {
+  assert.equal(calcularDelta([punto('2026-09-12', 10)], 7), null);
+  const d = calcularDelta([punto('2026-09-01', 10, { tasa_engagement_pct: null }), punto('2026-09-12', 20)], 7);
+  assert.equal(d?.seguidores, 10);
+  assert.equal(d?.tasa_engagement_pct, null);
+});
+
+test('el histórico armado lleva los dos deltas y la primera lectura', () => {
+  const h = armarHistorico([punto('2026-08-01', 900), punto('2026-09-12', 1000)], '2026-07-01');
+  assert.equal(h.delta_7d?.seguidores, 100);
+  assert.equal(h.delta_30d?.dias, 42);
+  assert.equal(h.primera_lectura, '2026-07-01');
+  assert.equal(h.ventana_dias, 90);
 });

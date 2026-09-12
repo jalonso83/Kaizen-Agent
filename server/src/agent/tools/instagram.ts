@@ -46,7 +46,8 @@ const INSIGHTS_NOTE =
   'Si `insights.no_disponible` trae algo, esas métricas no llegaron por el motivo que dice (casi siempre falta el permiso instagram_manage_insights): dilo, no las estimes.';
 
 const INSTANTE_NOTE =
-  'OJO con el tiempo: `perfil` y `publicaciones` son de ESTE instante (leido_en), sin histórico — no puedes decir cuánto creció una cuenta salvo que tengas una lectura anterior en ESTA conversación o uses `insights.seguidores_por_dia`. ' +
+  'OJO con el tiempo: `perfil` y `publicaciones` son de ESTE instante (leido_en). Para decir cuánto creció o cayó algo usa `historico`: `delta_7d` y `delta_30d` ya vienen calculados contra la lectura guardada más cercana a 7 y 30 días atrás (el campo `dias` dice la distancia real; cítala si no es exacta), y `puntos` es la serie diaria. ' +
+  'Si un delta es null, NO hay lectura tan vieja guardada: dilo (`primera_lectura` dice desde cuándo hay datos), no lo estimes. ' +
   'Y los likes de una pieza de hace 2 días no son comparables con los de una de hace 2 meses: la nueva sigue sumando.';
 
 const AJENA_NOTE =
@@ -77,7 +78,7 @@ export const getInstagramProfileTool: KaizenTool = {
   name: 'get_instagram_profile',
   ambito: 'marketing',
   description:
-    'Lee un perfil de Instagram GUARDADO en Marketing → Configuración: seguidores, seguidos, publicaciones totales, tasa de engagement, las últimas N publicaciones con likes y comentarios, y un resumen ya calculado (promedios, mediana, interacciones, por tipo, top 3, ritmo de publicación). ' +
+    'Lee un perfil de Instagram GUARDADO en Marketing → Configuración: seguidores, seguidos, publicaciones totales, tasa de engagement, las últimas N publicaciones con likes y comentarios, un resumen ya calculado (promedios, mediana, interacciones, por tipo, top 3, ritmo de publicación) y el `historico` (serie diaria guardada y deltas a 7 y 30 días). ' +
     'Para la cuenta de FinZen trae además `insights` de los últimos 28 días (alcance, views, guardados, compartidos, taps al link, seguidores nuevos por día) si el token tiene permiso. ' +
     'Sin parámetros lee la cuenta de FinZen; con "usuario" lee ese perfil, que tiene que estar guardado (si no, la tool te dice cuáles hay). ' +
     'LLÁMALA SIEMPRE antes de afirmar cualquier cifra de Instagram. Es lo mismo que muestra el Dashboard de Marketing: si el socio pregunta por un número que vio ahí, sale de acá.',

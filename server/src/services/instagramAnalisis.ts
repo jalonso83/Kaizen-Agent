@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { db } from '../db';
+import { todayInRD } from '../util/fecha';
 import {
   getInsightsPropios,
   getPerfil,
@@ -87,6 +88,8 @@ export interface AnalisisInstagram {
   publicaciones: PublicacionInstagram[];
   /** Solo para la cuenta propia. Null si es ajena; con `no_disponible` lleno si el permiso falta. */
   insights: InsightsPropios | null;
+  /** La serie de lecturas guardadas y los deltas contra 7 y 30 días atrás. Ver `historico()`. */
+  historico: Historico;
   leido_en: string;
   /** true si salió de la caché en memoria (ver TTL abajo) y no de una llamada nueva. */
   desde_cache: boolean;
@@ -214,6 +217,141 @@ export function faltaConfiguracion(): string | null {
   return 'La lectura de Instagram todavía no está configurada (faltan META_SYSTEM_TOKEN y/o INSTAGRAM_ACCOUNT_ID). NO reintentes: dile al socio que esas variables las carga FinZen en Railway.';
 }
 
+// ── Histórico ────────────────────────────────────────────────────────────
+//
+// La Graph API devuelve el instante. Para poder decir "creció 120 seguidores
+// esta semana" hay que haber guardado cuántos había hace una semana: eso es
+// InstagramSnapshot, una fila por (usuario, día). Se escribe en cada lectura
+// real (guardarSnapshot) y desde el cron diario (jobs/instagramSnapshot.ts).
+
+export interface PuntoHistorico {
+  fecha: string; // YYYY-MM-DD (día civil RD)
+  seguidores: number;
+  seguidos: number;
+  publicaciones_totales: number;
+  interacciones_promedio: number;
+  likes_mediana: number;
+  tasa_engagement_pct: number | null;
+}
+
+export interface Delta {
+  /** La fecha del punto contra el que se comparó. */
+  desde: string;
+  /** Cuántos días reales separan las dos lecturas (puede no ser exactamente 7 ó 30). */
+  dias: number;
+  seguidores: number;
+  publicaciones_totales: number;
+  interacciones_promedio: number;
+  tasa_engagement_pct: number | null;
+}
+
+export interface Historico {
+  /** Cuántos días de serie se pidieron. */
+  ventana_dias: number;
+  puntos: PuntoHistorico[];
+  /** Null si no hay una lectura de hace ≥ 7 (≥ 30) días. Los deltas se calculan acá, no en el modelo ni en la pantalla. */
+  delta_7d: Delta | null;
+  delta_30d: Delta | null;
+  /** Desde cuándo hay lecturas guardadas de esta cuenta. Null si esta es la primera. */
+  primera_lectura: string | null;
+}
+
+const HISTORICO_DIAS = 90;
+
+/** Guarda (o reemplaza) la lectura de HOY. Nunca lanza: perder un punto de la serie no debe tumbar la lectura que lo generó. */
+export async function guardarSnapshot(a: AnalisisInstagram): Promise<void> {
+  const fecha = new Date(`${todayInRD(new Date(a.leido_en))}T00:00:00.000Z`);
+  const datos = {
+    leidoEn: new Date(a.leido_en),
+    seguidores: a.perfil.seguidores,
+    seguidos: a.perfil.seguidos,
+    publicacionesTotales: a.perfil.publicaciones_totales,
+    interaccionesPromedio: a.resumen_publicaciones.interacciones_promedio,
+    likesMediana: a.resumen_publicaciones.likes_mediana,
+    tasaEngagementPct: a.tasa_engagement_pct,
+    insights: a.insights && Object.keys(a.insights.totales).length > 0 ? (a.insights.totales as Prisma.InputJsonObject) : Prisma.JsonNull,
+  };
+  try {
+    await db.instagramSnapshot.upsert({
+      where: { usuario_fecha: { usuario: a.cuenta.usuario, fecha } },
+      create: { usuario: a.cuenta.usuario, fecha, ...datos },
+      update: datos,
+    });
+  } catch (e) {
+    // Visible en el log, no silencioso — pero no bloquea: la tabla puede no
+    // existir todavía en producción (migración pendiente).
+    console.warn(`[instagram-snapshot] No se pudo guardar la lectura de @${a.cuenta.usuario}:`, e instanceof Error ? e.message : e);
+  }
+}
+
+function diasEntre(a: string, b: string): number {
+  return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+}
+
+/**
+ * El delta contra el punto MÁS RECIENTE que tenga al menos `dias` de
+ * antigüedad respecto al último. Exportada para probarla sin BD.
+ *
+ * "Al menos" y no "exactamente": si el cron falló un día, el punto de hace 7
+ * días puede no existir, y el de hace 8 sirve igual siempre que se diga
+ * (`dias` en el resultado). Sin ningún punto tan viejo, null — no se estima.
+ */
+export function calcularDelta(puntos: PuntoHistorico[], dias: number): Delta | null {
+  if (puntos.length < 2) return null;
+  const ultimo = puntos[puntos.length - 1];
+  const base = [...puntos].reverse().find((p) => diasEntre(p.fecha, ultimo.fecha) >= dias);
+  if (!base) return null;
+  return {
+    desde: base.fecha,
+    dias: diasEntre(base.fecha, ultimo.fecha),
+    seguidores: ultimo.seguidores - base.seguidores,
+    publicaciones_totales: ultimo.publicaciones_totales - base.publicaciones_totales,
+    interacciones_promedio: redondear(ultimo.interacciones_promedio - base.interacciones_promedio),
+    tasa_engagement_pct:
+      ultimo.tasa_engagement_pct !== null && base.tasa_engagement_pct !== null
+        ? redondear(ultimo.tasa_engagement_pct - base.tasa_engagement_pct, 2)
+        : null,
+  };
+}
+
+/** Arma el histórico a partir de la serie ya leída (sin BD). */
+export function armarHistorico(puntos: PuntoHistorico[], primera: string | null, ventanaDias = HISTORICO_DIAS): Historico {
+  return {
+    ventana_dias: ventanaDias,
+    puntos,
+    delta_7d: calcularDelta(puntos, 7),
+    delta_30d: calcularDelta(puntos, 30),
+    primera_lectura: primera,
+  };
+}
+
+/** Lee la serie de la BD. Si la tabla no existe todavía, devuelve una serie vacía y lo dice en el log. */
+export async function historico(usuario: string, dias = HISTORICO_DIAS): Promise<Historico> {
+  try {
+    const desde = new Date(Date.now() - dias * 86_400_000);
+    const [filas, primera] = await Promise.all([
+      db.instagramSnapshot.findMany({
+        where: { usuario, fecha: { gte: desde } },
+        orderBy: { fecha: 'asc' },
+      }),
+      db.instagramSnapshot.findFirst({ where: { usuario }, orderBy: { fecha: 'asc' }, select: { fecha: true } }),
+    ]);
+    const puntos: PuntoHistorico[] = filas.map((f) => ({
+      fecha: f.fecha.toISOString().slice(0, 10),
+      seguidores: f.seguidores,
+      seguidos: f.seguidos,
+      publicaciones_totales: f.publicacionesTotales,
+      interacciones_promedio: f.interaccionesPromedio,
+      likes_mediana: f.likesMediana,
+      tasa_engagement_pct: f.tasaEngagementPct,
+    }));
+    return armarHistorico(puntos, primera?.fecha.toISOString().slice(0, 10) ?? null, dias);
+  } catch (e) {
+    console.warn(`[instagram-snapshot] No se pudo leer el histórico de @${usuario}:`, e instanceof Error ? e.message : e);
+    return armarHistorico([], null, dias);
+  }
+}
+
 // ── Lectura + caché ───────────────────────────────────────────────────────
 
 /**
@@ -280,9 +418,16 @@ export async function analizarPerfil(cuenta: CuentaGuardada, opts: OpcionesAnali
     resumen_publicaciones: resumen,
     publicaciones: perfil.publicaciones,
     insights,
+    historico: armarHistorico([], null),
     leido_en: perfil.leido_en,
     desde_cache: false,
   };
+
+  // Primero se guarda el punto de hoy y después se lee la serie: así la
+  // lectura que el socio está viendo ya es el último punto de su propio
+  // histórico, y el delta de 7 días compara contra ella.
+  await guardarSnapshot(analisis);
+  analisis.historico = await historico(cuenta.usuario);
 
   cache.set(clave, { hasta: ahora + TTL_MS, analisis });
   return analisis;

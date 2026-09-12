@@ -14,6 +14,7 @@ import usersRoutes from './routes/users';
 import { startCerebroIndexJob } from './jobs/cerebroIndex';
 import { startWeeklySummaryCron } from './jobs/weeklySummary';
 import { startAcquisitionExportCron } from './jobs/acquisitionExport';
+import { startInstagramSnapshotCron } from './jobs/instagramSnapshot';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Kaizen server — Fase 1: /health público; /api/auth, /api/conversations y
@@ -78,3 +79,6 @@ void startWeeklySummaryCron().catch((err) => {
 
 // Export semanal de adquisición → Drive (lunes 1am RD). Solo agenda.
 startAcquisitionExportCron();
+
+// Lectura diaria de los perfiles de Instagram guardados → histórico (2am RD). Solo agenda.
+startInstagramSnapshotCron();

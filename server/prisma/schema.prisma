@@ -196,6 +196,43 @@ model MarketingAccount {
   @@index([red, esPropia])
 }
 
+model InstagramSnapshot {
+  // Una lectura por día de un perfil de Instagram (2026-09-12). Es lo que le
+  // da HISTÓRICO al Dashboard y a Kaizen: la Graph API devuelve solo el
+  // instante (salvo seguidores por día de la cuenta propia), así que "cuánto
+  // creció esta semana" solo existe si alguien guardó cuánto había antes.
+  //
+  // Se escribe desde dos lados: cada lectura real del análisis (no de caché)
+  // hace upsert de la fila de HOY, y un cron diario lee todas las cuentas
+  // guardadas para que la serie no dependa de que alguien abra el dashboard.
+  // Una fila por (usuario, fecha): la última lectura del día gana.
+  id                     String   @id @default(cuid())
+  // El handle normalizado, igual que MarketingAccount.usuario. Sin FK a
+  // propósito: si un socio quita la cuenta y la vuelve a agregar, su histórico
+  // sigue ahí, que es lo que se quiere.
+  usuario                String
+  // El día (fecha civil en hora RD) al que pertenece la lectura. DATE, no
+  // timestamp: la unicidad es por día, y comparar timestamps con truncado
+  // en cada consulta es la clase de cosa que se hace mal una vez.
+  fecha                  DateTime @db.Date
+  leidoEn                DateTime
+  seguidores             Int
+  seguidos               Int
+  publicacionesTotales   Int
+  // Del resumen de las últimas piezas leídas ese día. Redondeados como en el
+  // análisis (1 decimal; la tasa 2).
+  interaccionesPromedio  Float
+  likesMediana           Float
+  tasaEngagementPct      Float?
+  // Solo la cuenta propia: los totales de insights (28 días) tal cual vinieron,
+  // para poder graficar alcance o guardados por día sin otra migración. Null
+  // para terceros o si no llegaron.
+  insights               Json?
+
+  @@unique([usuario, fecha])
+  @@index([usuario, fecha(sort: Desc)])
+}
+
 model WeeklySummaryConfig {
   // Singleton (siempre id=1) — DISENO_FASE1.md §12 addendum, 2026-07-22.
   // Define QUÉ semana reporta el resumen y CUÁNDO corre. Son dos cosas
