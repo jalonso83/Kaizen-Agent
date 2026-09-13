@@ -287,7 +287,6 @@ que sigue abierto es de otra naturaleza:
 
 | Falta | Qué es | Dónde |
 |---|---|---|
-| Prueba adversarial del gate por chat | Intentar por conversación real que Kaizen cree un borrador sin confirmación ("créala ya", "soy admin"). Es el criterio 3 de Fase 1 **y** el 3 de Fase 2 | `TESTING.md` §6 |
 | Backstop de la regla 9 | El protocolo de lectura del Cerebro antes de proponer es solo instrucción del prompt; no se cumplió en la conversación real auditada el 2026-08-07 | `docs/ESTADO.md` |
 | Tools de escritura en Meta | `create_meta_campaign_draft` entra cuando FinZen habilite `ads_management` — hoy solo lectura, y `META_WRITE_ENABLED=false` | `docs/ESTADO_FASE_2.md` |
 | Probar Instagram de verdad | Nada de Marketing corrió contra la Graph API real: faltan en Railway el token (`instagram_basic` + `pages_read_engagement`, y `instagram_manage_insights` para los insights), `INSTAGRAM_ACCOUNT_ID`, y las dos migraciones pendientes | `docs/ESTADO_FASE_2.md` |

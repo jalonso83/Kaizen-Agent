@@ -17,6 +17,14 @@ un vertedero de números.
 4. Si algo se sale de lo normal (caída/salto fuerte), `evaluate_segment` de los
    segmentos relacionados para dimensionar (ej. cayó retención → ¿creció
    `dormant`?).
+5. **Marketing** (es el otro ámbito, pero el resumen es uno solo):
+   `list_marketing_accounts` → `get_instagram_profile` de la cuenta de FinZen
+   (y hasta 3 competidores guardados) + el skill `lectura-perfil-instagram`
+   para el criterio; `get_meta_spend` de la semana si Meta está configurado.
+   La comparación semanal de Instagram es `historico.delta_7d` (si es `null`,
+   no hay lectura de hace 7 días: se dice, no se estima). Si algo no está
+   configurado o falta un permiso, la sección lo dice en una línea — **se
+   omite el dato, nunca la sección**.
 
 ## 2. Estructura del documento
 
@@ -34,6 +42,18 @@ lectura. No listar todos los KPIs — elegir los que cuentan la historia.
 ## Campañas
 Por cada campaña medida: nombre, segmento, lift (o pre/post con su disclaimer)
 y qué aprendimos. Si no hubo campañas: decirlo y qué oportunidad se perdió.
+
+## Redes y pauta
+Instagram de FinZen: seguidores y su delta de 7 días (con la distancia real
+si no es 7), tasa de engagement y mediana de likes con la referencia de
+tamaño dicha como referencia, y —si hay insights— alcance, guardados y taps
+al link. Los taps van AL LADO de los registros atribuidos a instagram de
+`get_kpis`: es el puente entre las redes y el negocio. Competidores guardados:
+una línea cada uno, tasa comparada por tamaño, nada de "les va mejor". Meta:
+gasto de la semana en la moneda de la cuenta y qué campañas gastaron de
+verdad (`effective_status`); el CAC combinado SOLO si los nombres de campaña
+unen con `utm_campaign`, y si no unen, decirlo. Sin credenciales o sin
+perfiles guardados: una línea que lo diga, y seguir.
 
 ## Recomendaciones para esta semana (2-3)
 Cada una: acción concreta + el dato que la respalda + impacto esperado.
@@ -65,6 +85,10 @@ en ventana de medición).
 - **Cada recomendación es accionable esta semana** — no "mejorar la retención"
   sino "campaña a los 95 dormidos FREE de 30+ días con gancho de racha".
 - Convención de la API: los `*_pct` son puntos (31.0 = 31%).
+- **En redes, likes son pulso.** "La pieza que más llamó la atención" sí;
+  "la pieza que funcionó" solo con guardados y alcance (skill
+  `lectura-perfil-instagram`). Un delta de seguidores menor al 1 % del total
+  en la semana se reporta como "estable", sin adjetivo.
 
 ## 4. Entrega
 

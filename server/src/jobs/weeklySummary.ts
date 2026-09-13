@@ -134,9 +134,10 @@ function buildCronPrompt(reportWeek: WeekRange, priorWeek: WeekRange): string {
     `Hacé esto, en orden:\n` +
     `1. get_kpis para la semana a reportar (from=${reportWeek.from}, to=${reportWeek.to}) y de nuevo para la semana anterior (from=${priorWeek.from}, to=${priorWeek.to}).\n` +
     `2. get_campaign_results para la semana a reportar.\n` +
-    `3. Escribí el resumen: 3-5 movimientos con cifras (comparando ambas semanas), los resultados de campañas medidas (lift y qué significa), y 2-3 recomendaciones accionables con el dato que las respalda.\n` +
-    `4. Identifica la mejor oportunidad de campaña de la semana según los datos, y proponla EN TEXTO — mismo método que usás en el chat normal (evaluate_segment para el count real, carga los skills campanas-retencion/copy-push/diseno-experimentos, un mensaje principal + 1-2 alternativas con Título y Mensaje, racional con datos, qué se mediría). NO llames a propose_campaign ni generes ninguna tarjeta — no está disponible en esta corrida y no corresponde: esto es una recomendación escrita para que el socio la lea y, si le interesa, la pida por chat luego. Si de verdad ningún segmento muestra una oportunidad clara esta semana, dilo en vez de forzar una idea débil.\n` +
-    `5. Guardá el resumen COMPLETO —incluida la propuesta de campaña del paso 4, o la nota de que no hubo una oportunidad clara— con save_cerebro_note (title="resumen-semanal-${reportWeek.to}"). Es la única forma en que el socio va a ver esto: esta conversación es interna, nadie la lee por chat.\n` +
+    `3. MARKETING (ámbito Marketing, sección "Redes y pauta" del resumen): list_marketing_accounts. Si hay cuenta de FinZen, get_instagram_profile sin parámetros y cargá el skill lectura-perfil-instagram para interpretarla — el delta_7d del historico es la comparación semanal, y los insights (si vienen) son lo que decide; si hay competidores guardados, leé hasta 3 para una comparación de tasa por tamaño. Si Meta está configurado, get_meta_spend de la semana a reportar (from=${reportWeek.from}, to=${reportWeek.to}). Si alguna de estas tools responde que no está configurada, que no hay perfiles guardados o que el permiso falta, la sección lo dice en UNA línea y seguís: se omite el dato, nunca la sección.\n` +
+    `4. Escribí el resumen: 3-5 movimientos con cifras (comparando ambas semanas), los resultados de campañas medidas (lift y qué significa), la sección "Redes y pauta" con lo del paso 3, y 2-3 recomendaciones accionables con el dato que las respalda. Los registros atribuidos a instagram en acquisition.by_source de get_kpis son el puente entre las dos partes: si hay taps al link en los insights, ponelos uno al lado del otro.\n` +
+    `5. Identifica la mejor oportunidad de campaña de la semana según los datos, y proponla EN TEXTO — mismo método que usás en el chat normal (evaluate_segment para el count real, carga los skills campanas-retencion/copy-push/diseno-experimentos, un mensaje principal + 1-2 alternativas con Título y Mensaje, racional con datos, qué se mediría). NO llames a propose_campaign ni generes ninguna tarjeta — no está disponible en esta corrida y no corresponde: esto es una recomendación escrita para que el socio la lea y, si le interesa, la pida por chat luego. Si de verdad ningún segmento muestra una oportunidad clara esta semana, dilo en vez de forzar una idea débil. Si la oportunidad de la semana es de contenido y no de push, decilo y dejá 1-2 ideas en una línea cada una (el desarrollo va por conceptos-contenido, en el chat).\n` +
+    `6. Guardá el resumen COMPLETO —incluida la sección de redes y la propuesta de campaña del paso 5, o la nota de que no hubo una oportunidad clara— con save_cerebro_note (title="resumen-semanal-${reportWeek.to}"). Es la única forma en que el socio va a ver esto: esta conversación es interna, nadie la lee por chat.\n` +
     `</evento_sistema>`
   );
 }
@@ -191,7 +192,11 @@ export async function runWeeklySummary(): Promise<WeeklySummaryResult> {
       tools: buildBetaTools(ctx, CRON_TOOL_LIST),
       messages,
       stream: false,
-      max_iterations: 12,
+      // 18 y no 12: la sección de Marketing suma hasta 6 llamadas (cuentas, el
+      // perfil de FinZen, hasta 3 competidores, el gasto de Meta) más el skill.
+      // Con 12 el cron se quedaba sin vueltas antes de llegar a guardar la nota,
+      // que es el único paso que el socio ve.
+      max_iterations: 18,
     });
 
     // Persistir cada mensaje del assistant apenas está listo, ANTES de que el

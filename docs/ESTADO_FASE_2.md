@@ -476,6 +476,32 @@ registros atribuidos de `get_kpis` — el único puente Instagram → negocio) y
 qué se puede y no afirmar de un competidor. La tool remite al skill en su
 descripción y en la nota que viaja con el dato. 16 skills en el catálogo.
 
+### El resumen semanal ahora cubre los dos ámbitos (2026-09-13)
+
+El cron de los lunes era solo de la app. Ahora el prompt del cron
+(`jobs/weeklySummary.ts`) tiene un paso de Marketing: `list_marketing_accounts`
+→ `get_instagram_profile` de FinZen (y hasta 3 competidores guardados) con el
+skill `lectura-perfil-instagram`, y `get_meta_spend` de la semana si Meta está
+configurado. El resumen gana la sección **"Redes y pauta"** (skill
+`resumen-semanal` actualizado): seguidores con su `delta_7d` —que el cron
+diario de snapshots deja listo justo para el lunes—, tasa y mediana con la
+referencia de tamaño, insights si vienen, y los taps al link **al lado** de los
+registros atribuidos a instagram de `get_kpis`, que es el puente entre las dos
+mitades del resumen. Si la oportunidad de la semana es de contenido y no de
+push, lo dice con 1-2 ideas en una línea.
+
+Dos decisiones: (1) **se omite el dato, nunca la sección** — sin credenciales
+o sin perfiles la sección lo dice en una línea y el resumen sigue, porque un
+resumen sin la sección es indistinguible de uno donde Marketing no existe;
+(2) `max_iterations` del cron pasa de 12 a 18: la sección suma hasta 6
+llamadas más el skill, y con 12 el cron se quedaba sin vueltas antes de
+`save_cerebro_note`, que es el único paso que el socio ve.
+
+Las tools de Instagram y Meta ya estaban en `CRON_TOOL_LIST` (solo leen), así
+que no cambió ningún candado. Sin credenciales, la corrida real va a producir
+la línea "no configurado" en esa sección: es lo esperado hasta que Railway las
+tenga.
+
 **Lo que sigue en este hilo:** TikTok, que necesita fuente antes que pantalla
 (decisión del CTO pendiente sobre API vs proveedor).
 
