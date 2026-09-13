@@ -38,7 +38,7 @@ endpoints). **No** se toca el código ni la base de datos de FinZen.
 Kaizen-Agent/
 ├── docs/                  # PRD, diseño de Fase 1, ESTADO (Fase 1) y ESTADO_FASE_2, SKILLS, cerebro/
 ├── server/
-│   ├── skills/            # 15 playbooks en dos ámbitos: finzen/ (8) y marketing/ (7) — ver docs/SKILLS.md
+│   ├── skills/            # 16 playbooks en dos ámbitos: finzen/ (8) y marketing/ (8) — ver docs/SKILLS.md
 │   ├── prisma/            # schema + 14 migraciones SQL (se aplican con prisma migrate deploy)
 │   ├── public/            # la web compilada (committeada; la regenera npm run build)
 │   └── src/

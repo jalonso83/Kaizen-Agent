@@ -460,6 +460,22 @@ que apliquen la migración, sin deploy nuevo.
 dato, tasa null no rompe la resta). Pantalla revisada con 45 días de ejemplo.
 Sin BD ni Meta reales, mismo pendiente de siempre.
 
+### El criterio para leer la tool: `lectura-perfil-instagram` (2026-09-13)
+
+La tool trae los números y las notas; le faltaba el método para
+interpretarlos. Skill nuevo en `marketing/` (96 líneas): orden de lectura
+(insights → tendencia → tasa y mediana → mezcla y ritmo → pulso), referencias
+de tasa de engagement por tamaño de cuenta **dichas como referencia externa y
+nunca como semáforo** (el skill de umbrales prohíbe copiar benchmarks sin
+pasar por el histórico propio; cuando haya 4+ lecturas guardadas, la mediana
+propia manda), mediana vs promedio (una viral en la muestra no es el nivel de
+la cuenta), reel contra reel y nunca contra carrusel, tabla de cuándo un delta
+es ruido (< 1 % de seguidores en 7 días), las tres relaciones de insights que
+sí dicen algo (guardados/alcance, interacciones/alcance, taps al link contra
+registros atribuidos de `get_kpis` — el único puente Instagram → negocio) y
+qué se puede y no afirmar de un competidor. La tool remite al skill en su
+descripción y en la nota que viaja con el dato. 16 skills en el catálogo.
+
 **Lo que sigue en este hilo:** TikTok, que necesita fuente antes que pantalla
 (decisión del CTO pendiente sobre API vs proveedor).
 

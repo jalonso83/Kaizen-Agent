@@ -36,7 +36,7 @@ import type { KaizenTool } from './guard';
 // ─────────────────────────────────────────────────────────────────────────
 
 const PULSO_NOTE =
-  'CÓMO LEER ESTO: `perfil` y `publicaciones` son lo PÚBLICO (business_discovery): seguidores, y por pieza likes y comentarios. ' +
+  'CÓMO LEER ESTO (el método completo está en el skill lectura-perfil-instagram; cárgalo antes de interpretar): `perfil` y `publicaciones` son lo PÚBLICO (business_discovery): seguidores, y por pieza likes y comentarios. ' +
   'Según el skill lectura-kpis-social eso es PULSO: sirve para contextualizar ("qué pieza llamó más la atención"), no para decidir qué contenido repetir ni para afirmar que una pieza "funcionó". ' +
   '`tasa_engagement_pct` es interacciones promedio por pieza sobre seguidores, la definición estándar para comparar cuentas; dilo así si la citas. ' +
   'Los promedios, la mediana y el top ya vienen calculados en `resumen_publicaciones`: úsalos tal cual, no los recalcules.';
@@ -81,7 +81,8 @@ export const getInstagramProfileTool: KaizenTool = {
     'Lee un perfil de Instagram GUARDADO en Marketing → Configuración: seguidores, seguidos, publicaciones totales, tasa de engagement, las últimas N publicaciones con likes y comentarios, un resumen ya calculado (promedios, mediana, interacciones, por tipo, top 3, ritmo de publicación) y el `historico` (serie diaria guardada y deltas a 7 y 30 días). ' +
     'Para la cuenta de FinZen trae además `insights` de los últimos 28 días (alcance, views, guardados, compartidos, taps al link, seguidores nuevos por día) si el token tiene permiso. ' +
     'Sin parámetros lee la cuenta de FinZen; con "usuario" lee ese perfil, que tiene que estar guardado (si no, la tool te dice cuáles hay). ' +
-    'LLÁMALA SIEMPRE antes de afirmar cualquier cifra de Instagram. Es lo mismo que muestra el Dashboard de Marketing: si el socio pregunta por un número que vio ahí, sale de acá.',
+    'LLÁMALA SIEMPRE antes de afirmar cualquier cifra de Instagram, y carga el skill lectura-perfil-instagram ANTES de interpretar lo que devuelve (qué es bueno para una cuenta de ese tamaño, cuándo un delta es ruido). ' +
+    'Es lo mismo que muestra el Dashboard de Marketing: si el socio pregunta por un número que vio ahí, sale de acá.',
   inputSchema: {
     type: 'object',
     properties: {
