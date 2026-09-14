@@ -502,6 +502,33 @@ que no cambió ningún candado. Sin credenciales, la corrida real va a producir
 la línea "no configurado" en esa sección: es lo esperado hasta que Railway las
 tenga.
 
+### El simulador de la Graph API, esta vez en el repo (2026-09-14)
+
+El de agosto se usó y se perdió. Este queda: `src/mock/graphApiMock.ts`
+(`npm run mock:graph`) sirve Meta + Instagram con las rarezas que van a
+aparecer el día del token real — métricas como string, presupuestos en
+centavos, errores `{error:{code, fbtrace_id}}`, **un 200 sin
+`business_discovery`** (que sin chequeo explícito daría un perfil con todo en
+cero), piezas sin `comments_count` ni `media_product_type`, y una métrica
+retirada que tumba el grupo entero de insights. Dos tokens: uno completo y
+uno sin `instagram_manage_insights`; `MOCK_GRAPH_METRICAS_RETIRADAS` imita a
+Meta retirando una métrica.
+
+`scripts/testGraph.ts` (`npm run test:graph`) corre los clientes y
+`analizarPerfil` contra él y **afirma 40 cosas** — no imprime y mira. Las que
+importan: el campo anidado de business_discovery llega bien por la red; el
+límite de piezas viaja y se topea en 50; los tres fallos de perfil salen
+traducidos; sin permiso de insights **el perfil se lee igual** y los cuatro
+grupos dicen por qué no; con `views` retirada caen solo esos totales; la
+segunda lectura sale de caché; un tercero no lleva insights; y sin Postgres
+el histórico se omite con aviso en vez de tumbar la lectura. El script fuerza
+las variables al simulador, así no puede pegarle a la Graph real por
+accidente. 40/40 en los dos modos.
+
+Lo que esto NO prueba: que la Graph real se comporte como el simulador. Es
+la mejor aproximación posible sin credenciales, y deja el primer día con
+token real para descubrir diferencias, no bugs de parseo.
+
 **Lo que sigue en este hilo:** TikTok, que necesita fuente antes que pantalla
 (decisión del CTO pendiente sobre API vs proveedor).
 

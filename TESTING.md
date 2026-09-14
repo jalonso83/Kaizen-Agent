@@ -303,10 +303,44 @@ segmento **sin** dejar que evalúe primero (por ejemplo, dándole tú un número
 casi nunca va a ser el que le dijiste. En el audit log queda la llamada fallida
 a `tool:propose_campaign` con `isError = true`.
 
-## 12. Marketing e Instagram (cuando lleguen las credenciales)
+## 12. Marketing e Instagram
 
-Nada de esto tiene mock: se prueba recién con `META_SYSTEM_TOKEN`,
-`INSTAGRAM_ACCOUNT_ID` y las dos migraciones en producción.
+### 12.0 Sin credenciales: el simulador de la Graph API (2026-09-14)
+
+`src/mock/graphApiMock.ts` imita Meta + Instagram con las rarezas reales de
+Graph (números como string, centavos, errores con `fbtrace_id`, un 200 sin el
+campo pedido, piezas sin `comments_count`, una métrica retirada que tumba el
+grupo entero). `src/scripts/testGraph.ts` ejercita los clientes y el análisis
+contra él y **afirma** 40 cosas, sin Claude, sin server y sin Postgres:
+
+```bash
+cd server
+npm run mock:graph        # en una terminal, puerto 4600
+npm run test:graph        # en otra → tiene que terminar en "40 ✔ · 0 ✖"
+```
+
+Variantes que valen la pena:
+
+```bash
+MOCK_GRAPH_METRICAS_RETIRADAS=views npm run mock:graph   # Meta retiró una métrica: cae solo su grupo
+```
+
+El script fuerza las variables de Meta al simulador aunque el `.env` tenga el
+token real, así no puede pegarle a producción por accidente. Los avisos
+`[instagram-snapshot] … database server` son esperados: sin Postgres el
+histórico se omite con log, que es exactamente lo que se quiere verificar.
+
+Para correr el **server entero** contra el simulador (y ver el Dashboard con
+datos), en `.env`: `META_API_BASE_URL=http://localhost:4600`,
+`META_SYSTEM_TOKEN=mock-meta-token` (o `mock-sin-insights` para ver el aviso
+ámbar de permiso faltante), `META_AD_ACCOUNT_ID=act_123`,
+`INSTAGRAM_ACCOUNT_ID=17841400000000001`; y en Marketing → Configuración
+guardar `@finzenai` como propia y `@competidor`. Esto sí necesita Postgres.
+
+### 12.1 Con credenciales reales
+
+Lo de abajo se prueba recién con `META_SYSTEM_TOKEN`, `INSTAGRAM_ACCOUNT_ID`
+y las dos migraciones en producción.
 
 1. **Perfiles.** Como CEO/CTO, Marketing → Configuración: agregar
    `https://www.instagram.com/finzenai/?hl=es` marcándolo como la cuenta de

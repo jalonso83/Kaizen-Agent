@@ -280,8 +280,14 @@ export async function guardarSnapshot(a: AnalisisInstagram): Promise<void> {
   } catch (e) {
     // Visible en el log, no silencioso — pero no bloquea: la tabla puede no
     // existir todavía en producción (migración pendiente).
-    console.warn(`[instagram-snapshot] No se pudo guardar la lectura de @${a.cuenta.usuario}:`, e instanceof Error ? e.message : e);
+    console.warn(`[instagram-snapshot] No se pudo guardar la lectura de @${a.cuenta.usuario}:`, resumenError(e));
   }
+}
+
+/** Prisma redacta párrafos; para el log alcanza la última línea con contenido ("Can't reach database server…"). */
+function resumenError(e: unknown): string {
+  const m = e instanceof Error ? e.message : String(e);
+  return m.trim().split('\n').filter((l) => l.trim()).pop() ?? m;
 }
 
 function diasEntre(a: string, b: string): number {
@@ -347,7 +353,7 @@ export async function historico(usuario: string, dias = HISTORICO_DIAS): Promise
     }));
     return armarHistorico(puntos, primera?.fecha.toISOString().slice(0, 10) ?? null, dias);
   } catch (e) {
-    console.warn(`[instagram-snapshot] No se pudo leer el histórico de @${usuario}:`, e instanceof Error ? e.message : e);
+    console.warn(`[instagram-snapshot] No se pudo leer el histórico de @${usuario}:`, resumenError(e));
     return armarHistorico([], null, dias);
   }
 }

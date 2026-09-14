@@ -194,11 +194,12 @@ los dos. El system prompt arma la sección "Tus dos ámbitos" leyendo ese campo
 | `load_skill` | comun | Carga el cuerpo completo de un skill por slug |
 
 **Probarlas sin credenciales reales:** `mock/finzenApiMock.ts` (`npm run
-mock:finzen`) implementa el contrato de FinZen con datos de ejemplo;
+mock:finzen`) implementa el contrato de FinZen con datos de ejemplo y
 `scripts/testTools.ts` (`npm run test:tools`) ejercita las de lectura de
-FinZen contra eso, sin Claude ni Postgres. Las de Meta e Instagram **no
-tienen mock**: se prueban recién con credenciales en Railway. Ver
-`../TESTING.md`.
+FinZen contra eso; `mock/graphApiMock.ts` (`npm run mock:graph`) imita Meta +
+Instagram con las rarezas reales de Graph y `scripts/testGraph.ts` (`npm run
+test:graph`) afirma 40 cosas contra él. Ninguno necesita Claude ni Postgres.
+Ver `../TESTING.md` §12.
 
 ### 2.6 Skills (`agent/skills.ts` + `../skills/<ambito>/*/SKILL.md`)
 

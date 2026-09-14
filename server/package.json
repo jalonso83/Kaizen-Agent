@@ -21,6 +21,8 @@
     "chat": "tsx src/scripts/chatCli.ts",
     "drive:auth": "tsx src/scripts/driveAuth.ts",
     "mock:finzen": "tsx src/mock/finzenApiMock.ts",
+    "mock:graph": "tsx src/mock/graphApiMock.ts",
+    "test:graph": "tsx src/scripts/testGraph.ts",
     "test:tools": "tsx src/scripts/testTools.ts"
   },
   "dependencies": {
