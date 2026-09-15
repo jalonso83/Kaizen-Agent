@@ -85,6 +85,11 @@ acá. El resto del método de contenido vive en `conceptos-contenido`.
 - Español neutro-dominicano según la guía del Cerebro; "tú", nunca "usted".
 - Nada de PII ni datos sensibles en el push (se ve en pantalla bloqueada):
   categorías y montos genéricos sí, detalles íntimos no.
+- **Los planes se nombran como en la app: Gratis, Plus, Pro.** `FREE` y
+  `PREMIUM` son nombres de la API; un push que dice "pásate a PREMIUM" habla de
+  un plan que el usuario no encuentra en Suscripciones. Plus = PREMIUM.
+- La duración de la prueba gratis se confirma con el socio antes de
+  escribirla (la app muestra 21 días en Pro; hubo una anterior distinta).
 
 ## 5. Entrega al socio
 
