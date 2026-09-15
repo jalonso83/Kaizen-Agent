@@ -139,7 +139,14 @@ export function extraerEvaluaciones(
   for (const fila of filas) {
     if (!fila.resultSummary) continue;
     try {
-      const parsed = JSON.parse(fila.resultSummary) as Record<string, unknown>;
+      // Desde 2026-09-15 el resultado lleva una nota de lectura ANTES del JSON
+      // (SOLAPE_NOTE en segments.ts). Se parsea desde la primera llave: si la
+      // nota se toma como parte del JSON, ninguna evaluación cuenta como
+      // evidencia y el gate rechaza toda propuesta — falla cerrado, pero
+      // por un motivo falso.
+      const desde = fila.resultSummary.indexOf('{');
+      if (desde < 0) continue;
+      const parsed = JSON.parse(fila.resultSummary.slice(desde)) as Record<string, unknown>;
       const slug = parsed.slug;
       const count = parsed.count;
       if (typeof slug !== 'string' || typeof count !== 'number' || !Number.isFinite(count)) continue;

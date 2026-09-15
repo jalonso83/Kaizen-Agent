@@ -84,3 +84,21 @@ test('input ausente o no-objeto deja params vacío sin perder la evidencia', () 
   const filas = [fila(null, JSON.stringify({ slug: 'active', count: 70 }))];
   assert.deepEqual(extraerEvaluaciones(filas), [{ slug: 'active', count: 70, params: {} }]);
 });
+
+test('la nota de solape viaja con cada evaluación (los counts no se suman entre segmentos)', async () => {
+  const { SOLAPE_NOTE } = await import('../agent/tools/segments');
+  assert.match(SOLAPE_NOTE, /SE SOLAPAN/);
+  assert.match(SOLAPE_NOTE, /NUNCA sumes/);
+  assert.match(SOLAPE_NOTE, /push alcanzable/);
+});
+
+test('el backstop sigue leyendo la evaluación aunque el resultado lleve la nota de solape adelante', async () => {
+  const { SOLAPE_NOTE } = await import('../agent/tools/segments');
+  const filas = [
+    { input: { slug: 'near_paywall' }, resultSummary: `${SOLAPE_NOTE}\n${JSON.stringify({ slug: 'near_paywall', count: 648, opted_out: 19 })}` },
+    { input: { slug: 'dormant', days: 14 }, resultSummary: JSON.stringify({ slug: 'dormant', count: 579 }) }, // formato viejo, sin nota
+    { input: { slug: 'x' }, resultSummary: 'OJO: sin json' },
+  ];
+  const ev = extraerEvaluaciones(filas);
+  assert.deepEqual(ev.map((e) => [e.slug, e.count]), [['near_paywall', 648], ['dormant', 579]]);
+});

@@ -1,6 +1,19 @@
 import { listSegments, evaluateSegment, FinzenApiError } from '../../clients/finzenApi';
 import type { KaizenTool } from './guard';
 
+/**
+ * Viaja con cada evaluación, como las notas de kpis.ts. Existe por un error
+ * real (2026-09-15): Kaizen sumó trial_available (2.574) + never_activated
+ * (2.191) y habló de "casi 4.800 personas" sobre una base alcanzable de
+ * 2.874. Los segmentos son filtros sobre la misma base y se solapan —la
+ * mayoría de trial_available también es never_activated—; un count es el
+ * tamaño de ESE filtro, no un bloque de gente exclusivo.
+ */
+export const SOLAPE_NOTE =
+  'OJO: los segmentos SE SOLAPAN (un usuario puede estar en varios a la vez: la mayoría de trial_available también es never_activated). ' +
+  'NUNCA sumes los counts de dos segmentos como si fueran personas distintas; si necesitas el tamaño de una unión, dilo como "hasta X" o pide el segmento combinado. ' +
+  'El count es push alcanzable (con dispositivo activo y sin opt-out), no usuarios registrados.';
+
 // ─────────────────────────────────────────────────────────────────────────
 // Tools de segmentos — capa semántica curada por FinZen (DISENO_FASE1.md §6).
 // El agente NUNCA ejecuta SQL: solo elige un slug del catálogo y lo evalúa.
@@ -51,7 +64,7 @@ export const evaluateSegmentTool: KaizenTool = {
 
     try {
       const evaluation = await evaluateSegment(slug, params);
-      return JSON.stringify(evaluation);
+      return [SOLAPE_NOTE, JSON.stringify(evaluation)].join('\n');
     } catch (err) {
       // 404 = slug inexistente. Devolver los slugs válidos para que el modelo corrija.
       if (err instanceof FinzenApiError && err.status === 404) {
