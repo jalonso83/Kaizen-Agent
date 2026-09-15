@@ -44,6 +44,7 @@ línea sigue funcionando igual que antes.
 | Nota | Sube a | Qué resuelve |
 |---|---|---|
 | [`finzen-cifras-ventanas-y-cac.md`](finzen-cifras-ventanas-y-cac.md) | `10-decisiones/` | El conflicto de CAC/pagos/retención entre el Diagnóstico de Activación (jul) y las notas de Junior (ago) |
+| [`finzen-catalogo-audiencias.md`](finzen-catalogo-audiencias.md) | `00-nucleo/` | Las 11 audiencias del catálogo de FinZen (15-sep): quién es cada una, tamaño push alcanzable, por qué vale y qué mensaje le toca. Referencia de negocio; los slugs vigentes los dice `list_segments` |
 
 [`de-junior/`](de-junior/) es distinto: no son notas nuestras. Son las de Junior,
 con la línea `Ventana de datos:` agregada y nada más tocado, listas para que

@@ -156,6 +156,68 @@ const SEGMENTS = [
       { name: 'days', type: 'int', required: false, default: 3, description: 'Días al vencimiento del trial' },
     ],
   },
+  // ── Catálogo ampliado por FinZen el 2026-09-15 (CATALOGO_AUDIENCIAS). Los
+  // counts son los del documento (push alcanzable sobre 2.874 con dispositivo).
+  {
+    slug: 'one_and_done',
+    name: 'Una y nunca más',
+    description: 'Exactamente 1 transacción y sin actividad hace N días. Probó la app y no vio el valor: el mensaje es "haz la segunda", no "vuelve".',
+    count: 202,
+    opted_out: 6,
+    params: [
+      { name: 'plans', type: 'csv', required: false, default: 'FREE,PREMIUM,PRO', description: 'CSV de planes' },
+      { name: 'platforms', type: 'csv', required: false, default: 'IOS,ANDROID', description: 'CSV de plataformas' },
+      { name: 'country', type: 'string', required: false, description: 'País exacto' },
+      { name: 'days', type: 'int', required: false, default: 7, description: 'Días sin actividad desde la única transacción' },
+    ],
+  },
+  {
+    slug: 'trial_no_activity',
+    name: 'Trial sin usar lo Pro',
+    description: 'En trial hace N+ días sin haber tocado nada exclusivo del plan pagado (sin correo conectado, presupuestos/metas/Zenio dentro del límite FREE).',
+    count: 123,
+    opted_out: 2,
+    params: [
+      { name: 'plans', type: 'csv', required: false, default: 'PREMIUM,PRO', description: 'CSV de planes en trial' },
+      { name: 'platforms', type: 'csv', required: false, default: 'IOS,ANDROID', description: 'CSV de plataformas' },
+      { name: 'country', type: 'string', required: false, description: 'País exacto' },
+      { name: 'days', type: 'int', required: false, default: 3, description: 'Días en trial sin actividad Pro' },
+    ],
+  },
+  {
+    slug: 'near_paywall',
+    name: 'Cerca del límite FREE',
+    description: 'FREE con presupuestos activos a 1 del tope o metas al tope. Van a chocar con el paywall solos.',
+    count: 648,
+    opted_out: 19,
+    params: [
+      { name: 'platforms', type: 'csv', required: false, default: 'IOS,ANDROID', description: 'CSV de plataformas' },
+      { name: 'country', type: 'string', required: false, description: 'País exacto' },
+    ],
+  },
+  {
+    slug: 'payment_failed',
+    name: 'Pago rechazado',
+    description: 'Plus/Pro con el cobro en reintento (PAST_DUE). Todavía tiene acceso; si no se recupera, el proveedor lo da de baja.',
+    count: 0,
+    opted_out: 0,
+    params: [
+      { name: 'platforms', type: 'csv', required: false, default: 'IOS,ANDROID', description: 'CSV de plataformas' },
+      { name: 'country', type: 'string', required: false, description: 'País exacto' },
+    ],
+  },
+  {
+    slug: 'subscriber_inactive',
+    name: 'Pagan y no usan',
+    description: 'Plus/Pro activo sin actividad hace N días. Churn anticipado: el único aviso previo que existe.',
+    count: 1,
+    opted_out: 0,
+    params: [
+      { name: 'platforms', type: 'csv', required: false, default: 'IOS,ANDROID', description: 'CSV de plataformas' },
+      { name: 'country', type: 'string', required: false, description: 'País exacto' },
+      { name: 'days', type: 'int', required: false, default: 14, description: 'Días sin actividad' },
+    ],
+  },
 ];
 
 app.get('/api/agent/segments', (_req, res) => {

@@ -1417,3 +1417,7 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .mkd-variacion.is-sube { color: var(--signal); }
 .mkd-variacion.is-baja { color: var(--danger); }
 .mkd-curva { width: 100%; height: 120px; color: var(--signal); display: block; }
+
+/* El botón de copiar es un SVG entre glifos de texto: se iguala al alto de la fuente. */
+.bubble-action svg { width: 14px; height: 14px; display: block; }
+.bubble-action.is-copiado { color: var(--signal); }

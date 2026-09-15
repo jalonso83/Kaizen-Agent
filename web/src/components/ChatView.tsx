@@ -10,6 +10,7 @@ import remarkGfm from 'remark-gfm';
 import type { ContentBlock, Goal, Proposal, StoredMessage } from '../types';
 import { ProposalCard } from './ProposalCard';
 import { GoalCard } from './GoalCard';
+import { CheckIcon, CopyIcon } from './Icons';
 import { ConfirmDialog } from './ConfirmDialog';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -60,6 +61,31 @@ function renderBlock(block: ContentBlock, key: string) {
   // thinking, tool_use, tool_result y cualquier bloque futuro no reconocido:
   // no se muestran directamente.
   return null;
+}
+
+/**
+ * Copia la respuesta como Markdown crudo, no como el HTML renderizado: es lo
+ * que se pega bien en un Doc, en Slack o en otro chat. Confirma con el icono
+ * durante un momento; si el portapapeles no está disponible (http sin TLS,
+ * permisos), lo dice en el title en vez de fallar en silencio.
+ */
+function BotonCopiar({ texto }: { texto: string }) {
+  const [estado, setEstado] = useState<'listo' | 'copiado' | 'error'>('listo');
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setEstado('copiado');
+    } catch {
+      setEstado('error');
+    }
+    window.setTimeout(() => setEstado('listo'), 1600);
+  };
+  const title = estado === 'copiado' ? 'Copiado' : estado === 'error' ? 'No se pudo copiar' : 'Copiar respuesta';
+  return (
+    <button type="button" className={estado === 'copiado' ? 'bubble-action is-copiado' : 'bubble-action'} title={title} aria-label={title} onClick={() => void copiar()}>
+      {estado === 'copiado' ? <CheckIcon /> : <CopyIcon />}
+    </button>
+  );
 }
 
 /** Texto plano de un mensaje (para precargar el textarea de "editar") — concatena
@@ -136,7 +162,7 @@ export function ChatView({
   // en su lugar cronológico (bug real, 2026-07-26).
   const byId = new Map(messages.map((m) => [m.id, m]));
 
-  type MessageEntry = { kind: 'message'; role: StoredMessage['role']; id: string; createdAt: string; blocks: ReactNode[] };
+  type MessageEntry = { kind: 'message'; role: StoredMessage['role']; id: string; createdAt: string; blocks: ReactNode[]; texto: string };
   type ProposalEntry = { kind: 'proposal'; id: string; createdAt: string; node: ReactNode };
   // Frontera invisible: un mensaje que no se pinta pero que SÍ separa turnos.
   type BoundaryEntry = { kind: 'boundary'; id: string; createdAt: string };
@@ -164,7 +190,7 @@ export function ChatView({
         : null;
     }
 
-    return { kind: 'message', role: message.role, id: message.id, createdAt: message.createdAt, blocks };
+    return { kind: 'message', role: message.role, id: message.id, createdAt: message.createdAt, blocks, texto: plainText(message) };
   });
 
   const porId = new Map(replacedGoals.map((g) => [g.id, g]));
@@ -225,6 +251,8 @@ export function ChatView({
     key: string;
     role?: StoredMessage['role'];
     blocks?: ReactNode[];
+    /** El Markdown tal cual lo escribió Kaizen (todas las rondas del grupo): es lo que copia el botón. */
+    texto?: string;
     firstId?: string;
     lastId?: string;
     node?: ReactNode;
@@ -246,12 +274,14 @@ export function ChatView({
     const prev = merged[merged.length - 1];
     if (!cortar && prev?.blocks && prev.role === 'assistant' && entry.role === 'assistant') {
       prev.blocks.push(...entry.blocks);
+      prev.texto = [prev.texto, entry.texto].filter(Boolean).join('\n\n');
       prev.lastId = entry.id;
     } else {
       merged.push({
         key: `message-${entry.id}`,
         role: entry.role,
         blocks: [...entry.blocks],
+        texto: entry.texto,
         firstId: entry.id,
         lastId: entry.id,
         desde: entry.createdAt,
@@ -303,6 +333,9 @@ export function ChatView({
                   >
                     ✎
                   </button>
+                )}
+                {item.role === 'assistant' && item.texto && (
+                  <BotonCopiar texto={item.texto} />
                 )}
                 {item.role === 'assistant' && item.firstId && (
                   <button

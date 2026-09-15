@@ -1,6 +1,6 @@
 ---
 name: campanas-retencion
-description: Úsalo cuando el socio pida reactivar, retener o recuperar usuarios (dormidos, nunca activados, presupuesto excedido, trial por vencer) o pregunte "qué campaña hacemos".
+description: Úsalo cuando el socio pida reactivar, retener, convertir o recuperar usuarios (nunca activados, una y nunca más, dormidos, trial sin usar lo Pro, trial por vencer, cerca del límite FREE, presupuesto excedido, pago rechazado, pagan y no usan) o pregunte "qué campaña hacemos".
 ---
 
 # Campañas de retención y reactivación
@@ -13,8 +13,12 @@ cuesta una fracción de adquirir uno nuevo. Este es el método.
 1. `get_kpis` — mira retención D1/D7/D30, churn y MRR del período. ¿El problema
    es que no vuelven (engagement) o que se van del pago (churn)?
 2. `list_segments` + `evaluate_segment` — dimensiona los segmentos candidatos
-   con counts reales. Compara tamaños: un segmento de 40 usuarios no mueve el
-   negocio aunque el mensaje sea perfecto.
+   con counts reales. **El catálogo lo dice `list_segments`, no tu memoria ni
+   esta tabla**: FinZen lo amplió el 2026-09-15 y puede volver a hacerlo. Si un
+   slug de la tabla de abajo no aparece en la respuesta, ese segmento no existe
+   todavía en la Agent API — dilo, no lo uses. Compara tamaños: un segmento de
+   40 usuarios no mueve el negocio aunque el mensaje sea perfecto. Los counts
+   son **push alcanzable** (con dispositivo activo), no usuarios totales.
 3. `get_campaign_results` — ¿qué se intentó antes con este segmento y qué lift
    dio? No repitas un mensaje que ya demostró no funcionar. Ojo: ahí solo están
    las campañas **ya enviadas**, con `sent_at` como fecha real de publicación.
@@ -33,6 +37,18 @@ las causas no funciona. Cada segmento de FinZen sugiere una causa distinta:
 | `budget_exceeded` | Momento de dolor financiero AHORA | Ayuda inmediata y empática, no venta: Zenio te ayuda a reajustar. Es el momento de mayor relevancia. |
 | `trial_ending` | Riesgo de perder acceso sin haber decidido | Recordar el beneficio concreto usado en el trial + qué pierde. Urgencia honesta (fecha real), jamás falsa. |
 | `active` | Nada que arreglar | NO bombardear. Solo anuncios de valor real (feature nueva, contenido). Sobre-mensajear activos genera opt-outs. |
+| `one_and_done` (1 transacción, 7+ días) | Probó y no vio el valor. **No es "vuelve", es "haz la segunda"**: la segunda transacción es la que convierte la prueba en hábito | "Ya registraste uno; el segundo es donde empieza a verse el patrón." Una acción concreta, no un tour. |
+| `trial_no_activity` (en trial 3+ días sin tocar nada Pro) | Va a caer a FREE **sin haber visto la diferencia**, y ya no habrá razón para pagar. Reloj: 21 días desde el registro | Empujar UNA función Pro concreta ("conecta tu correo y deja de teclear gastos", "Zenio sin límite"). Es el único momento en que la conversión se rescata. |
+| `near_paywall` (FREE a 1 del tope de presupuestos o metas al tope) | Usa el producto lo suficiente como para chocar con el muro: momento natural de pagar | "Ya vas por 3 presupuestos; con Plus tienes 10." Valor primero; el paywall se lo va a encontrar solo. |
+| `payment_failed` (cobro en reintento) | Va a perder el acceso sin haberlo decidido | "Tu pago no pasó; actualiza la tarjeta para no perder el acceso." Recuperar un pago vale más que cualquier campaña de adquisición; hoy es 0, pero cuando pase es urgente. |
+| `subscriber_inactive` (paga y no entra) | Churn anticipado: el único aviso previo que existe | Recordarle lo que tiene y no está usando. Nunca "¿sigues ahí?". |
+| `trial_available` (FREE anterior al trial automático) | Nunca vio el plan pagado | "Activa tu prueba gratis, sin tarjeta" — es verdad, no se pide tarjeta. **Cruzado con activos o dormidos, no con nunca activados**: a quien no registró nada no se le vende upgrade. |
+
+Orden sugerido por volumen × urgencia (catálogo del 2026-09-15): trial sin usar
+lo Pro (con reloj) → una y nunca más → cerca del límite → trial por vencer
+(preparar ahora: se llena ~21-sep) → nunca activó (el volumen está ahí, pero es
+la audiencia más fría: probar mensajes con holdout). Un usuario puede estar en
+varios segmentos a la vez; al combinar con OR no se duplica el envío.
 
 ## 3. Anti-patrones (no proponer nunca)
 
@@ -44,6 +60,9 @@ las causas no funciona. Cada segmento de FinZen sugiere una causa distinta:
   solo no funcionó.
 - **Culpar al usuario** ("no has vuelto", "abandonaste tu presupuesto") — el
   tono es de aliado, nunca de reproche.
+- **Vender upgrade a quien no activó**: `trial_available` y `near_paywall` son
+  para quien ya usa la app. A `never_activated` se le pide el primer gasto,
+  nada más.
 - **Repetir el mismo título/mensaje** que ya le propusiste a este segmento
   antes en esta conversación (rechazado o no). Si volvés a proponerle algo,
   cambia de ángulo de los de la tabla de arriba — no repitas la fórmula

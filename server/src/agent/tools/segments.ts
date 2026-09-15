@@ -29,11 +29,11 @@ export const evaluateSegmentTool: KaizenTool = {
   inputSchema: {
     type: 'object',
     properties: {
-      slug: { type: 'string', description: 'slug del catálogo (ej. never_activated, dormant, budget_exceeded, trial_ending, active)' },
+      slug: { type: 'string', description: 'slug EXACTO del catálogo que devolvió list_segments (no lo inventes ni lo deduzcas del nombre: el catálogo crece)' },
       plans: { type: 'string', description: 'CSV de FREE,PREMIUM,PRO (opcional; default: todos)' },
       platforms: { type: 'string', description: 'CSV de IOS,ANDROID (opcional; default: ambas)' },
       country: { type: 'string', description: 'País exacto (opcional; default: todos)' },
-      days: { type: 'number', description: 'Ventana en días para dormant/active/trial_ending (opcional)' },
+      days: { type: 'number', description: 'Ventana en días, para los segmentos cuyo catálogo declare el parámetro days (dormant, active, trial_ending, one_and_done, trial_no_activity, subscriber_inactive…). Opcional: cada uno tiene su default' },
     },
     required: ['slug'],
   },
