@@ -89,6 +89,11 @@ export const api = {
   borrarCuentaMarketing: (id: string) =>
     request<void>(`/api/marketing/accounts/${id}`, { method: 'DELETE' }),
 
+  /** Enlaces de referencia de Marketing (clave → URL). El PUT manda el mapa completo; URL vacía borra la clave. */
+  leerEnlacesMarketing: () => request<{ links: Record<string, string> }>('/api/marketing/links'),
+  guardarEnlacesMarketing: (links: Record<string, string>) =>
+    request<{ links: Record<string, string> }>('/api/marketing/links', { method: 'PUT', body: JSON.stringify(links) }),
+
   /** El análisis de un perfil guardado — el mismo que lee Kaizen. `refresh` salta la caché de 10 min del servidor. */
   leerInstagram: (usuario: string, refresh = false) =>
     request<AnalisisInstagram>(`/api/marketing/instagram/${encodeURIComponent(usuario)}${refresh ? '?refresh=1' : ''}`),

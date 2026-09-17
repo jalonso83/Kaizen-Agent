@@ -529,6 +529,30 @@ Lo que esto NO prueba: que la Graph real se comporte como el simulador. Es
 la mejor aproximación posible sin credenciales, y deja el primer día con
 token real para descubrir diferencias, no bugs de parseo.
 
+### Backstop de la regla 9 y enlaces de Marketing persistidos (2026-09-17)
+
+Con las migraciones de Marketing aplicadas en producción (16-sep) y `main` al
+día, dos cierres:
+
+- **Backstop de la regla 9.** `propose_campaign` ahora exige, además del
+  `segment_count` verificado, que en la misma conversación haya al menos una
+  llamada a `search_cerebro` **con resultado** (`verificarLecturaCerebro`,
+  mismo patrón sobre el audit log). Sin ella rechaza con la instrucción de
+  buscar decisions-log y estado actual. Se exige lo mínimo verificable —que
+  se leyó— y no qué se leyó: juzgar la calidad de la búsqueda rechazaría
+  propuestas legítimas por un motivo que nadie podría explicarle al socio.
+  Una búsqueda vacía no cuenta. Es el último hallazgo (B) de la auditoría del
+  2026-08-07; los tres están cerrados.
+- **Enlaces de referencia.** Tabla `MarketingLink` (clave → URL, una fila por
+  enlace: agregar uno es agregarlo a la lista del frontend, sin migración),
+  `GET/PUT /api/marketing/links`, y la sección de Configuración guarda de
+  verdad: Guardar se habilita solo con cambios, Descartar vuelve a lo guardado,
+  cada enlace guardado tiene "abrir". Es la última parte del apartado que decía
+  "no conectado". Migración `20260917100000_marketing_link` — **pendiente en
+  Railway**.
+
+101/101.
+
 **Lo que sigue en este hilo:** TikTok, que necesita fuente antes que pantalla
 (decisión del CTO pendiente sobre API vs proveedor).
 

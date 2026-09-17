@@ -209,12 +209,68 @@ export async function verificarSegmentCount(
   }
 }
 
+// ── Backstop de la regla 9: leer el Cerebro antes de proponer ─────────────
+//
+// La regla 9 del prompt manda ubicarse en el estado del proyecto (README,
+// mtp-y-norte, estado-actual, decisions-log) antes de proponer nada que
+// dependa de contexto. Era solo instrucción, y en la conversación auditada
+// el 2026-08-07 no se cumplió: Kaizen propuso sin haber buscado nada. Mismo
+// patrón que verificarSegmentCount: la evidencia es el audit log de ESTA
+// conversación, y sin evidencia la propuesta no se registra.
+//
+// Lo que se exige es lo mínimo verificable: al menos una llamada a
+// search_cerebro que haya devuelto algo. No se juzga QUÉ buscó (eso sigue
+// siendo criterio del modelo y del skill): un backstop que intentara evaluar
+// la calidad de la búsqueda rechazaría propuestas legítimas por un motivo
+// que nadie podría explicarle al socio.
+
+/** Cuántas filas de auditoría se miran hacia atrás para la búsqueda del Cerebro. */
+const BUSQUEDAS_A_REVISAR = 50;
+
+/**
+ * Lee de las filas de auditoría qué queries a search_cerebro hubo y si
+ * devolvieron algo. Separada de la consulta para probarla sin BD. Una fila
+ * con isError o cuyo resultado sea el aviso de "sin resultados" no cuenta
+ * como lectura del Cerebro: buscar y no encontrar no es haberse ubicado.
+ */
+export function extraerBusquedasCerebro(
+  filas: Array<{ input: unknown; resultSummary: string | null; isError: boolean }>,
+): string[] {
+  const queries: string[] = [];
+  for (const fila of filas) {
+    if (fila.isError || !fila.resultSummary) continue;
+    // search_cerebro sin coincidencias devuelve {results: [], note: ...}.
+    if (/"results":\s*\[\s*\]/.test(fila.resultSummary)) continue;
+    const q = typeof fila.input === "object" && fila.input !== null ? (fila.input as Record<string, unknown>).query : undefined;
+    if (typeof q === "string" && q.trim()) queries.push(q.trim());
+  }
+  return queries;
+}
+
+/** Lanza si en esta conversación no hubo ninguna lectura del Cerebro con resultado. */
+export async function verificarLecturaCerebro(conversationId: string): Promise<void> {
+  const filas = await db.auditLog.findMany({
+    where: { conversationId, action: "tool:search_cerebro" },
+    select: { input: true, resultSummary: true, isError: true },
+    orderBy: { createdAt: "desc" },
+    take: BUSQUEDAS_A_REVISAR,
+  });
+  if (extraerBusquedasCerebro(filas).length === 0) {
+    throw new Error(
+      "No puedo registrar la propuesta: en esta conversación no leíste el Cerebro (ninguna llamada a search_cerebro con resultado). " +
+        "La regla 9 pide ubicarte antes de proponer: busca al menos el decisions-log y el estado actual " +
+        "(por ejemplo search_cerebro(\"decisions log\") y search_cerebro(\"estado actual\")), " +
+        "revisa que la idea no esté ya cerrada o anulada ahí, y recién entonces vuelve a llamar a propose_campaign.",
+    );
+  }
+}
+
 export const proposeCampaignTool: KaizenTool = {
   name: 'propose_campaign',
   ambito: 'finzen',
   description:
     'Registra una propuesta de campaña en la tarjeta del chat para que el socio la confirme o rechace. NO envía nada a FinZen — eso solo pasa después, con create_campaign_draft, y solo si el socio confirmó. ' +
-    'Llama SIEMPRE después de evaluar el segmento real (evaluate_segment) y consultar KPIs/resultados de campañas comparables. Antes de elegir message_type, considera consultar get_message_type_performance para ver qué tipo tuvo mejor lift histórico. ' +
+    'Llama SIEMPRE después de evaluar el segmento real (evaluate_segment), haber leído el Cerebro con search_cerebro (se VERIFICA: sin una búsqueda con resultado en esta conversación, la propuesta se rechaza) y consultar KPIs/resultados de campañas comparables. Antes de elegir message_type, considera consultar get_message_type_performance para ver qué tipo tuvo mejor lift histórico. ' +
     'Una propuesta nueva reemplaza (SUPERSEDED) cualquier propuesta pendiente anterior de esta conversación.',
   inputSchema: {
     type: 'object',
@@ -263,6 +319,9 @@ export const proposeCampaignTool: KaizenTool = {
     // Backstop de la regla 1: el count tiene que salir de un evaluate_segment
     // real de ESTA conversación, no de la memoria del modelo.
     await verificarSegmentCount(ctx.conversationId, campaignInput.segment_slug, segmentCount);
+
+    // Backstop de la regla 9: hubo lectura del Cerebro en ESTA conversación.
+    await verificarLecturaCerebro(ctx.conversationId);
 
     // Bajo qué meta nace. Se lee ACÁ y no al ejecutar: entre proponer y crear
     // el borrador el socio puede cambiar la meta, y lo que hay que registrar es

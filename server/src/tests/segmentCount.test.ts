@@ -102,3 +102,17 @@ test('el backstop sigue leyendo la evaluación aunque el resultado lleve la nota
   const ev = extraerEvaluaciones(filas);
   assert.deepEqual(ev.map((e) => [e.slug, e.count]), [['near_paywall', 648], ['dormant', 579]]);
 });
+
+// ── Backstop de la regla 9: leer el Cerebro antes de proponer ────────────
+
+test('la lectura del Cerebro cuenta solo si la búsqueda devolvió algo', async () => {
+  const { extraerBusquedasCerebro } = await import('../agent/tools/campaigns');
+  const filas = [
+    { input: { query: 'decisions log' }, resultSummary: 'FECHAS…\n{"results":[{"path":"10-decisiones/decisions-log.md"}]}', isError: false },
+    { input: { query: 'nada' }, resultSummary: '{"results":[],"note":"Sin coincidencias. Prueba palabras clave más generales."}', isError: false },
+    { input: { query: 'tono' }, resultSummary: 'La BD no respondió', isError: true },
+    { input: {}, resultSummary: '{"results":[{"path":"x"}]}', isError: false },
+  ];
+  assert.deepEqual(extraerBusquedasCerebro(filas), ['decisions log']);
+  assert.deepEqual(extraerBusquedasCerebro([]), []);
+});

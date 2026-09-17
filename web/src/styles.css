@@ -1421,3 +1421,5 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 /* El botón de copiar es un SVG entre glifos de texto: se iguala al alto de la fuente. */
 .bubble-action svg { width: 14px; height: 14px; display: block; }
 .bubble-action.is-copiado { color: var(--signal); }
+
+.marketing-acciones { align-items: center; gap: 10px; }

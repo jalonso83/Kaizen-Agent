@@ -61,10 +61,11 @@ transformar), `Proposal` (el gate), `Goal` (la meta vigente y su historial),
 `AuditLog` (**append-only**, un trigger de Postgres bloquea
 `UPDATE`/`DELETE`), `CerebroDoc` (índice FTS `es_kaizen` = spanish +
 unaccent), `WeeklySummaryConfig` (singleton), `MarketingAccount` (los
-perfiles de redes que Kaizen puede leer) e `InstagramSnapshot` (una lectura
-por día por perfil: el histórico).
+perfiles de redes que Kaizen puede leer), `InstagramSnapshot` (una lectura
+por día por perfil: el histórico) y `MarketingLink` (los enlaces de
+referencia del apartado de Marketing, clave → URL).
 
-14 migraciones SQL en `prisma/migrations/` (escritas a mano; no hay shadow DB
+15 migraciones SQL en `prisma/migrations/` (escritas a mano; no hay shadow DB
 local). Se aplican con:
 
 ```bash
@@ -73,11 +74,11 @@ npx prisma migrate deploy
 
 ⚠️ **En Railway no corren solas**: el `start` es `node dist/app.js` y el
 `build` solo hace `prisma generate`. Hay un commit del 19-jul cuyo mensaje dice
-que sí y su diff no lo hace. A 2026-09-12 las dos últimas
-(`20260910120000_marketing_account`, `20260912090000_instagram_snapshot`)
-están **pendientes en producción**; el código tolera que falten (Marketing
-avisa, el histórico se omite con log) hasta que quien administra el servicio
-corra `railway run npx prisma migrate deploy`. La propuesta de arreglo de raíz
+que sí y su diff no lo hace. Las de Marketing e Instagram se
+aplicaron el 2026-09-16; a 2026-09-17 está **pendiente**
+`20260917100000_marketing_link` (los enlaces de referencia; sin ella esa
+sección da error al guardar). Se aplica con `railway run npx prisma migrate
+deploy`. La propuesta de arreglo de raíz
 —`"start": "prisma migrate deploy && node dist/app.js"`— espera aprobación.
 
 Para desarrollo local hay dos rutas documentadas en `prisma/local/README.md`:
@@ -182,7 +183,7 @@ los dos. El system prompt arma la sección "Tus dos ámbitos" leyendo ese campo
 | `get_kpis` | finzen | KPIs del negocio (activación, engagement, ingresos, adquisición, campañas) vía la Agent API, ya filtrados por la lista blanca del contrato |
 | `get_campaign_results` | finzen | Resultados de campañas enviadas (lift vs. holdout, `sent_at` real) |
 | `list_segments` · `evaluate_segment` | finzen | Catálogo de segmentos curados; tamaño real de uno (opt-outs descontados) |
-| `propose_campaign` | finzen | La tarjeta con Confirmar/Rechazar. Verifica el `segment_count` contra las llamadas reales a `evaluate_segment` (backstop de la regla 1) |
+| `propose_campaign` | finzen | La tarjeta con Confirmar/Rechazar. Verifica el `segment_count` contra las llamadas reales a `evaluate_segment` (backstop de la regla 1) y que hubo una lectura del Cerebro con resultado en la conversación (backstop de la regla 9) |
 | `create_campaign_draft` | finzen | **El gate**: solo acepta un `proposal_id` en `CONFIRMED`, y a ese estado solo se llega por el botón. Crea el borrador `PENDING_APPROVAL` en FinZen |
 | `get_message_type_performance` | finzen | Lift real acumulado por tipo de mensaje |
 | `propose_goal` · `get_active_goal` · `mark_goal_achieved` | finzen | La meta vigente: se propone en tarjeta, la confirma el socio, se cierra solo con un número medido |
@@ -288,11 +289,9 @@ que sigue abierto es de otra naturaleza:
 
 | Falta | Qué es | Dónde |
 |---|---|---|
-| Backstop de la regla 9 | El protocolo de lectura del Cerebro antes de proponer es solo instrucción del prompt; no se cumplió en la conversación real auditada el 2026-08-07 | `docs/ESTADO.md` |
 | Tools de escritura en Meta | `create_meta_campaign_draft` entra cuando FinZen habilite `ads_management` — hoy solo lectura, y `META_WRITE_ENABLED=false` | `docs/ESTADO_FASE_2.md` |
 | Probar Instagram de verdad | Nada de Marketing corrió contra la Graph API real: faltan en Railway el token (`instagram_basic` + `pages_read_engagement`, y `instagram_manage_insights` para los insights), `INSTAGRAM_ACCOUNT_ID`, y las dos migraciones pendientes | `docs/ESTADO_FASE_2.md` |
 | TikTok | Necesita fuente antes que pantalla: API oficial para la cuenta propia, proveedor para terceros, nunca scraping. Decisión del CTO pendiente | documento entregado al CTO (fuera del repo) |
-| Enlaces de referencia de Marketing | Los campos de Meta/sitio en Configuración no persisten todavía; falta decidir si vale la pena | `web/src/pages/MarketingPage.tsx` |
 | Cobertura de pruebas | `npm test` (98) cubre lógica pura: lista blanca, `segment_count`, ventana del Cerebro, visión, despacho de documentos, tono, permisos, parseo de Instagram, cliente de Instagram, análisis y deltas del histórico, ámbitos. El runner, el historial y el gate siguen probados a mano | §3.2 |
 
 ### 3.1 Los dos backstops de las reglas duras (2026-09-03)

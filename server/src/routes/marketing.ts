@@ -234,6 +234,65 @@ router.delete(
   }),
 );
 
+// ── Enlaces de referencia ─────────────────────────────────────────────────
+//
+// Accesos rápidos (Business Manager, Ads Manager, landing, tiendas). Kaizen no
+// los lee: son para el socio. Se guardan como un mapa clave → URL; el PUT
+// recibe el mapa completo y una URL vacía borra la clave, así el formulario
+// no necesita un endpoint de borrado aparte.
+
+const CLAVE_RE = /^[a-zA-Z][a-zA-Z0-9]{1,40}$/;
+const MAX_URL = 500;
+
+function urlValida(v: string): boolean {
+  try {
+    const u = new URL(v);
+    return (u.protocol === "https:" || u.protocol === "http:") && v.length <= MAX_URL;
+  } catch {
+    return false;
+  }
+}
+
+router.get(
+  "/links",
+  requirePermission("marketing:ver"),
+  asyncRoute(async (_req, res) => {
+    const filas = await db.marketingLink.findMany({ select: { clave: true, url: true } });
+    res.json({ links: Object.fromEntries(filas.map((f) => [f.clave, f.url])) });
+  }),
+);
+
+router.put(
+  "/links",
+  requirePermission("marketing:editar"),
+  asyncRoute(async (req, res) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const entradas = Object.entries(body);
+    for (const [clave, url] of entradas) {
+      if (!CLAVE_RE.test(clave)) {
+        res.status(400).json({ message: `Clave inválida: "${clave}".` });
+        return;
+      }
+      if (typeof url !== "string" || (url.trim() && !urlValida(url.trim()))) {
+        res.status(400).json({ message: `"${clave}" tiene que ser una URL http(s) válida o vacía.` });
+        return;
+      }
+    }
+    const partnerId = req.partner!.id;
+    await db.$transaction(
+      entradas.map(([clave, url]) => {
+        const v = (url as string).trim();
+        return v
+          ? db.marketingLink.upsert({ where: { clave }, create: { clave, url: v, updatedBy: partnerId }, update: { url: v, updatedBy: partnerId } })
+          : db.marketingLink.deleteMany({ where: { clave } });
+      }),
+    );
+    await audit.log({ conversationId: null, actor: `partner:${partnerId}`, action: "marketing:enlaces-guardados", input: Object.keys(body) });
+    const filas = await db.marketingLink.findMany({ select: { clave: true, url: true } });
+    res.json({ links: Object.fromEntries(filas.map((f) => [f.clave, f.url])) });
+  }),
+);
+
 // ── Dashboard: la lectura de un perfil ────────────────────────────────────
 //
 // El MISMO análisis que devuelve la tool get_instagram_profile del agente

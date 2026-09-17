@@ -233,6 +233,18 @@ model InstagramSnapshot {
   @@index([usuario, fecha(sort: Desc)])
 }
 
+model MarketingLink {
+  // Enlaces de referencia del apartado de Marketing (2026-09-17): Business
+  // Manager, Ads Manager, página de Facebook, landing, tiendas. Kaizen NO los
+  // lee; son accesos rápidos para el socio. Una fila por clave, y no una
+  // columna por enlace en un singleton: agregar un enlace nuevo es agregarlo
+  // a la lista del frontend, sin migración.
+  clave     String   @id
+  url       String
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
+
 model WeeklySummaryConfig {
   // Singleton (siempre id=1) — DISENO_FASE1.md §12 addendum, 2026-07-22.
   // Define QUÉ semana reporta el resumen y CUÁNDO corre. Son dos cosas

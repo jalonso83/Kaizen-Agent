@@ -7,11 +7,10 @@ import { MarketingDashboard } from './MarketingDashboard';
 // Apartado de Marketing (solo CEO / CTO — permisos 'marketing:ver' para
 // mirarlo y 'marketing:editar' para cambiar las cuentas).
 //
-// ESTADO: los PERFILES guardan de verdad (tabla MarketingAccount,
-// /api/marketing/accounts) y el DASHBOARD lee Instagram de verdad
-// (MarketingDashboard.tsx, /api/marketing/instagram/:usuario). Lo único que
-// sigue sin conectar son los enlaces de referencia a Meta y al sitio, y lo
-// dicen en pantalla.
+// ESTADO: todo persiste. Los PERFILES (tabla MarketingAccount,
+// /api/marketing/accounts), los ENLACES de referencia (MarketingLink,
+// /api/marketing/links) y el DASHBOARD lee Instagram de verdad
+// (MarketingDashboard.tsx, /api/marketing/instagram/:usuario).
 //
 // Esa distinción se mantiene visible a propósito: mezclar campos que guardan
 // con campos que no, sin decir cuál es cuál, es la forma más rápida de que
@@ -50,7 +49,7 @@ const GRUPOS: GrupoConfig[] = [
   {
     titulo: 'Meta',
     descripcion:
-      'Las cuentas de Meta desde donde sale la publicidad pagada. Por ahora son enlaces de referencia: la lectura de datos de Meta va por la Graph API con su propio token, que se configura en las variables del servidor y nunca acá.',
+      'Las cuentas de Meta desde donde sale la publicidad pagada. Son enlaces de referencia: la lectura de datos de Meta va por la Graph API con su propio token, que se configura en las variables del servidor y nunca acá.',
     campos: [
       {
         clave: 'metaBusinessUrl',
@@ -80,14 +79,6 @@ const GRUPOS: GrupoConfig[] = [
     ],
   },
 ];
-
-function AvisoSinConectar({ que }: { que: string }) {
-  return (
-    <p className="marketing-aviso" role="status">
-      <strong>Todavía no está conectado.</strong> {que}
-    </p>
-  );
-}
 
 /**
  * Los perfiles sociales que Kaizen puede leer. Esta sección SÍ persiste.
@@ -265,17 +256,54 @@ function Perfiles({ puedeEditar }: { puedeEditar: boolean }) {
 }
 
 function Configuracion({ puedeEditar }: { puedeEditar: boolean }) {
-  // Estado local a propósito: estos enlaces de referencia no tienen a dónde
-  // mandarse todavía. Se pierden al cambiar de sección, y el aviso lo dice.
+  // Lo guardado en el servidor y lo que se está editando, por separado: así
+  // "Guardar" se habilita solo cuando hay un cambio real, y "Descartar" vuelve
+  // a lo del servidor sin recargar.
+  const [guardado, setGuardado] = useState<Record<string, string> | null>(null);
   const [valores, setValores] = useState<Record<string, string>>({});
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
 
-  const cambiar = (clave: string, valor: string) => setValores((v) => ({ ...v, [clave]: valor }));
+  useEffect(() => {
+    api
+      .leerEnlacesMarketing()
+      .then((r) => {
+        setGuardado(r.links);
+        setValores(r.links);
+      })
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'No se pudieron cargar los enlaces.'));
+  }, []);
+
+  const cambiar = (clave: string, valor: string) => {
+    setOk(false);
+    setValores((v) => ({ ...v, [clave]: valor }));
+  };
+
+  const claves = GRUPOS.flatMap((g) => g.campos.map((c) => c.clave));
+  const hayCambios = guardado !== null && claves.some((k) => (valores[k] ?? '').trim() !== (guardado[k] ?? ''));
+
+  const guardar = async () => {
+    setGuardando(true);
+    setError(null);
+    try {
+      // Se manda el mapa completo con todas las claves conocidas: una vacía
+      // borra la fila en el servidor.
+      const r = await api.guardarEnlacesMarketing(Object.fromEntries(claves.map((k) => [k, (valores[k] ?? '').trim()])));
+      setGuardado(r.links);
+      setValores(r.links);
+      setOk(true);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'No se pudieron guardar los enlaces.');
+    } finally {
+      setGuardando(false);
+    }
+  };
 
   return (
     <>
-      {/* Los perfiles son lo único de esta sección que persiste. Van primero
-          porque son lo que de verdad usa Kaizen; el resto son enlaces para
-          abrir a mano. */}
+      {/* Los perfiles van primero porque son lo que de verdad usa Kaizen; los
+          enlaces son para abrir a mano. */}
       <Perfiles puedeEditar={puedeEditar} />
 
       <section className="marketing-seccion" aria-labelledby="marketing-configuracion">
@@ -288,7 +316,7 @@ function Configuracion({ puedeEditar }: { puedeEditar: boolean }) {
         </p>
       </header>
 
-      <AvisoSinConectar que="Estos enlaces todavía no se guardan. A diferencia de los perfiles de arriba, falta decidir si vale la pena persistirlos o si alcanza con tenerlos a mano en otro lado." />
+      {error && <div className="banner-error">{error}</div>}
 
       {GRUPOS.map((grupo) => (
         <div className="marketing-grupo" key={grupo.titulo}>
@@ -298,34 +326,52 @@ function Configuracion({ puedeEditar }: { puedeEditar: boolean }) {
           </div>
 
           <div className="marketing-campos">
-            {grupo.campos.map((campo) => (
-              <label className="marketing-campo" key={campo.clave}>
-                <span className="marketing-campo-label">{campo.label}</span>
-                <input
-                  type={campo.tipo === 'text' ? 'text' : 'url'}
-                  value={valores[campo.clave] ?? ''}
-                  placeholder={campo.placeholder}
-                  onChange={(e) => cambiar(campo.clave, e.target.value)}
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-                {campo.ayuda && <span className="marketing-campo-ayuda">{campo.ayuda}</span>}
-              </label>
-            ))}
+            {grupo.campos.map((campo) => {
+              const valor = valores[campo.clave] ?? '';
+              const abrible = (guardado?.[campo.clave] ?? '') === valor.trim() && valor.trim() !== '';
+              return (
+                <label className="marketing-campo" key={campo.clave}>
+                  <span className="marketing-campo-label">
+                    {campo.label}
+                    {abrible && (
+                      <>
+                        {' · '}
+                        <a className="marketing-cuenta-url" href={valor.trim()} target="_blank" rel="noreferrer noopener">
+                          abrir
+                        </a>
+                      </>
+                    )}
+                  </span>
+                  <input
+                    type={campo.tipo === 'text' ? 'text' : 'url'}
+                    value={valor}
+                    placeholder={campo.placeholder}
+                    onChange={(e) => cambiar(campo.clave, e.target.value)}
+                    autoComplete="off"
+                    spellCheck={false}
+                    disabled={!puedeEditar || guardado === null}
+                  />
+                  {campo.ayuda && <span className="marketing-campo-ayuda">{campo.ayuda}</span>}
+                </label>
+              );
+            })}
           </div>
         </div>
       ))}
 
-      <div className="marketing-acciones">
-        <button
-          type="button"
-          className="dialog-confirm"
-          disabled
-          title="Todavía no hay dónde guardarlo: falta el backend."
-        >
-          Guardar
-        </button>
-      </div>
+      {puedeEditar && (
+        <div className="marketing-acciones">
+          {ok && !hayCambios && <span className="marketing-campo-ayuda">Guardado.</span>}
+          {hayCambios && (
+            <button type="button" className="usuarios-accion" onClick={() => { setValores(guardado ?? {}); setOk(false); }} disabled={guardando}>
+              Descartar
+            </button>
+          )}
+          <button type="button" className="dialog-confirm" disabled={!hayCambios || guardando} onClick={() => void guardar()}>
+            {guardando ? 'Guardando…' : 'Guardar'}
+          </button>
+        </div>
+      )}
       </section>
     </>
   );

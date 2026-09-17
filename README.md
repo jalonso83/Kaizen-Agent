@@ -39,7 +39,7 @@ Kaizen-Agent/
 ├── docs/                  # PRD, diseño de Fase 1, ESTADO (Fase 1) y ESTADO_FASE_2, SKILLS, cerebro/
 ├── server/
 │   ├── skills/            # 16 playbooks en dos ámbitos: finzen/ (8) y marketing/ (8) — ver docs/SKILLS.md
-│   ├── prisma/            # schema + 14 migraciones SQL (se aplican con prisma migrate deploy)
+│   ├── prisma/            # schema + 15 migraciones SQL (se aplican con prisma migrate deploy)
 │   ├── public/            # la web compilada (committeada; la regenera npm run build)
 │   └── src/
 │       ├── app.ts            # Express: rutas, estático de la web, arranque de los crons
@@ -90,9 +90,8 @@ Railway. Las de Meta/Instagram (`META_SYSTEM_TOKEN`, `META_AD_ACCOUNT_ID`,
 **No se aplican solas en el deploy** (el `start` es `node dist/app.js`; hay un
 commit del 19-jul que dice lo contrario y no lo hace). Quien administre Railway
 corre `railway run npx prisma migrate deploy` después de cada cambio en
-`server/prisma/migrations/`. A 2026-09-12 hay **dos pendientes** en producción
-(`MarketingAccount`, `InstagramSnapshot`); el código las tolera ausentes, pero
-Marketing no guarda perfiles ni acumula histórico hasta que se apliquen.
+`server/prisma/migrations/`. A 2026-09-17 hay **una pendiente** en producción
+(`20260917100000_marketing_link`, los enlaces de referencia de Marketing).
 
 ## Reglas del proyecto
 

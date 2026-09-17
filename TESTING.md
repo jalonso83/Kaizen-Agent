@@ -303,6 +303,17 @@ segmento **sin** dejar que evalúe primero (por ejemplo, dándole tú un número
 casi nunca va a ser el que le dijiste. En el audit log queda la llamada fallida
 a `tool:propose_campaign` con `isError = true`.
 
+## 11b. El backstop de la regla 9 (leer el Cerebro antes de proponer)
+
+Igual de rápido por chat. En una conversación **nueva**, pedir una campaña
+directa (*"armame una campaña para dormidos"*) y, si Kaizen la evalúa y
+propone sin haber buscado nada en el Cerebro, `propose_campaign` tiene que
+**rechazar** diciendo que busque el decisions-log y el estado actual; Kaizen
+llama a `search_cerebro` y vuelve a proponer. En Auditoría queda el
+`tool:propose_campaign` con `isError = true` seguido de uno o más
+`tool:search_cerebro`. Una búsqueda sin resultados no cuenta: si el Cerebro
+está vacío (indexador sin correr), la propuesta no pasa, y eso es correcto.
+
 ## 12. Marketing e Instagram
 
 ### 12.0 Sin credenciales: el simulador de la Graph API (2026-09-14)
