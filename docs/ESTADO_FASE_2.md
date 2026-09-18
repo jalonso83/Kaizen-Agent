@@ -553,8 +553,44 @@ día, dos cierres:
 
 101/101.
 
-**Lo que sigue en este hilo:** TikTok, que necesita fuente antes que pantalla
-(decisión del CTO pendiente sobre API vs proveedor).
+### TikTok: la cuenta propia por la Display API (2026-09-18)
+
+El socio pidió arrancar sin esperar la decisión sobre proveedores. Lo que se
+puede construir sin ella es la **cuenta propia**, que es lo único que la API
+oficial permite —y es la mitad que importa para el funnel—; los competidores
+quedan explícitamente fuera hasta que haya proveedor.
+
+- `clients/tiktokApi.ts`: Display API v2 (`/user/info/`, `/video/list/`
+  paginado). **Tokens:** el access dura 24 h y se renueva solo; el refresh
+  (365 días) **rota** — TikTok puede devolver uno nuevo y el anterior deja de
+  valer— así que el vigente vive en `TiktokCredential` (BD) con copia en
+  memoria, y `TIKTOK_REFRESH_TOKEN` solo siembra el primero. Si la BD no
+  está, avisa y sigue en memoria: perder el token rotado por un fallo de BD
+  dejaría a Kaizen sin TikTok hasta repetir el Login Kit.
+- `services/tiktokAnalisis.ts`: mismo patrón que Instagram (un análisis para
+  chat y Dashboard, caché de 10 min, snapshot diario en `TiktokSnapshot`,
+  deltas reutilizando `armarHistorico`). Métricas de video corto: **mediana
+  de views** (un viral multiplica el promedio), interacciones = likes +
+  comentarios + compartidos, **engagement sobre views** como tasa natural de
+  TikTok y sobre seguidores solo para comparar con Instagram, duración
+  promedio, top 3 por views. Verifica que la cuenta autorizada sea la guardada.
+- Tool `get_tiktok_profile` (marketing, solo lectura, en el cron);
+  `list_marketing_accounts` ahora lista las dos redes y marca cuál es legible.
+  Ruta `GET /api/marketing/tiktok/:usuario`; el cron diario también lee TikTok.
+- Web: selector de red al agregar un perfil, chip de red en la lista y en el
+  Dashboard, y `AnalisisTiktokVista`.
+- `mock/tiktokApiMock.ts` + `scripts/testTiktok.ts`: 13 comprobaciones,
+  incluida la rotación del refresh. Migración `20260918100000_tiktok`
+  (`TiktokCredential`, `TiktokSnapshot`) — **pendiente en Railway**, junto
+  con la de los enlaces.
+
+**Lo que necesita FinZen:** una app en developers.tiktok.com con Login Kit,
+autorizarla con la cuenta de FinZen, y cargar `TIKTOK_CLIENT_KEY`,
+`TIKTOK_CLIENT_SECRET` y `TIKTOK_REFRESH_TOKEN` en Railway. Nada de esto
+corrió contra TikTok real.
+
+**Lo que sigue:** competidores de TikTok por proveedor (decisión del CTO), y
+el skill de lectura de TikTok cuando haya datos reales que interpretar.
 
 ---
 

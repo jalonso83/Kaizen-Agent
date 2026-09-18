@@ -22,7 +22,7 @@ export type Permiso =
 /** Una cuenta social guardada en el apartado de Marketing. */
 export interface CuentaMarketing {
   id: string;
-  /** 'INSTAGRAM' por ahora. */
+  /** 'INSTAGRAM' | 'TIKTOK'. */
   red: string;
   /** El handle normalizado, sin arroba. Es lo que se consulta en la API. */
   usuario: string;
@@ -98,6 +98,48 @@ export interface HistoricoInstagram {
   delta_7d: DeltaHistorico | null;
   delta_30d: DeltaHistorico | null;
   primera_lectura: string | null;
+}
+
+export interface VideoTiktok {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  view_count: number;
+  like_count: number;
+  comments_count: number;
+  share_count: number;
+  duracion: number;
+  permalink: string;
+  timestamp: string;
+}
+
+export interface ResumenVideos {
+  cantidad: number;
+  views_total: number;
+  views_promedio: number;
+  views_mediana: number;
+  likes_promedio: number;
+  comentarios_promedio: number;
+  compartidos_promedio: number;
+  interacciones_promedio: number;
+  duracion_promedio: number;
+  top: Array<{ permalink: string; views: number; likes: number; comentarios: number; compartidos: number; fecha: string; titulo: string }>;
+  desde: string | null;
+  hasta: string | null;
+  videos_por_semana: number | null;
+}
+
+// Calca server/src/services/tiktokAnalisis.ts → AnalisisTiktok.
+export interface AnalisisTiktok {
+  cuenta: { usuario: string; url: string; etiqueta: string | null; es_de_finzen: boolean };
+  perfil: { nombre: string; biografia: string; verificada: boolean; seguidores: number; seguidos: number; likes_totales: number; videos_totales: number };
+  tasa_engagement_views_pct: number | null;
+  tasa_engagement_pct: number | null;
+  resumen_videos: ResumenVideos;
+  videos: VideoTiktok[];
+  historico: HistoricoInstagram;
+  leido_en: string;
+  desde_cache: boolean;
 }
 
 export interface AnalisisInstagram {

@@ -1,6 +1,7 @@
 import type {
   AuditEvent,
   AnalisisInstagram,
+  AnalisisTiktok,
   AuditOverview,
   CuentaMarketing,
   GoalHistory,
@@ -95,6 +96,9 @@ export const api = {
     request<{ links: Record<string, string> }>('/api/marketing/links', { method: 'PUT', body: JSON.stringify(links) }),
 
   /** El análisis de un perfil guardado — el mismo que lee Kaizen. `refresh` salta la caché de 10 min del servidor. */
+  leerTiktok: (usuario: string, refresh = false) =>
+    request<AnalisisTiktok>(`/api/marketing/tiktok/${encodeURIComponent(usuario)}${refresh ? '?refresh=1' : ''}`),
+
   leerInstagram: (usuario: string, refresh = false) =>
     request<AnalisisInstagram>(`/api/marketing/instagram/${encodeURIComponent(usuario)}${refresh ? '?refresh=1' : ''}`),
 

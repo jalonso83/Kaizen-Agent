@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api';
-import type { AnalisisInstagram, CuentaMarketing, DeltaHistorico, HistoricoInstagram, InsightsInstagram } from '../types';
+import type { AnalisisInstagram, AnalisisTiktok, CuentaMarketing, DeltaHistorico, HistoricoInstagram, InsightsInstagram } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Dashboard de Marketing — la lectura de las cuentas de redes.
@@ -306,10 +306,110 @@ export function AnalisisInstagramVista({ a }: { a: AnalisisInstagram }) {
   );
 }
 
+/** La cuenta de TikTok. Mismas piezas que Instagram; métricas de video corto. */
+export function AnalisisTiktokVista({ a }: { a: AnalisisTiktok }) {
+  const r = a.resumen_videos;
+  return (
+    <>
+      <div className="mkd-perfil">
+        <div className="mkd-perfil-datos">
+          <span className="mkd-perfil-nombre">
+            {a.perfil.nombre || `@${a.cuenta.usuario}`}
+            <span className="marketing-chip-propia">FinZen</span>
+            {a.perfil.verificada && <span className="marketing-chip-red">verificada</span>}
+          </span>
+          <a className="marketing-cuenta-url" href={a.cuenta.url} target="_blank" rel="noreferrer noopener">
+            @{a.cuenta.usuario}
+          </a>
+          {a.perfil.biografia && <p className="mkd-perfil-bio">{a.perfil.biografia}</p>}
+        </div>
+        <span className="mkd-leido">
+          Leído {fecha(a.leido_en)}
+          {a.desde_cache && ' (caché)'}
+        </span>
+      </div>
+
+      <div className="mkd-tarjetas">
+        <Tarjeta
+          label="Seguidores"
+          valor={num(a.perfil.seguidores)}
+          destacada
+          variacion={<Variacion delta={a.historico.delta_7d} valor={a.historico.delta_7d?.seguidores ?? null} />}
+          ayuda={a.historico.delta_30d ? `${a.historico.delta_30d.seguidores >= 0 ? '+' : '−'}${num(Math.abs(a.historico.delta_30d.seguidores))} en ${a.historico.delta_30d.dias} días` : undefined}
+        />
+        <Tarjeta label="Likes totales" valor={num(a.perfil.likes_totales)} ayuda="De toda la cuenta, acumulados." />
+        <Tarjeta
+          label="Videos"
+          valor={num(a.perfil.videos_totales)}
+          variacion={<Variacion delta={a.historico.delta_7d} valor={a.historico.delta_7d?.publicaciones_totales ?? null} />}
+          ayuda={r.videos_por_semana !== null ? `${num(r.videos_por_semana)} por semana, últimos ${r.cantidad}` : undefined}
+        />
+        <Tarjeta
+          label="Engagement sobre views"
+          valor={pct(a.tasa_engagement_views_pct)}
+          ayuda="Likes + comentarios + compartidos por video, sobre sus views. La tasa natural de TikTok."
+          destacada
+        />
+      </div>
+
+      <div className="marketing-grupo">
+        <div className="marketing-grupo-head">
+          <h4 className="marketing-grupo-titulo">Evolución</h4>
+          <p className="marketing-grupo-sub">
+            Una lectura guardada por día. {a.historico.primera_lectura && `Hay datos desde el ${dia(a.historico.primera_lectura)}.`}
+          </p>
+        </div>
+        <CurvaSeguidores h={a.historico} />
+      </div>
+
+      <div className="marketing-grupo">
+        <div className="marketing-grupo-head">
+          <h4 className="marketing-grupo-titulo">
+            Últimos {r.cantidad} videos
+            {r.desde && r.hasta && <span className="mkd-ventana"> · {dia(r.desde)} – {dia(r.hasta)}</span>}
+          </h4>
+          <p className="marketing-grupo-sub">
+            En TikTok un video viral multiplica el promedio: la mediana de views es el nivel real de la cuenta.
+          </p>
+        </div>
+
+        <div className="mkd-tarjetas">
+          <Tarjeta label="Views (mediana)" valor={num(r.views_mediana)} ayuda={`Promedio ${num(r.views_promedio)} · total ${num(r.views_total)}`} destacada />
+          <Tarjeta label="Por video (promedio)" valor={num(r.interacciones_promedio)} ayuda={`${num(r.likes_promedio)} likes · ${num(r.comentarios_promedio)} com. · ${num(r.compartidos_promedio)} compartidos`} />
+          <Tarjeta label="Duración promedio" valor={`${num(Math.round(r.duracion_promedio))} s`} />
+          <Tarjeta label="Engagement sobre seguidores" valor={pct(a.tasa_engagement_pct)} ayuda="Solo para comparar con Instagram." />
+        </div>
+
+        {r.top.length > 0 && (
+          <>
+            <h5 className="mkd-subtitulo">Los más vistos</h5>
+            <ol className="mkd-top">
+              {r.top.map((t) => (
+                <li key={t.permalink} className="mkd-top-item">
+                  <div className="mkd-top-datos">
+                    <a href={t.permalink} target="_blank" rel="noreferrer noopener" className="mkd-top-caption">
+                      {t.titulo || '(sin título)'}
+                    </a>
+                    <span className="marketing-campo-ayuda">{dia(t.fecha)}</span>
+                  </div>
+                  <span className="mkd-top-cifras">
+                    <strong>{num(t.views)}</strong> views · {num(t.likes)} likes · {num(t.compartidos)} comp.
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
 export function MarketingDashboard() {
   const [cuentas, setCuentas] = useState<CuentaMarketing[] | null>(null);
   const [usuario, setUsuario] = useState<string | null>(null);
-  const [analisis, setAnalisis] = useState<AnalisisInstagram | null>(null);
+  const [analisis, setAnalisis] = useState<AnalisisInstagram | AnalisisTiktok | null>(null);
+  const [redSel, setRedSel] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -320,15 +420,16 @@ export function MarketingDashboard() {
         setCuentas(r.cuentas);
         // La de FinZen primero (el servidor ya la ordena así); si no hay, la primera.
         setUsuario(r.cuentas[0]?.usuario ?? null);
+        setRedSel(r.cuentas[0]?.red ?? null);
       })
       .catch((e) => setError(e instanceof ApiError ? e.message : 'No se pudieron cargar las cuentas.'));
   }, []);
 
   const leer = (u: string, refresh = false) => {
+    const cuenta = cuentas?.find((c) => c.usuario === u);
     setCargando(true);
     setError(null);
-    api
-      .leerInstagram(u, refresh)
+    (cuenta?.red === 'TIKTOK' ? api.leerTiktok(u, refresh) : api.leerInstagram(u, refresh))
       .then(setAnalisis)
       .catch((e) => {
         setAnalisis(null);
@@ -338,8 +439,9 @@ export function MarketingDashboard() {
   };
 
   useEffect(() => {
-    if (usuario) leer(usuario);
-  }, [usuario]);
+    if (usuario && cuentas) leer(usuario);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuario, redSel, cuentas]);
 
   return (
     <section className="marketing-seccion" aria-labelledby="marketing-dashboard">
@@ -366,11 +468,12 @@ export function MarketingDashboard() {
                 key={c.id}
                 type="button"
                 role="tab"
-                aria-selected={c.usuario === usuario}
-                className={c.usuario === usuario ? 'marketing-subtab is-active' : 'marketing-subtab'}
-                onClick={() => setUsuario(c.usuario)}
+                aria-selected={c.usuario === usuario && c.red === redSel}
+                className={c.usuario === usuario && c.red === redSel ? 'marketing-subtab is-active' : 'marketing-subtab'}
+                onClick={() => { setRedSel(c.red); setUsuario(c.usuario); }}
+                title={c.red === 'TIKTOK' && !c.esPropia ? 'TikTok solo permite leer la cuenta de FinZen' : undefined}
               >
-                {c.etiqueta || `@${c.usuario}`}
+                <span className="marketing-chip-red">{c.red === 'TIKTOK' ? 'TT' : 'IG'}</span> {c.etiqueta || `@${c.usuario}`}
               </button>
             ))}
           </div>
@@ -379,7 +482,7 @@ export function MarketingDashboard() {
             className="usuarios-accion"
             disabled={!usuario || cargando}
             onClick={() => usuario && leer(usuario, true)}
-            title="Vuelve a consultar a Instagram, saltando la caché de 10 minutos."
+            title="Vuelve a consultar la red, saltando la caché de 10 minutos."
           >
             {cargando ? 'Leyendo…' : 'Recargar'}
           </button>
@@ -394,7 +497,7 @@ export function MarketingDashboard() {
         </div>
       )}
 
-      {analisis && <AnalisisInstagramVista a={analisis} />}
+      {analisis && ('resumen_videos' in analisis ? <AnalisisTiktokVista a={analisis} /> : <AnalisisInstagramVista a={analisis} />)}
     </section>
   );
 }

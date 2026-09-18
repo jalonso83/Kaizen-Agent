@@ -22,7 +22,9 @@
     "drive:auth": "tsx src/scripts/driveAuth.ts",
     "mock:finzen": "tsx src/mock/finzenApiMock.ts",
     "mock:graph": "tsx src/mock/graphApiMock.ts",
+    "mock:tiktok": "tsx src/mock/tiktokApiMock.ts",
     "test:graph": "tsx src/scripts/testGraph.ts",
+    "test:tiktok": "tsx src/scripts/testTiktok.ts",
     "test:tools": "tsx src/scripts/testTools.ts"
   },
   "dependencies": {

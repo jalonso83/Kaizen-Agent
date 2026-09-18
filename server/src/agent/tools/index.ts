@@ -7,6 +7,7 @@ import { searchCerebroTool, saveContentDraftTool, saveCerebroNoteTool, listCereb
 import { proposeGoalTool, getActiveGoalTool, markGoalAchievedTool } from './goals';
 import { getMetaCampaignsTool, getMetaSpendTool } from './meta';
 import { listMarketingAccountsTool, getInstagramProfileTool } from './instagram';
+import { getTiktokProfileTool } from './tiktok';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Registro de tools de Kaizen — DISENO_FASE1.md §6. Las 9 originales +
@@ -54,6 +55,8 @@ export const TOOL_LIST: KaizenTool[] = [
   // Instagram — solo lectura, solo perfiles guardados (tools/instagram.ts).
   listMarketingAccountsTool,
   getInstagramProfileTool,
+  // TikTok — solo lectura, solo la cuenta propia (tools/tiktok.ts).
+  getTiktokProfileTool,
 ];
 
 /**

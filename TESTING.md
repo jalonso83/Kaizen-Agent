@@ -348,6 +348,21 @@ datos), en `.env`: `META_API_BASE_URL=http://localhost:4600`,
 `INSTAGRAM_ACCOUNT_ID=17841400000000001`; y en Marketing → Configuración
 guardar `@finzenai` como propia y `@competidor`. Esto sí necesita Postgres.
 
+### 12.0b TikTok contra el simulador
+
+```bash
+cd server
+npm run mock:tiktok       # :4700, refresh inicial rt-0 (rota en cada renovación)
+npm run test:tiktok       # → "13 ✔ · 0 ✖"
+```
+
+Cubre las dos páginas de videos, el tope, un video sin título, y lo que más
+importa: que el refresh token **rotado** sea el que se usa después de renovar
+(volver al de la variable falla, como en la realidad). Para el server entero:
+`TIKTOK_API_BASE_URL=http://localhost:4700`, `TIKTOK_CLIENT_KEY=mock`,
+`TIKTOK_CLIENT_SECRET=mock`, `TIKTOK_REFRESH_TOKEN=rt-0`, y en Configuración
+guardar `tiktok.com/@finzenai` con red TikTok como propia.
+
 ### 12.1 Con credenciales reales
 
 Lo de abajo se prueba recién con `META_SYSTEM_TOKEN`, `INSTAGRAM_ACCOUNT_ID`
@@ -372,7 +387,13 @@ y las dos migraciones en producción.
    del Dashboard, diciendo que likes y comentarios son pulso. "Mirá el perfil
    de @banco" con una cuenta NO guardada → tiene que decir que no está entre
    los guardados y dónde agregarla, no leerla igual.
-5. **Ámbitos.** "¿Cuántos registros trajo el reel de ayer?" → tiene que usar
+5. **TikTok.** Con `TIKTOK_*` en Railway y `@finzenai` guardado con red
+   TikTok como propia: el Dashboard muestra seguidores, likes totales, videos,
+   engagement sobre views y la mediana de views. Por chat, "¿cómo va el
+   TikTok?" → `get_tiktok_profile`. Guardar un competidor de TikTok tiene que
+   funcionar (queda como referencia) pero al elegirlo en el Dashboard dice que
+   solo la cuenta propia se puede leer.
+6. **Ámbitos.** "¿Cuántos registros trajo el reel de ayer?" → tiene que usar
    `get_kpis` para los registros y el perfil para el reel, y decir de dónde
    sale cada dato. "¿Cómo vamos?" a secas → tiene que preguntar si de la app o
    de las redes antes de llamar tools.

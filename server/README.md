@@ -63,9 +63,10 @@ transformar), `Proposal` (el gate), `Goal` (la meta vigente y su historial),
 unaccent), `WeeklySummaryConfig` (singleton), `MarketingAccount` (los
 perfiles de redes que Kaizen puede leer), `InstagramSnapshot` (una lectura
 por día por perfil: el histórico) y `MarketingLink` (los enlaces de
-referencia del apartado de Marketing, clave → URL).
+referencia del apartado de Marketing, clave → URL), `TiktokCredential` (el
+refresh token vigente, que TikTok rota) y `TiktokSnapshot`.
 
-15 migraciones SQL en `prisma/migrations/` (escritas a mano; no hay shadow DB
+16 migraciones SQL en `prisma/migrations/` (escritas a mano; no hay shadow DB
 local). Se aplican con:
 
 ```bash
@@ -75,9 +76,10 @@ npx prisma migrate deploy
 ⚠️ **En Railway no corren solas**: el `start` es `node dist/app.js` y el
 `build` solo hace `prisma generate`. Hay un commit del 19-jul cuyo mensaje dice
 que sí y su diff no lo hace. Las de Marketing e Instagram se
-aplicaron el 2026-09-16; a 2026-09-17 está **pendiente**
-`20260917100000_marketing_link` (los enlaces de referencia; sin ella esa
-sección da error al guardar). Se aplica con `railway run npx prisma migrate
+aplicaron el 2026-09-16; a 2026-09-18 están **pendientes**
+`20260917100000_marketing_link` (enlaces de referencia) y
+`20260918100000_tiktok` (credencial e histórico de TikTok; sin ella TikTok
+funciona en memoria y avisa). Se aplica con `railway run npx prisma migrate
 deploy`. La propuesta de arreglo de raíz
 —`"start": "prisma migrate deploy && node dist/app.js"`— espera aprobación.
 
@@ -188,7 +190,8 @@ los dos. El system prompt arma la sección "Tus dos ámbitos" leyendo ese campo
 | `get_message_type_performance` | finzen | Lift real acumulado por tipo de mensaje |
 | `propose_goal` · `get_active_goal` · `mark_goal_achieved` | finzen | La meta vigente: se propone en tarjeta, la confirma el socio, se cierra solo con un número medido |
 | `get_meta_campaigns` · `get_meta_spend` | marketing | Meta Ads, **solo lectura** (`ads_read`). El cruce con el CAC de FinZen no se hace en código porque la unión por nombre de campaña no está validada |
-| `list_marketing_accounts` | marketing | Los perfiles guardados en Marketing → Configuración |
+| `list_marketing_accounts` | marketing | Los perfiles guardados en Marketing → Configuración, por red |
+| `get_tiktok_profile` | marketing | La cuenta de TikTok de FinZen por la Display API (solo la propia: TikTok no lee terceros): perfil, últimos videos, mediana de views, engagement sobre views, histórico |
 | `get_instagram_profile` | marketing | Lee UNO de esos perfiles (sin parámetros, el de FinZen): perfil, últimas piezas, resumen calculado, insights de la cuenta propia e histórico con deltas. Mismo análisis que el Dashboard (`services/instagramAnalisis.ts`) |
 | `save_content_draft` | marketing | Guarda una pieza de contenido en la carpeta Contenidos de Drive (reels/guiones/carruseles/assets) |
 | `search_cerebro` · `list_cerebro_folders` · `save_cerebro_note` | comun | El Cerebro: FTS en español, mapa de carpetas, y escritura **solo** en `50-kaizen/` |
@@ -339,6 +342,7 @@ aunque quien las corra tenga un `.env` con la lectura de imágenes encendida.
 | `instagram.test.ts` · `instagramApi.test.ts` | Parseo de URLs/handles; el campo `business_discovery`; errores traducidos |
 | `instagramTool.test.ts` | Resumen (mediana, interacciones, top, ritmo), deltas del histórico, ámbito y fallo legible sin credenciales |
 | `ambitos.test.ts` | Ningún skill suelto; cada tool y skill listado en su ámbito y no en el otro |
+| `tiktok.test.ts` | Parseo de URLs de TikTok, normalización de videos, resumen con mediana de views, errores traducidos, contrato de la tool |
 
 ---
 

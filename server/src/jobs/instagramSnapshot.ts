@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { audit } from '../services/audit';
 import { analizarPerfil, cuentasGuardadas, faltaConfiguracion } from '../services/instagramAnalisis';
+import { analizarTiktok, cuentasTiktokGuardadas, faltaConfiguracionTiktok } from '../services/tiktokAnalisis';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Lectura diaria de Instagram → InstagramSnapshot (2026-09-12).
@@ -26,22 +27,23 @@ export interface SnapshotRunResult {
 }
 
 export async function runInstagramSnapshot(): Promise<SnapshotRunResult> {
-  const falta = faltaConfiguracion();
-  if (falta) {
-    console.warn('[instagram-snapshot] Instagram no configurado — se omite la corrida.');
-    return { leidas: [], fallidas: [], omitido: 'sin credenciales' };
-  }
-
   const startedAt = Date.now();
   const out: SnapshotRunResult = { leidas: [], fallidas: [], omitido: null };
 
-  let cuentas;
-  try {
-    cuentas = await cuentasGuardadas();
-  } catch (e) {
-    const motivo = e instanceof Error ? e.message : String(e);
-    console.warn('[instagram-snapshot] No se pudieron leer las cuentas guardadas:', motivo);
-    return { leidas: [], fallidas: [], omitido: motivo };
+  if (faltaConfiguracion() && faltaConfiguracionTiktok()) {
+    console.warn('[instagram-snapshot] Ni Instagram ni TikTok configurados — se omite la corrida.');
+    return { leidas: [], fallidas: [], omitido: 'sin credenciales' };
+  }
+
+  let cuentas: Awaited<ReturnType<typeof cuentasGuardadas>> = [];
+  if (!faltaConfiguracion()) {
+    try {
+      cuentas = await cuentasGuardadas();
+    } catch (e) {
+      const motivo = e instanceof Error ? e.message : String(e);
+      console.warn('[instagram-snapshot] No se pudieron leer las cuentas guardadas:', motivo);
+      return { leidas: [], fallidas: [], omitido: motivo };
+    }
   }
 
   for (const cuenta of cuentas) {
@@ -52,6 +54,23 @@ export async function runInstagramSnapshot(): Promise<SnapshotRunResult> {
       out.leidas.push(cuenta.usuario);
     } catch (e) {
       out.fallidas.push({ usuario: cuenta.usuario, motivo: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  // TikTok: solo la cuenta propia, y solo si está configurado. Que falte no
+  // frena la lectura de Instagram (ni al revés).
+  if (!faltaConfiguracionTiktok()) {
+    try {
+      for (const cuenta of (await cuentasTiktokGuardadas()).filter((c) => c.esPropia)) {
+        try {
+          await analizarTiktok(cuenta, { forzar: true });
+          out.leidas.push(`tiktok:${cuenta.usuario}`);
+        } catch (e) {
+          out.fallidas.push({ usuario: `tiktok:${cuenta.usuario}`, motivo: e instanceof Error ? e.message : String(e) });
+        }
+      }
+    } catch (e) {
+      out.fallidas.push({ usuario: 'tiktok', motivo: e instanceof Error ? e.message : String(e) });
     }
   }
 

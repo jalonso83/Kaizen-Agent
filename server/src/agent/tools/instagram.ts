@@ -8,6 +8,7 @@ import {
   PUBLICACIONES_POR_DEFECTO,
   type CuentaGuardada,
 } from '../../services/instagramAnalisis';
+import { cuentasTiktokGuardadas } from '../../services/tiktokAnalisis';
 import type { KaizenTool } from './guard';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -61,16 +62,17 @@ export const listMarketingAccountsTool: KaizenTool = {
   name: 'list_marketing_accounts',
   ambito: 'marketing',
   description:
-    'Lista los perfiles de redes sociales guardados en el apartado de Marketing (Configuración → Perfiles): usuario, URL, etiqueta y cuál es el de FinZen. ' +
+    'Lista los perfiles de redes sociales guardados en el apartado de Marketing (Configuración → Perfiles), por red (instagram, tiktok): usuario, URL, etiqueta y cuál es el de FinZen. En TikTok solo la propia es legible (`legible`). ' +
     'Úsala para saber qué cuentas puede leer Kaizen antes de llamar a get_instagram_profile, o cuando el socio pregunte qué perfiles hay configurados. ' +
     'Kaizen solo puede leer perfiles que estén en esta lista; si el socio quiere otro, lo agrega él en Marketing → Configuración.',
   inputSchema: { type: 'object', properties: {} },
   async execute() {
     const cuentas = await cuentasGuardadas();
-    if (cuentas.length === 0) {
+    const tiktok = await cuentasTiktokGuardadas();
+    if (cuentas.length === 0 && tiktok.length === 0) {
       return 'No hay ningún perfil guardado todavía. El socio puede agregar el de FinZen (y los de terceros que quiera seguir) en Marketing → Configuración → Perfiles; hasta entonces no puedo leer Instagram.';
     }
-    return JSON.stringify({ red: 'INSTAGRAM', cuentas });
+    return JSON.stringify({ instagram: cuentas, tiktok: tiktok.map((c) => ({ ...c, legible: c.esPropia })) });
   },
 };
 

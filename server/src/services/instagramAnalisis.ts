@@ -97,12 +97,12 @@ export interface AnalisisInstagram {
 
 // ── Resumen calculado en código ───────────────────────────────────────────
 
-function redondear(n: number, decimales = 1): number {
+export function redondear(n: number, decimales = 1): number {
   const f = 10 ** decimales;
   return Math.round(n * f) / f;
 }
 
-function mediana(valores: number[]): number {
+export function mediana(valores: number[]): number {
   if (valores.length === 0) return 0;
   const orden = [...valores].sort((a, b) => a - b);
   const mitad = Math.floor(orden.length / 2);

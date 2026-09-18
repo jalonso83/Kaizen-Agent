@@ -39,13 +39,13 @@ Kaizen-Agent/
 ├── docs/                  # PRD, diseño de Fase 1, ESTADO (Fase 1) y ESTADO_FASE_2, SKILLS, cerebro/
 ├── server/
 │   ├── skills/            # 16 playbooks en dos ámbitos: finzen/ (8) y marketing/ (8) — ver docs/SKILLS.md
-│   ├── prisma/            # schema + 15 migraciones SQL (se aplican con prisma migrate deploy)
+│   ├── prisma/            # schema + 16 migraciones SQL (se aplican con prisma migrate deploy)
 │   ├── public/            # la web compilada (committeada; la regenera npm run build)
 │   └── src/
 │       ├── app.ts            # Express: rutas, estático de la web, arranque de los crons
 │       ├── config.ts         # Env vars validadas al boot
 │       ├── auth/permisos.ts  # roles → permisos: LA fuente de verdad de quién puede qué
-│       ├── clients/          # finzenApi (Agent API) · drive · graphApi/metaApi/instagramApi · vision · documentos
+│       ├── clients/          # finzenApi (Agent API) · drive · graphApi/metaApi/instagramApi · tiktokApi · vision · documentos
 │       ├── routes/           # auth · chat · proposals · goals · goalsHistory · audit · config · users · marketing
 │       ├── services/         # audit (append-only) · instagramAnalisis (un solo análisis para chat y dashboard) · acquisitionExport
 │       ├── jobs/             # cerebroIndex (boot + 6h) · weeklySummary (lunes) · acquisitionExport (lunes) · instagramSnapshot (diario)
@@ -83,7 +83,8 @@ Ver `server/.env.example`. Las credenciales las entrega FinZen — **nunca** se
 commitean (el `.gitignore` ya protege `.env` y los JSON de service accounts) y
 **nunca viajan por chat, WhatsApp ni correo**: van directo a las variables de
 Railway. Las de Meta/Instagram (`META_SYSTEM_TOKEN`, `META_AD_ACCOUNT_ID`,
-`INSTAGRAM_ACCOUNT_ID`) están pendientes de FinZen a 2026-09-12.
+`INSTAGRAM_ACCOUNT_ID`) y las de TikTok (`TIKTOK_CLIENT_KEY`,
+`TIKTOK_CLIENT_SECRET`, `TIKTOK_REFRESH_TOKEN`) están pendientes de FinZen a 2026-09-18.
 
 ## Migraciones
 
@@ -91,7 +92,8 @@ Railway. Las de Meta/Instagram (`META_SYSTEM_TOKEN`, `META_AD_ACCOUNT_ID`,
 commit del 19-jul que dice lo contrario y no lo hace). Quien administre Railway
 corre `railway run npx prisma migrate deploy` después de cada cambio en
 `server/prisma/migrations/`. A 2026-09-17 hay **una pendiente** en producción
-(`20260917100000_marketing_link`, los enlaces de referencia de Marketing).
+(`20260917100000_marketing_link`, enlaces de Marketing) y a 2026-09-18 otra
+(`20260918100000_tiktok`, credencial e histórico de TikTok).
 
 ## Reglas del proyecto
 

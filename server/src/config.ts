@@ -141,6 +141,18 @@ export const config = {
     writeEnabled: process.env.META_WRITE_ENABLED === 'true',
   },
 
+  // ── TikTok Display API (2026-09-18) ─────────────────────────────────────
+  // Solo la cuenta PROPIA: la Display API no tiene un business_discovery.
+  // El access token dura 24h y se renueva solo con el refresh token (365
+  // días), que TikTok puede ROTAR en cada renovación — por eso el vigente
+  // vive en la BD (TiktokCredential) y la variable solo siembra el primero.
+  tiktok: {
+    baseUrl: (optional('TIKTOK_API_BASE_URL') ?? 'https://open.tiktokapis.com/v2').replace(/\/+$/, ''),
+    clientKey: optional('TIKTOK_CLIENT_KEY') ?? '',
+    clientSecret: optional('TIKTOK_CLIENT_SECRET') ?? '',
+    refreshToken: optional('TIKTOK_REFRESH_TOKEN') ?? '',
+  },
+
   // BD propia de Kaizen — ya se usa (audit log, historial, auth): requerida.
   databaseUrl: required('DATABASE_URL'),
 

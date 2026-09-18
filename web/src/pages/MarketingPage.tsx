@@ -89,6 +89,7 @@ const GRUPOS: GrupoConfig[] = [
  */
 function Perfiles({ puedeEditar }: { puedeEditar: boolean }) {
   const [cuentas, setCuentas] = useState<CuentaMarketing[] | null>(null);
+  const [red, setRed] = useState<'INSTAGRAM' | 'TIKTOK'>('INSTAGRAM');
   const [url, setUrl] = useState('');
   const [etiqueta, setEtiqueta] = useState('');
   const [esPropia, setEsPropia] = useState(false);
@@ -125,7 +126,7 @@ function Perfiles({ puedeEditar }: { puedeEditar: boolean }) {
     setGuardando(true);
     try {
       const ok = await accion(() =>
-        api.agregarCuentaMarketing({ url: url.trim(), etiqueta: etiqueta.trim() || undefined, esPropia }),
+        api.agregarCuentaMarketing({ red, url: url.trim(), etiqueta: etiqueta.trim() || undefined, esPropia }),
       );
       if (ok) {
         setUrl('');
@@ -144,7 +145,7 @@ function Perfiles({ puedeEditar }: { puedeEditar: boolean }) {
           Perfiles
         </h3>
         <p className="marketing-seccion-sub">
-          Las cuentas que Kaizen puede leer. Por ahora solo Instagram.
+          Las cuentas que Kaizen puede leer. Instagram (propias y de terceros) y TikTok (solo la cuenta de FinZen: su API no lee perfiles ajenos).
         </p>
       </header>
 
@@ -155,18 +156,25 @@ function Perfiles({ puedeEditar }: { puedeEditar: boolean }) {
           <div className="marketing-grupo-head">
             <h4 className="marketing-grupo-titulo">Agregar un perfil</h4>
             <p className="marketing-grupo-sub">
-              Pegá la URL del perfil (no la de una publicación ni un reel); también vale el handle,{' '}
-              <code>@finzenai</code>. De ahí se saca el usuario, que es lo que necesita la API de Instagram.
+              Pegá la URL del perfil (no la de una publicación ni un video); también vale el handle,{' '}
+              <code>@finzenai</code>. De ahí se saca el usuario, que es lo que necesita la API.
             </p>
           </div>
 
           <div className="marketing-campos">
             <label className="marketing-campo">
+              <span className="marketing-campo-label">Red</span>
+              <select value={red} onChange={(e) => setRed(e.target.value as 'INSTAGRAM' | 'TIKTOK')}>
+                <option value="INSTAGRAM">Instagram</option>
+                <option value="TIKTOK">TikTok</option>
+              </select>
+            </label>
+            <label className="marketing-campo">
               <span className="marketing-campo-label">URL o handle</span>
               <input
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://instagram.com/finzenai"
+                placeholder={red === 'TIKTOK' ? 'https://www.tiktok.com/@finzenai' : 'https://instagram.com/finzenai'}
                 autoComplete="off"
                 spellCheck={false}
               />
@@ -190,7 +198,9 @@ function Perfiles({ puedeEditar }: { puedeEditar: boolean }) {
               {/* No es cosmético: de la cuenta propia se pueden pedir alcance y
                   guardados; de un tercero, nunca. */}
               <span className="marketing-campo-ayuda">
-                Solo de la cuenta propia se pueden obtener alcance y guardados. De un tercero, solo lo público.
+                {red === 'TIKTOK'
+                  ? 'En TikTok solo la cuenta propia se puede leer; un tercero queda guardado como referencia, sin datos.'
+                  : 'Solo de la cuenta propia se pueden obtener alcance y guardados. De un tercero, solo lo público.'}
               </span>
             </span>
           </label>
@@ -217,6 +227,7 @@ function Perfiles({ puedeEditar }: { puedeEditar: boolean }) {
             <li className="marketing-cuenta" key={c.id}>
               <div className="marketing-cuenta-datos">
                 <span className="marketing-cuenta-nombre">
+                  <span className="marketing-chip-red">{c.red === 'TIKTOK' ? 'TikTok' : 'Instagram'}</span>
                   {c.etiqueta || `@${c.usuario}`}
                   {c.esPropia && <span className="marketing-chip-propia">FinZen</span>}
                 </span>

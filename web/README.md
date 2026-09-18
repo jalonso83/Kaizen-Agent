@@ -14,7 +14,7 @@ pestaña es cortesía, el servidor niega igual con 403):
 | Chat | `chat` | Conversaciones, streaming real (`useAgentStream`, mismo parser de SSE que `chatCli.ts`), `ProposalCard` y `GoalCard` con Confirmar/Rechazar (el gate), editar/reintentar mensajes, botón Detener, título automático |
 | Metas | `metas:ver` | Historial de metas y las campañas que nacieron bajo cada una |
 | Auditoría | `auditoria:ver` | Salud de los jobs, el gate (borradores creados / sin confirmación / denegados), eventos |
-| Marketing | `marketing:ver` / `marketing:editar` | **Configuración**: perfiles de Instagram que Kaizen puede leer (`MarketingAccount`) y enlaces de referencia a Meta y al sitio (`MarketingLink`). **Dashboard**: la lectura de cada perfil — seguidores, engagement, últimas piezas, insights de la cuenta propia, y la evolución con deltas a 7/30 días |
+| Marketing | `marketing:ver` / `marketing:editar` | **Configuración**: perfiles de Instagram y TikTok que Kaizen puede leer (`MarketingAccount`, con selector de red) y enlaces de referencia a Meta y al sitio (`MarketingLink`). **Dashboard**: la lectura de cada perfil — seguidores, engagement, últimas piezas, insights de la cuenta propia, y la evolución con deltas a 7/30 días |
 | Usuarios | `usuarios:gestionar` | Alta, rol, habilitar/deshabilitar, restablecer contraseña |
 
 Además: ⚙ Configuración del resumen semanal (día/hora, "correr ahora",

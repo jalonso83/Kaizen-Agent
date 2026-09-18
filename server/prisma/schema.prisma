@@ -233,6 +233,42 @@ model InstagramSnapshot {
   @@index([usuario, fecha(sort: Desc)])
 }
 
+model TiktokCredential {
+  // Singleton (id=1). El refresh token VIGENTE de la cuenta de TikTok de
+  // FinZen (2026-09-18): TikTok puede devolver uno nuevo en cada renovación y
+  // el anterior deja de valer, así que no puede vivir solo en una variable de
+  // entorno que nadie actualiza. TIKTOK_REFRESH_TOKEN siembra la primera fila;
+  // después manda esta tabla.
+  id               Int      @id @default(1)
+  refreshToken     String
+  accessToken      String?
+  accessExpiresAt  DateTime?
+  refreshExpiresAt DateTime?
+  openId           String?
+  updatedAt        DateTime @updatedAt
+}
+
+model TiktokSnapshot {
+  // Una lectura por día de la cuenta de TikTok (misma idea que
+  // InstagramSnapshot). Tabla aparte y no una genérica: las métricas que vale
+  // la pena guardar no son las mismas (acá views y compartidos por video;
+  // allá guardados y alcance).
+  id                    String   @id @default(cuid())
+  usuario               String
+  fecha                 DateTime @db.Date
+  leidoEn               DateTime
+  seguidores            Int
+  seguidos              Int
+  likesTotales          Int
+  videosTotales         Int
+  viewsMediana          Float
+  interaccionesPromedio Float
+  tasaEngagementPct     Float?
+
+  @@unique([usuario, fecha])
+  @@index([usuario, fecha(sort: Desc)])
+}
+
 model MarketingLink {
   // Enlaces de referencia del apartado de Marketing (2026-09-17): Business
   // Manager, Ads Manager, página de Facebook, landing, tiendas. Kaizen NO los

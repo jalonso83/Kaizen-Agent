@@ -5,6 +5,9 @@ import { requireAuth, requirePermission } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { audit } from '../services/audit';
 import { perfilDeInstagram, UrlInstagramInvalida } from '../util/instagram';
+import { perfilDeTiktok, UrlTiktokInvalida } from '../util/tiktok';
+import { TiktokApiError } from '../clients/tiktokApi';
+import { analizarTiktok, cuentasTiktokGuardadas, faltaConfiguracionTiktok } from '../services/tiktokAnalisis';
 import { GraphApiError } from '../clients/graphApi';
 import { analizarPerfil, cuentasGuardadas, faltaConfiguracion } from '../services/instagramAnalisis';
 
@@ -23,8 +26,8 @@ import { analizarPerfil, cuentasGuardadas, faltaConfiguracion } from '../service
 // menciona la URL que lo causó.
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Redes soportadas. Instagram por ahora; el resto queda para después. */
-const REDES = ['INSTAGRAM'] as const;
+/** Redes soportadas. Instagram (perfiles propios y ajenos) y TikTok (solo la cuenta propia: la Display API no lee terceros). */
+const REDES = ['INSTAGRAM', 'TIKTOK'] as const;
 type Red = (typeof REDES)[number];
 
 const MAX_ETIQUETA = 60;
@@ -32,11 +35,15 @@ const MAX_ETIQUETA = 60;
 const router = Router();
 router.use(requireAuth);
 
-/** Deriva usuario + URL canónica según la red. Hoy solo Instagram sabe hacerlo. */
+/** Deriva usuario + URL canónica según la red. */
 function normalizar(red: Red, entrada: string): { usuario: string; url: string } {
   switch (red) {
     case 'INSTAGRAM': {
       const p = perfilDeInstagram(entrada);
+      return { usuario: p.usuario, url: p.url };
+    }
+    case 'TIKTOK': {
+      const p = perfilDeTiktok(entrada);
       return { usuario: p.usuario, url: p.url };
     }
   }
@@ -90,7 +97,7 @@ router.post(
       // pensando en quien pegó la URL ("es de una publicación, no de un
       // perfil"), y reemplazarlo por un "URL inválida" genérico perdería
       // justamente la parte útil.
-      if (err instanceof UrlInstagramInvalida) {
+      if (err instanceof UrlInstagramInvalida || err instanceof UrlTiktokInvalida) {
         res.status(400).json({ message: err.message });
         return;
       }
@@ -336,6 +343,49 @@ router.get(
     } catch (err) {
       if (err instanceof GraphApiError) {
         await audit.log({ conversationId: null, actor: `partner:${req.partner!.id}`, action: 'marketing:instagram-error', input: { usuario }, resultSummary: err.message.slice(0, 2000), isError: true });
+        res.status(502).json({ message: err.message });
+        return;
+      }
+      throw err;
+    }
+  }),
+);
+
+// ── Dashboard: TikTok (solo la cuenta propia) ─────────────────────────────
+
+router.get(
+  '/tiktok/:usuario',
+  requirePermission('marketing:ver'),
+  asyncRoute(async (req, res) => {
+    const falta = faltaConfiguracionTiktok();
+    if (falta) {
+      res.status(503).json({ message: 'La lectura de TikTok no está configurada: faltan TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET y/o TIKTOK_REFRESH_TOKEN en las variables del servidor.', configurado: false });
+      return;
+    }
+    let usuario: string;
+    try {
+      usuario = perfilDeTiktok(String(req.params.usuario)).usuario;
+    } catch (err) {
+      if (err instanceof UrlTiktokInvalida) {
+        res.status(400).json({ message: err.message });
+        return;
+      }
+      throw err;
+    }
+    const cuenta = (await cuentasTiktokGuardadas()).find((c) => c.usuario === usuario);
+    if (!cuenta) {
+      res.status(404).json({ message: `@${usuario} no está entre los perfiles de TikTok guardados.` });
+      return;
+    }
+    if (!cuenta.esPropia) {
+      res.status(422).json({ message: 'TikTok solo permite leer la cuenta que autorizó a Kaizen (la de FinZen). Los perfiles de terceros no se pueden leer por la API oficial.' });
+      return;
+    }
+    try {
+      res.json(await analizarTiktok(cuenta, { forzar: req.query.refresh === '1' }));
+    } catch (err) {
+      if (err instanceof TiktokApiError) {
+        await audit.log({ conversationId: null, actor: `partner:${req.partner!.id}`, action: 'marketing:tiktok-error', input: { usuario }, resultSummary: err.message.slice(0, 2000), isError: true });
         res.status(502).json({ message: err.message });
         return;
       }
