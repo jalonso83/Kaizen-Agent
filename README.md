@@ -91,9 +91,9 @@ Railway. Las de Meta/Instagram (`META_SYSTEM_TOKEN`, `META_AD_ACCOUNT_ID`,
 **No se aplican solas en el deploy** (el `start` es `node dist/app.js`; hay un
 commit del 19-jul que dice lo contrario y no lo hace). Quien administre Railway
 corre `railway run npx prisma migrate deploy` después de cada cambio en
-`server/prisma/migrations/`. A 2026-09-17 hay **una pendiente** en producción
-(`20260917100000_marketing_link`, enlaces de Marketing) y a 2026-09-18 otra
-(`20260918100000_tiktok`, credencial e histórico de TikTok).
+`server/prisma/migrations/`. A 2026-09-19 hay **una pendiente** en producción:
+`20260918100000_tiktok` (credencial e histórico de TikTok). La de los enlaces
+de Marketing se aplicó el 19-sep.
 
 ## Reglas del proyecto
 

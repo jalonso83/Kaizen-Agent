@@ -76,10 +76,9 @@ npx prisma migrate deploy
 ⚠️ **En Railway no corren solas**: el `start` es `node dist/app.js` y el
 `build` solo hace `prisma generate`. Hay un commit del 19-jul cuyo mensaje dice
 que sí y su diff no lo hace. Las de Marketing e Instagram se
-aplicaron el 2026-09-16; a 2026-09-18 están **pendientes**
-`20260917100000_marketing_link` (enlaces de referencia) y
+aplicaron el 2026-09-16; a 2026-09-19 está **pendiente**
 `20260918100000_tiktok` (credencial e histórico de TikTok; sin ella TikTok
-funciona en memoria y avisa). Se aplica con `railway run npx prisma migrate
+funciona en memoria y avisa). La de los enlaces se aplicó el 19-sep. Se aplica con `railway run npx prisma migrate
 deploy`. La propuesta de arreglo de raíz
 —`"start": "prisma migrate deploy && node dist/app.js"`— espera aprobación.
 
