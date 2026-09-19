@@ -29,6 +29,18 @@ app.post('/oauth/token/', (req, res) => {
     res.status(400).json({ error: 'invalid_client', error_description: 'Client key or secret is incorrect.' });
     return;
   }
+  if (grant_type === 'authorization_code') {
+    // El Login Kit: cualquier code que empiece con "code-" vale una vez.
+    if (!/^code-/.test(String(req.body?.code)) || !req.body?.redirect_uri) {
+      res.status(400).json({ error: 'invalid_grant', error_description: 'Authorization code is invalid or expired.' });
+      return;
+    }
+    generacion++;
+    const at = `at-${generacion}-${Date.now()}`;
+    accessValidos.add(at);
+    res.json({ access_token: at, expires_in: 86400, refresh_token: `rt-${generacion}`, refresh_expires_in: 31536000, open_id: 'open-finzen', scope: 'user.info.basic,user.info.profile,user.info.stats,video.list', token_type: 'Bearer' });
+    return;
+  }
   if (grant_type !== 'refresh_token' || refresh_token === 'vencido' || !/^rt-\d+$/.test(String(refresh_token))) {
     res.status(400).json({ error: 'invalid_grant', error_description: 'Refresh token is invalid or expired.' });
     return;

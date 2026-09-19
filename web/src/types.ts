@@ -89,6 +89,8 @@ export interface DeltaHistorico {
   seguidores: number;
   publicaciones_totales: number;
   interacciones_promedio: number;
+  /** Mediana de likes (Instagram) o de views (TikTok). */
+  mediana: number;
   tasa_engagement_pct: number | null;
 }
 

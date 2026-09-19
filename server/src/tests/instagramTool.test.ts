@@ -104,7 +104,7 @@ test('el delta compara contra el punto más reciente con al menos N días de ant
   ];
   const d7 = calcularDelta(serie, 7);
   // 09-05 está exactamente a 7 días: es el más reciente con ≥7 y gana sobre 09-04 (8) y 09-01 (11).
-  assert.deepEqual(d7, { desde: '2026-09-05', dias: 7, seguidores: 140, publicaciones_totales: -5, interacciones_promedio: 2.5, tasa_engagement_pct: 0.04 });
+  assert.deepEqual(d7, { desde: '2026-09-05', dias: 7, seguidores: 140, mediana: 0, publicaciones_totales: -5, interacciones_promedio: 2.5, tasa_engagement_pct: 0.04 });
   const d30 = calcularDelta(serie, 30);
   assert.equal(d30, null, 'sin lectura de hace 30 días no se estima');
   // Con 8 no existe el exacto: el más reciente con ≥8 es 09-04, y `dias` lo dice.

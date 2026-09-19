@@ -1432,3 +1432,5 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
   font: inherit; font-size: 13.5px; color: var(--text-primary); background: var(--bg);
   border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
 }
+.marketing-aviso.is-ok { background: var(--signal-bg); border-left-color: var(--signal); }
+.marketing-aviso.is-ok strong { color: var(--signal); }

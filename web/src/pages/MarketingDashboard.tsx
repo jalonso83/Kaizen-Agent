@@ -251,7 +251,12 @@ export function AnalisisInstagramVista({ a }: { a: AnalisisInstagram }) {
         <div className="mkd-tarjetas">
           <Tarjeta label="Interacciones" valor={num(r.interacciones_total)} ayuda={`${num(r.likes_total)} likes · ${num(r.comentarios_total)} comentarios`} />
           <Tarjeta label="Por pieza (promedio)" valor={num(r.interacciones_promedio)} ayuda={`${num(r.likes_promedio)} likes · ${num(r.comentarios_promedio)} comentarios`} />
-          <Tarjeta label="Likes (mediana)" valor={num(r.likes_mediana)} ayuda="Con una pieza viral el promedio miente; la mediana no." />
+          <Tarjeta
+            label="Likes (mediana)"
+            valor={num(r.likes_mediana)}
+            ayuda="Con una pieza viral el promedio miente; la mediana no."
+            variacion={<Variacion delta={a.historico.delta_30d} valor={a.historico.delta_30d?.mediana ?? null} />}
+          />
         </div>
 
         {r.por_tipo.length > 0 && (
@@ -374,8 +379,19 @@ export function AnalisisTiktokVista({ a }: { a: AnalisisTiktok }) {
         </div>
 
         <div className="mkd-tarjetas">
-          <Tarjeta label="Views (mediana)" valor={num(r.views_mediana)} ayuda={`Promedio ${num(r.views_promedio)} · total ${num(r.views_total)}`} destacada />
-          <Tarjeta label="Por video (promedio)" valor={num(r.interacciones_promedio)} ayuda={`${num(r.likes_promedio)} likes · ${num(r.comentarios_promedio)} com. · ${num(r.compartidos_promedio)} compartidos`} />
+          <Tarjeta
+            label="Views (mediana)"
+            valor={num(r.views_mediana)}
+            ayuda={`Promedio ${num(r.views_promedio)} · total ${num(r.views_total)}`}
+            destacada
+            variacion={<Variacion delta={a.historico.delta_30d} valor={a.historico.delta_30d?.mediana ?? null} />}
+          />
+          <Tarjeta
+            label="Por video (promedio)"
+            valor={num(r.interacciones_promedio)}
+            ayuda={`${num(r.likes_promedio)} likes · ${num(r.comentarios_promedio)} com. · ${num(r.compartidos_promedio)} compartidos`}
+            variacion={<Variacion delta={a.historico.delta_30d} valor={a.historico.delta_30d?.interacciones_promedio ?? null} decimales={1} />}
+          />
           <Tarjeta label="Duración promedio" valor={`${num(Math.round(r.duracion_promedio))} s`} />
           <Tarjeta label="Engagement sobre seguidores" valor={pct(a.tasa_engagement_pct)} ayuda="Solo para comparar con Instagram." />
         </div>

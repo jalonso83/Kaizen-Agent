@@ -96,6 +96,14 @@ export const api = {
     request<{ links: Record<string, string> }>('/api/marketing/links', { method: 'PUT', body: JSON.stringify(links) }),
 
   /** El análisis de un perfil guardado — el mismo que lee Kaizen. `refresh` salta la caché de 10 min del servidor. */
+  /** Estado de la autorización de TikTok y el redirect_uri que hay que registrar en la app. */
+  estadoTiktok: () =>
+    request<{ conectada: boolean; fuente: 'bd' | 'variable' | null; refreshVenceEn: string | null; openId: string | null; appConfigurada: boolean; redirectUri: string }>(
+      '/api/marketing/tiktok/status',
+    ),
+  /** La URL de TikTok a la que hay que mandar al socio para autorizar. */
+  autorizarTiktok: () => request<{ url: string }>('/api/marketing/tiktok/authorize'),
+
   leerTiktok: (usuario: string, refresh = false) =>
     request<AnalisisTiktok>(`/api/marketing/tiktok/${encodeURIComponent(usuario)}${refresh ? '?refresh=1' : ''}`),
 

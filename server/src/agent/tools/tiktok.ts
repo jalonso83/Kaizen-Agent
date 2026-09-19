@@ -20,7 +20,7 @@ const LECTURA_NOTE =
   'Los promedios y el top ya vienen calculados en `resumen_videos`: úsalos tal cual.';
 
 const INSTANTE_NOTE =
-  'OJO con el tiempo: los números son de ESTE instante (leido_en). Para decir cuánto creció usa `historico` (`delta_7d`, `delta_30d`; `dias` es la distancia real; null = no hay lectura tan vieja, no lo estimes). ' +
+  'OJO con el tiempo: los números son de ESTE instante (leido_en). Para decir cuánto creció usa `historico` (`delta_7d`, `delta_30d`; `dias` es la distancia real; null = no hay lectura tan vieja, no lo estimes). En `historico`, `likes_mediana` y `delta.mediana` son la MEDIANA DE VIEWS por video (el campo comparte nombre con Instagram): un delta de mediana positivo a 30 días es la señal de que la cuenta sube de nivel, no un viral. ' +
   'Un video de hace 2 días sigue sumando views; no lo compares con uno de hace 2 meses. La API no da alcance ni retención de video: si el socio pregunta por eso, di que esta fuente no lo tiene.';
 
 export const getTiktokProfileTool: KaizenTool = {

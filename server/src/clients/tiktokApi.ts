@@ -47,8 +47,13 @@ export function explicarErrorTiktok(code: string | null, mensaje: string): strin
   }
 }
 
+/**
+ * Lo mínimo para intentar leer: la app (key + secret). El refresh token puede
+ * venir de la variable o de la BD (autorización hecha desde la web); si no
+ * hay ninguno, accessToken() lo dice al pedirlo.
+ */
 export function tiktokConfigurado(): boolean {
-  return Boolean(config.tiktok.clientKey && config.tiktok.clientSecret && config.tiktok.refreshToken);
+  return Boolean(config.tiktok.clientKey && config.tiktok.clientSecret);
 }
 
 // ── Tokens ────────────────────────────────────────────────────────────────
@@ -116,6 +121,9 @@ export async function accessToken(): Promise<string> {
   }
 
   const cred = await leerCred();
+  if (!cred.refreshToken) {
+    throw new TiktokApiError(0, "TikTok todavía no está autorizado: falta que un socio conecte la cuenta de FinZen desde Marketing → Configuración (botón Conectar TikTok), o cargar TIKTOK_REFRESH_TOKEN. NO reintentes.");
+  }
   if (cred.accessToken && cred.accessExpiresAt && cred.accessExpiresAt.getTime() - Date.now() > MARGEN_MS) {
     return cred.accessToken;
   }
@@ -281,6 +289,72 @@ export async function getPerfilPropio(cuantosVideos = VIDEOS_POR_PAGINA): Promis
     videos: videos.slice(0, limite),
     leido_en: new Date().toISOString(),
   };
+}
+
+// ── Autorización (Login Kit) ──────────────────────────────────────────────
+//
+// La autorización se hace UNA vez, desde Marketing → Configuración: Kaizen
+// manda a TikTok, TikTok vuelve con un code, y acá se cambia por el par de
+// tokens que queda en TiktokCredential. Así nadie tiene que hacer el
+// intercambio a mano ni pegar un refresh token en Railway.
+
+export const SCOPES_TIKTOK = ["user.info.basic", "user.info.profile", "user.info.stats", "video.list"] as const;
+
+/** La URL de autorización de TikTok para la cuenta de FinZen. */
+export function urlAutorizacion(redirectUri: string, state: string): string {
+  const u = new URL("https://www.tiktok.com/v2/auth/authorize/");
+  u.searchParams.set("client_key", config.tiktok.clientKey);
+  u.searchParams.set("scope", SCOPES_TIKTOK.join(","));
+  u.searchParams.set("response_type", "code");
+  u.searchParams.set("redirect_uri", redirectUri);
+  u.searchParams.set("state", state);
+  return u.toString();
+}
+
+/** Cambia el code del callback por tokens y los deja guardados. Devuelve el usuario autorizado. */
+export async function canjearCodigo(code: string, redirectUri: string): Promise<{ openId: string | null; scope: string }> {
+  if (!config.tiktok.clientKey || !config.tiktok.clientSecret) {
+    throw new TiktokApiError(0, "Faltan TIKTOK_CLIENT_KEY y/o TIKTOK_CLIENT_SECRET: sin ellos no se puede canjear la autorización.");
+  }
+  const body = new URLSearchParams({
+    client_key: config.tiktok.clientKey,
+    client_secret: config.tiktok.clientSecret,
+    code,
+    grant_type: "authorization_code",
+    redirect_uri: redirectUri,
+  });
+  const res = await fetch(`${config.tiktok.baseUrl}/oauth/token/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+    signal: AbortSignal.timeout(30_000),
+  });
+  const json = (await res.json().catch(() => ({}))) as TokenRespuesta & { scope?: string };
+  if (!res.ok || json.error || !json.access_token || !json.refresh_token) {
+    throw new TiktokApiError(res.status, explicarErrorTiktok(json.error ?? null, json.error_description ?? `HTTP ${res.status}`), json.error ?? null);
+  }
+  const ahora = Date.now();
+  await guardarCred({
+    accessToken: json.access_token,
+    accessExpiresAt: new Date(ahora + (json.expires_in ?? 86_400) * 1000),
+    refreshToken: json.refresh_token,
+    refreshExpiresAt: json.refresh_expires_in ? new Date(ahora + json.refresh_expires_in * 1000) : null,
+    openId: json.open_id ?? null,
+  });
+  return { openId: json.open_id ?? null, scope: json.scope ?? "" };
+}
+
+/** ¿Hay una credencial usable (variable o BD)? Y hasta cuándo dura el refresh, si se sabe. */
+export async function estadoCredencial(): Promise<{ conectada: boolean; fuente: "bd" | "variable" | null; refreshVenceEn: string | null; openId: string | null }> {
+  if (!config.tiktok.clientKey || !config.tiktok.clientSecret) return { conectada: false, fuente: null, refreshVenceEn: null, openId: null };
+  try {
+    const fila = await db.tiktokCredential.findUnique({ where: { id: 1 } });
+    if (fila?.refreshToken) return { conectada: true, fuente: "bd", refreshVenceEn: fila.refreshExpiresAt?.toISOString() ?? null, openId: fila.openId };
+  } catch {
+    /* sin BD: cae a la variable */
+  }
+  if (config.tiktok.refreshToken) return { conectada: true, fuente: "variable", refreshVenceEn: null, openId: null };
+  return { conectada: false, fuente: null, refreshVenceEn: null, openId: null };
 }
 
 /** Solo para tests. */

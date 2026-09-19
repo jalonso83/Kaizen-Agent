@@ -266,6 +266,85 @@ function Perfiles({ puedeEditar }: { puedeEditar: boolean }) {
   );
 }
 
+/**
+ * La autorización de TikTok (Login Kit), una sola vez. Kaizen manda al socio
+ * a TikTok, TikTok vuelve al callback del servidor, y el token queda guardado
+ * en la BD. El resultado llega por la URL (/?tiktok=ok|error&motivo=…).
+ */
+function ConexionTiktok({ puedeEditar }: { puedeEditar: boolean }) {
+  const [estado, setEstado] = useState<Awaited<ReturnType<typeof api.estadoTiktok>> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [yendo, setYendo] = useState(false);
+  const resultado = (() => {
+    const q = new URLSearchParams(window.location.search);
+    if (!q.has('tiktok')) return null;
+    return { ok: q.get('tiktok') === 'ok', motivo: q.get('motivo') };
+  })();
+
+  useEffect(() => {
+    api.estadoTiktok().then(setEstado).catch((e) => setError(e instanceof ApiError ? e.message : 'No se pudo consultar TikTok.'));
+    // Limpiar la query para que un F5 no repita el aviso.
+    if (resultado) window.history.replaceState(null, '', window.location.pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const conectar = async () => {
+    setYendo(true);
+    setError(null);
+    try {
+      const { url } = await api.autorizarTiktok();
+      window.location.assign(url);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'No se pudo iniciar la autorización.');
+      setYendo(false);
+    }
+  };
+
+  const vence = estado?.refreshVenceEn ? new Date(estado.refreshVenceEn).toLocaleDateString('es-DO', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
+
+  return (
+    <div className="marketing-grupo">
+      <div className="marketing-grupo-head">
+        <h4 className="marketing-grupo-titulo">Conexión con TikTok</h4>
+        <p className="marketing-grupo-sub">
+          TikTok solo deja leer la cuenta que autorizó a Kaizen. La autorización se hace una vez, con la cuenta de FinZen, y
+          Kaizen renueva el acceso solo (el permiso dura un año; después se vuelve a conectar).
+        </p>
+      </div>
+
+      {resultado && (
+        <p className={resultado.ok ? 'marketing-aviso is-ok' : 'marketing-aviso'} role="status">
+          {resultado.ok ? <strong>TikTok quedó conectado.</strong> : <><strong>No se pudo conectar.</strong> {resultado.motivo}</>}
+        </p>
+      )}
+      {error && <div className="banner-error">{error}</div>}
+
+      {estado && !estado.appConfigurada && (
+        <p className="marketing-aviso" role="status">
+          <strong>Falta la app de TikTok en el servidor.</strong> Quien administra Railway tiene que cargar{' '}
+          <code>TIKTOK_CLIENT_KEY</code> y <code>TIKTOK_CLIENT_SECRET</code>, y en developers.tiktok.com registrar esta URL de
+          redirección: <code>{estado.redirectUri}</code>
+        </p>
+      )}
+
+      {estado && estado.appConfigurada && (
+        <div className="marketing-acciones" style={{ justifyContent: 'space-between' }}>
+          <span className="marketing-campo-ayuda">
+            {estado.conectada
+              ? `Conectada${estado.openId ? ` (open_id ${estado.openId.slice(0, 8)}…)` : ''}${vence ? ` · el permiso vence el ${vence}` : ''}${estado.fuente === 'variable' ? ' · token cargado por variable' : ''}`
+              : 'Todavía no está conectada.'}
+          </span>
+          {puedeEditar && (
+            <button type="button" className="dialog-confirm" onClick={() => void conectar()} disabled={yendo}>
+              {yendo ? 'Abriendo TikTok…' : estado.conectada ? 'Volver a conectar' : 'Conectar TikTok'}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Configuracion({ puedeEditar }: { puedeEditar: boolean }) {
   // Lo guardado en el servidor y lo que se está editando, por separado: así
   // "Guardar" se habilita solo cuando hay un cambio real, y "Descartar" vuelve
@@ -316,6 +395,8 @@ function Configuracion({ puedeEditar }: { puedeEditar: boolean }) {
       {/* Los perfiles van primero porque son lo que de verdad usa Kaizen; los
           enlaces son para abrir a mano. */}
       <Perfiles puedeEditar={puedeEditar} />
+
+      <ConexionTiktok puedeEditar={puedeEditar} />
 
       <section className="marketing-seccion" aria-labelledby="marketing-configuracion">
       <header className="marketing-seccion-head">

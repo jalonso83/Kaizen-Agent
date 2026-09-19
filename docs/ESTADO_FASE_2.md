@@ -604,6 +604,25 @@ insights de Instagram. Eso vive en el panel nativo y en el Business API de
 TikTok, una integración aparte (cuenta Business + acceso a Marketing API) que
 se evalúa cuando haya datos reales de la Display API.
 
+### Conectar TikTok con un clic, y la mediana en el histórico (2026-09-19)
+
+- **Login Kit dentro de Kaizen.** `GET /api/marketing/tiktok/authorize` arma
+  la URL de autorización con un `state` de un solo uso (10 min, en memoria);
+  `GET /api/marketing/tiktok/callback` canjea el `code` por los tokens y los
+  deja en `TiktokCredential`; `GET /api/marketing/tiktok/status` dice si está
+  conectada, hasta cuándo vence el permiso y qué redirect URI registrar. En
+  Configuración, bloque **Conexión con TikTok** con el botón. Así FinZen no
+  hace ningún intercambio a mano ni pega tokens en Railway: solo key + secret.
+  `TIKTOK_REFRESH_TOKEN` queda como alternativa manual. Documento de entrega
+  para FinZen escrito (fuera del repo).
+- **La mediana entra al delta.** `Delta.mediana` (likes por pieza en
+  Instagram, views por video en TikTok) a 7 y 30 días; el Dashboard lo muestra
+  en las tarjetas de mediana y de interacciones por pieza. Es lo que convierte
+  "cómo va el TikTok" en una respuesta con tendencia y no una foto: un delta de
+  mediana positivo a 30 días es subir de nivel; un salto de seguidores de un día
+  es un viral.
+- El simulador acepta el canje de `code` para probar el flujo entero en local.
+
 **Lo que sigue:** competidores de TikTok por proveedor (decisión del CTO).
 
 ---

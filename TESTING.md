@@ -387,7 +387,10 @@ y las dos migraciones en producción.
    del Dashboard, diciendo que likes y comentarios son pulso. "Mirá el perfil
    de @banco" con una cuenta NO guardada → tiene que decir que no está entre
    los guardados y dónde agregarla, no leerla igual.
-5. **TikTok.** Con `TIKTOK_*` en Railway y `@finzenai` guardado con red
+5. **TikTok.** Con `TIKTOK_CLIENT_KEY`/`SECRET` en Railway, la redirect URI
+   registrada en la app, y el clic en Configuración → Conectar TikTok con la
+   cuenta de FinZen (tiene que volver con "TikTok quedó conectado"; en
+   Auditoría, `marketing:tiktok-autorizacion`). Después, y `@finzenai` guardado con red
    TikTok como propia: el Dashboard muestra seguidores, likes totales, videos,
    engagement sobre views y la mediana de views. Por chat, "¿cómo va el
    TikTok?" → `get_tiktok_profile`. Guardar un competidor de TikTok tiene que

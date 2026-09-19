@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { Prisma } from '@prisma/client';
 import { db } from '../db';
 import { requireAuth, requirePermission } from '../middleware/requireAuth';
@@ -6,7 +6,9 @@ import { asyncRoute } from '../middleware/asyncRoute';
 import { audit } from '../services/audit';
 import { perfilDeInstagram, UrlInstagramInvalida } from '../util/instagram';
 import { perfilDeTiktok, UrlTiktokInvalida } from '../util/tiktok';
-import { TiktokApiError } from '../clients/tiktokApi';
+import { TiktokApiError, canjearCodigo, estadoCredencial, urlAutorizacion } from '../clients/tiktokApi';
+import { randomUUID } from 'node:crypto';
+import { config } from '../config';
 import { analizarTiktok, cuentasTiktokGuardadas, faltaConfiguracionTiktok } from '../services/tiktokAnalisis';
 import { GraphApiError } from '../clients/graphApi';
 import { analizarPerfil, cuentasGuardadas, faltaConfiguracion } from '../services/instagramAnalisis';
@@ -347,6 +349,76 @@ router.get(
         return;
       }
       throw err;
+    }
+  }),
+);
+
+// ── TikTok: autorización (Login Kit) ──────────────────────────────────────
+//
+// La autorización es una sola vez y la hace un socio con permiso de editar,
+// desde la web. `state` es un nonce de un solo uso con vencimiento corto: el
+// callback es una URL pública y sin esto cualquiera podría pegarle un code
+// ajeno. Se guarda en memoria (un proceso; si Railway reinicia a mitad del
+// flujo, el socio vuelve a hacer clic).
+
+const estadosPendientes = new Map<string, { partnerId: string; hasta: number }>();
+const STATE_TTL_MS = 10 * 60_000;
+
+/** La URL pública de Kaizen, para el redirect_uri. Detrás del proxy de Railway viene por x-forwarded-*. */
+function redirectUri(req: Request): string {
+  return `${req.protocol}://${req.get('host')}/api/marketing/tiktok/callback`;
+}
+
+router.get(
+  '/tiktok/status',
+  requirePermission('marketing:ver'),
+  asyncRoute(async (req, res) => {
+    const estado = await estadoCredencial();
+    res.json({ ...estado, appConfigurada: Boolean(config.tiktok.clientKey && config.tiktok.clientSecret), redirectUri: redirectUri(req) });
+  }),
+);
+
+router.get(
+  '/tiktok/authorize',
+  requirePermission('marketing:editar'),
+  asyncRoute(async (req, res) => {
+    if (!config.tiktok.clientKey || !config.tiktok.clientSecret) {
+      res.status(503).json({ message: 'Faltan TIKTOK_CLIENT_KEY y TIKTOK_CLIENT_SECRET en las variables del servidor: sin la app de TikTok no hay a qué autorizar.' });
+      return;
+    }
+    for (const [k, v] of estadosPendientes) if (v.hasta < Date.now()) estadosPendientes.delete(k);
+    const state = randomUUID();
+    estadosPendientes.set(state, { partnerId: req.partner!.id, hasta: Date.now() + STATE_TTL_MS });
+    res.json({ url: urlAutorizacion(redirectUri(req), state) });
+  }),
+);
+
+// Sin requireAuth: TikTok redirige el navegador acá y la cookie de Kaizen
+// viaja igual (same-site), pero la protección real es el state, no la sesión.
+router.get(
+  '/tiktok/callback',
+  asyncRoute(async (req, res) => {
+    const { code, state, error, error_description } = req.query as Record<string, string | undefined>;
+    const volver = (q: string) => res.redirect(`/?tiktok=${q}`);
+    if (error) {
+      await audit.log({ conversationId: null, actor: 'system', action: 'marketing:tiktok-autorizacion', resultSummary: `TikTok devolvió ${error}: ${error_description ?? ''}`, isError: true });
+      volver(`error&motivo=${encodeURIComponent(error_description ?? error)}`);
+      return;
+    }
+    const pendiente = state ? estadosPendientes.get(state) : undefined;
+    if (!code || !pendiente || pendiente.hasta < Date.now()) {
+      volver('error&motivo=' + encodeURIComponent('La autorización venció o no salió de Kaizen. Volvé a hacer clic en Conectar TikTok.'));
+      return;
+    }
+    estadosPendientes.delete(state!);
+    try {
+      const r = await canjearCodigo(code, redirectUri(req));
+      await audit.log({ conversationId: null, actor: `partner:${pendiente.partnerId}`, action: 'marketing:tiktok-autorizacion', resultSummary: `autorizada (open_id ${r.openId ?? '?'}, scopes ${r.scope})` });
+      volver('ok');
+    } catch (err) {
+      const m = err instanceof Error ? err.message : String(err);
+      await audit.log({ conversationId: null, actor: `partner:${pendiente.partnerId}`, action: 'marketing:tiktok-autorizacion', resultSummary: m.slice(0, 2000), isError: true });
+      volver(`error&motivo=${encodeURIComponent(m)}`);
     }
   }),
 );

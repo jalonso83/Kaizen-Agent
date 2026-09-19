@@ -242,6 +242,8 @@ export interface Delta {
   seguidores: number;
   publicaciones_totales: number;
   interacciones_promedio: number;
+  /** La mediana de la red: likes por pieza en Instagram, views por video en TikTok. */
+  mediana: number;
   tasa_engagement_pct: number | null;
 }
 
@@ -313,6 +315,7 @@ export function calcularDelta(puntos: PuntoHistorico[], dias: number): Delta | n
     seguidores: ultimo.seguidores - base.seguidores,
     publicaciones_totales: ultimo.publicaciones_totales - base.publicaciones_totales,
     interacciones_promedio: redondear(ultimo.interacciones_promedio - base.interacciones_promedio),
+    mediana: redondear(ultimo.likes_mediana - base.likes_mediana),
     tasa_engagement_pct:
       ultimo.tasa_engagement_pct !== null && base.tasa_engagement_pct !== null
         ? redondear(ultimo.tasa_engagement_pct - base.tasa_engagement_pct, 2)

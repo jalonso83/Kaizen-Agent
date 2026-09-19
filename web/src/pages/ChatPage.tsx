@@ -61,7 +61,9 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Sección activa. Sin router (DISENO §10): son dos vistas dentro del mismo
   // layout, no dos rutas — el sidebar se queda donde está en ambas.
-  const [view, setView] = useState<Vista>('chat');
+  // Al volver del callback de TikTok (/?tiktok=ok|error) se abre Marketing
+  // directamente, que es donde está el aviso del resultado.
+  const [view, setView] = useState<Vista>(() => (new URLSearchParams(window.location.search).has('tiktok') ? 'marketing' : 'chat'));
   // Mensaje que se está editando. Vive acá y no en ChatView porque el cuadro
   // donde se corrige es el compositor, que es hermano de ChatView.
   const [editando, setEditando] = useState<{ id: string; texto: string } | null>(null);
