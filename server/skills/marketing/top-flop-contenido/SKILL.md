@@ -19,8 +19,12 @@ Una tabla de resultados no decide nada. Lo que decide es la pareja top/flop con 
 > ninguno de los 5 KPIs del funnel—, y los números son del instante en que se
 > lee, sin histórico.
 >
-> **TikTok: nada todavía.** Sus números siguen saliendo de Windsor y del panel
-> nativo.
+> **TikTok, parcial (2026-09-18):** `get_tiktok_profile` lee SOLO la cuenta de
+> FinZen (la Display API no lee terceros): seguidores, likes totales, videos, y
+> por video views/likes/comentarios/compartidos/duración, con mediana de views y
+> engagement sobre views calculados. **No trae** retención de video, alcance,
+> vistas de perfil ni taps al link: esos siguen en el panel nativo. Criterio en
+> `lectura-perfil-tiktok`.
 >
 > Para lo que la tool no trae, lo único que puedes hacer es aplicar el método a
 > números que el socio te pegue en el chat, o citar los que estén guardados en
@@ -29,7 +33,7 @@ Una tabla de resultados no decide nada. Lo que decide es la pareja top/flop con 
 
 ## 0. Antes de empezar
 
-1. `get_instagram_profile` con `publicaciones: 50` (la cuenta de FinZen): la lista de piezas con likes y comentarios, y el resumen con la mediana **por tipo** (REELS vs FEED). Solo hay pulso, así que el ranking que sale de acá es de atención, no de resultado; dilo así. Si el socio te pega alcance, retención o clicks del panel nativo, eso manda sobre los likes.
+1. `get_instagram_profile` con `publicaciones: 50` y `get_tiktok_profile` con `videos: 60` (las cuentas de FinZen); en TikTok el ranking es por **compartidos** y mediana de views, no por likes (skill `lectura-perfil-tiktok`). Instagram: la lista de piezas con likes y comentarios, y el resumen con la mediana **por tipo** (REELS vs FEED). Solo hay pulso, así que el ranking que sale de acá es de atención, no de resultado; dilo así. Si el socio te pega alcance, retención o clicks del panel nativo, eso manda sobre los likes.
 2. `search_cerebro("pausado")` y `search_cerebro("decisiones de contenido")` — no reproponer lo que ya se pausó ni relitigar lo cerrado.
 3. El output alimenta `propose_campaign` / `save_content_draft`, pero este skill NO los llama: primero la lectura, después la propuesta.
 

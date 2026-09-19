@@ -1,6 +1,6 @@
 # SKILLS.md — Los skills de Kaizen
 
-**Versión 1.3 · 2026-09-13** (v1.2: 2026-09-10 · v1.1: 2026-09-03 · v1.0: 2026-07-12)
+**Versión 1.4 · 2026-09-19** (v1.3: 2026-09-13 · (v1.2: 2026-09-10 · v1.1: 2026-09-03 · v1.0: 2026-07-12)
 
 Un **skill** es un playbook procedimental: instrucciones de *cómo hacer bien una
 tarea específica* del oficio de growth/marketing, que Kaizen carga bajo demanda
@@ -25,7 +25,7 @@ estructura lo refleja en vez de dejárselo al criterio del modelo:
 | Ámbito | Carpeta | De qué se habla | Tools propias |
 |---|---|---|---|
 | **finzen** — la app y su tablero (8 skills) | `server/skills/finzen/` | KPIs de la Agent API, segmentos, campañas internas por push, metas, retención, experimentos de producto | `get_kpis`, `get_campaign_results`, `list_segments`, `evaluate_segment`, `propose_campaign`, `create_campaign_draft`, `get_message_type_performance`, `propose_goal`, `get_active_goal`, `mark_goal_achieved` |
-| **marketing** — redes, contenido y pauta (8 skills) | `server/skills/marketing/` | Instagram (TikTok después), ideas y piezas de contenido, resultados de piezas, Meta Ads, los perfiles guardados en el apartado de Marketing | `save_content_draft`, `get_meta_campaigns`, `get_meta_spend`, `list_marketing_accounts`, `get_instagram_profile` |
+| **marketing** — redes, contenido y pauta (9 skills) | `server/skills/marketing/` | Instagram (TikTok después), ideas y piezas de contenido, resultados de piezas, Meta Ads, los perfiles guardados en el apartado de Marketing | `save_content_draft`, `get_meta_campaigns`, `get_meta_spend`, `list_marketing_accounts`, `get_instagram_profile` |
 | *(comunes)* | — | Sirven en los dos | `load_skill`, `search_cerebro`, `save_cerebro_note`, `list_cerebro_folders` |
 
 **La carpeta ES la clasificación del skill** (no hay campo en el frontmatter
@@ -142,7 +142,7 @@ alternativas, qué incluye el racional.
 9. **Un skill pertenece a un solo ámbito.** Si sirve en los dos, es que cubre
    dos oficios (regla 2): se parte.
 
-## Catálogo actual (16 skills)
+## Catálogo actual (17 skills)
 
 > Actualizado 2026-09-10 con la partición por ámbito. Se actualiza **en el
 > mismo PR** que agregue, quite o mueva uno.
@@ -173,7 +173,7 @@ partir de un número — esa capa faltaba entera hasta que Junior la entregó el
 | [`verificar-comparabilidad`](../server/skills/finzen/verificar-comparabilidad/SKILL.md) | **Siempre** antes de decir que algo subió o bajó |
 | [`lectura-experimentos`](../server/skills/finzen/lectura-experimentos/SKILL.md) | Al vencer la ventana de un experimento (H9, H13) o una campaña: veredicto con el pre-registro, y cierre del bucle escribiendo el aprendizaje al Cerebro |
 
-## Ámbito Marketing — `server/skills/marketing/` (8)
+## Ámbito Marketing — `server/skills/marketing/` (9)
 
 ### Acción y pauta
 
@@ -205,11 +205,12 @@ partir de un número — esa capa faltaba entera hasta que Junior la entregó el
 | [`umbrales-semaforo-social`](../server/skills/marketing/umbrales-semaforo-social/SKILL.md) | Semáforo verde/ámbar/rojo. **Los umbrales vigentes están PROPUESTOS y sin firmar** por Junior |
 | [`top-flop-contenido`](../server/skills/marketing/top-flop-contenido/SKILL.md) | Leer resultados de piezas publicadas y decidir qué se repite, pausa o prueba |
 
-### Lectura de la tool de Instagram (propio de Kaizen, 2026-09-13)
+### Lectura de las tools de redes (propio de Kaizen)
 
 | Skill | Cuándo lo usa Kaizen |
 |---|---|
 | [`lectura-perfil-instagram`](../server/skills/marketing/lectura-perfil-instagram/SKILL.md) | **Siempre después de `get_instagram_profile`**, antes de decirle al socio qué significa: orden de lectura (insights → tendencia → tasa y mediana → mezcla → pulso), referencias de tasa por tamaño de cuenta (dichas como referencia, nunca como semáforo), mediana vs promedio, cuándo un delta es ruido, las tres relaciones de insights (guardados/alcance, interacciones/alcance, taps → registros) y qué se puede afirmar de un competidor |
+| [`lectura-perfil-tiktok`](../server/skills/marketing/lectura-perfil-tiktok/SKILL.md) | **Siempre después de `get_tiktok_profile`** (2026-09-19). TikTok no se lee como Instagram: la base es quien vio el video (engagement sobre views, no sobre seguidores), la mediana de views es el nivel real, los compartidos son la señal más fuerte, un salto de seguidores de un día es un viral y no una tendencia, y lo que esta fuente no tiene (retención, alcance, taps) se dice en la primera línea |
 
 ⚠️ **Los skills de lectura abren con `search_cerebro`, y las notas de Cerebro de
 Junior todavía no están subidas a Drive** (verificado 2026-08-21). Mientras no

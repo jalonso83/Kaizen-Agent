@@ -589,8 +589,22 @@ autorizarla con la cuenta de FinZen, y cargar `TIKTOK_CLIENT_KEY`,
 `TIKTOK_CLIENT_SECRET` y `TIKTOK_REFRESH_TOKEN` en Railway. Nada de esto
 corrió contra TikTok real.
 
-**Lo que sigue:** competidores de TikTok por proveedor (decisión del CTO), y
-el skill de lectura de TikTok cuando haya datos reales que interpretar.
+**Completado el 2026-09-19, al revisar "¿es todo?":** faltaba el criterio.
+Skill `lectura-perfil-tiktok` (la base es quien vio el video, no quien sigue;
+mediana de views; compartidos como señal fuerte; un salto de seguidores de un
+día es un viral, no tendencia; lo que la Display API no da —retención,
+alcance, taps— se dice primero). La tool y la nota que viaja con el dato
+remiten a él en vez de al de Instagram. Los cuatro skills sociales ya no dicen
+"TikTok: nada todavía"; `lectura-kpis-social` y `top-flop-contenido` lo usan
+en su §0; el cron semanal lee TikTok en la sección "Redes y pauta".
+
+**Límite que queda, y no es de Kaizen:** la Display API no da retención de
+video, alcance, vistas de perfil ni taps al link — el equivalente de los
+insights de Instagram. Eso vive en el panel nativo y en el Business API de
+TikTok, una integración aparte (cuenta Business + acceso a Marketing API) que
+se evalúa cuando haya datos reales de la Display API.
+
+**Lo que sigue:** competidores de TikTok por proveedor (decisión del CTO).
 
 ---
 

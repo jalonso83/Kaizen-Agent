@@ -19,8 +19,12 @@ Un número solo es señal cuando sobrevive tres preguntas: ¿mide lo mismo que s
 > ninguno de los 5 KPIs del funnel—, y los números son del instante en que se
 > lee, sin histórico.
 >
-> **TikTok: nada todavía.** Sus números siguen saliendo de Windsor y del panel
-> nativo.
+> **TikTok, parcial (2026-09-18):** `get_tiktok_profile` lee SOLO la cuenta de
+> FinZen (la Display API no lee terceros): seguidores, likes totales, videos, y
+> por video views/likes/comentarios/compartidos/duración, con mediana de views y
+> engagement sobre views calculados. **No trae** retención de video, alcance,
+> vistas de perfil ni taps al link: esos siguen en el panel nativo. Criterio en
+> `lectura-perfil-tiktok`.
 >
 > Para lo que la tool no trae, lo único que puedes hacer es aplicar el método a
 > números que el socio te pegue en el chat, o citar los que estén guardados en
@@ -30,7 +34,7 @@ Un número solo es señal cuando sobrevive tres preguntas: ¿mide lo mismo que s
 ## 0. Antes de empezar
 
 1. `search_cerebro("rupturas de serie")` y `search_cerebro("definiciones de métricas")` — sin esto no se compara nada.
-2. `get_instagram_profile` (sin parámetros: la cuenta de FinZen) para seguidores y el pulso de las últimas piezas. Es una foto de hoy: para la referencia de 4 periodos previos necesitas lecturas anteriores en la conversación o números del Cerebro — si no los hay, dilo.
+2. `get_instagram_profile` y `get_tiktok_profile` (sin parámetros: las cuentas de FinZen) para seguidores y el pulso de las últimas piezas — con `lectura-perfil-instagram` / `lectura-perfil-tiktok` para el criterio de cada red, que NO es el mismo. Es una foto de hoy: para la referencia de 4 periodos previos necesitas lecturas anteriores en la conversación o números del Cerebro — si no los hay, dilo.
 3. `get_kpis` del periodo actual Y de los 4 periodos previos para los **registros atribuidos** (`acquisition.by_source`), que es el único KPI del funnel social que sí tiene tool (la referencia es la mediana, no solo la semana pasada).
 4. Si la lectura alimenta una campaña: `list_segments` después de leer, nunca antes.
 

@@ -14,7 +14,7 @@ import type { KaizenTool } from './guard';
 // ─────────────────────────────────────────────────────────────────────────
 
 const LECTURA_NOTE =
-  'CÓMO LEER ESTO: en TikTok la base es quien VIO el video, no quien sigue la cuenta (la distribución es por For You). Por eso `tasa_engagement_views_pct` (interacciones / views) es la tasa natural de esta red; ' +
+  'CÓMO LEER ESTO (el método completo está en el skill lectura-perfil-tiktok; cárgalo antes de interpretar): en TikTok la base es quien VIO el video, no quien sigue la cuenta (la distribución es por For You). Por eso `tasa_engagement_views_pct` (interacciones / views) es la tasa natural de esta red; ' +
   '`tasa_engagement_pct` (sobre seguidores) está solo para comparar con Instagram y suele dar números altos que no significan lo mismo. ' +
   '`views_mediana` es el nivel real de la cuenta: un video viral en la muestra multiplica el promedio. Interacciones = likes + comentarios + compartidos; los compartidos son la señal más fuerte. ' +
   'Los promedios y el top ya vienen calculados en `resumen_videos`: úsalos tal cual.';
@@ -29,7 +29,7 @@ export const getTiktokProfileTool: KaizenTool = {
   description:
     'Lee la cuenta de TikTok de FinZen (la guardada como propia en Marketing → Configuración): seguidores, seguidos, likes totales, videos totales, los últimos N videos con views/likes/comentarios/compartidos/duración, un resumen ya calculado (mediana de views, promedios, top 3 por views, ritmo) y el `historico` con deltas a 7 y 30 días. ' +
     'SOLO la cuenta propia: TikTok no permite leer perfiles ajenos por su API; si el socio pide un competidor, di que no hay forma oficial y que queda para un proveedor de datos. ' +
-    'LLÁMALA SIEMPRE antes de afirmar cualquier cifra de TikTok, y carga lectura-perfil-instagram para el criterio general de pulso vs funnel (aplica igual). Es lo mismo que muestra el Dashboard.',
+    'LLÁMALA SIEMPRE antes de afirmar cualquier cifra de TikTok, y carga el skill lectura-perfil-tiktok ANTES de interpretar: TikTok no se lee como Instagram (la base es quien vio el video, no quien sigue; un viral distorsiona todo). Es lo mismo que muestra el Dashboard.',
   inputSchema: {
     type: 'object',
     properties: {

@@ -19,8 +19,12 @@ Un umbral definido después de ver el resultado no es un umbral: es una racional
 > ninguno de los 5 KPIs del funnel—, y los números son del instante en que se
 > lee, sin histórico.
 >
-> **TikTok: nada todavía.** Sus números siguen saliendo de Windsor y del panel
-> nativo.
+> **TikTok, parcial (2026-09-18):** `get_tiktok_profile` lee SOLO la cuenta de
+> FinZen (la Display API no lee terceros): seguidores, likes totales, videos, y
+> por video views/likes/comentarios/compartidos/duración, con mediana de views y
+> engagement sobre views calculados. **No trae** retención de video, alcance,
+> vistas de perfil ni taps al link: esos siguen en el panel nativo. Criterio en
+> `lectura-perfil-tiktok`.
 >
 > Para lo que la tool no trae, lo único que puedes hacer es aplicar el método a
 > números que el socio te pegue en el chat, o citar los que estén guardados en

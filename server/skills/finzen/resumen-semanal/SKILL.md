@@ -20,7 +20,8 @@ un vertedero de números.
 5. **Marketing** (es el otro ámbito, pero el resumen es uno solo):
    `list_marketing_accounts` → `get_instagram_profile` de la cuenta de FinZen
    (y hasta 3 competidores guardados) + el skill `lectura-perfil-instagram`
-   para el criterio; `get_meta_spend` de la semana si Meta está configurado.
+   para el criterio; `get_tiktok_profile` de la cuenta de FinZen + el skill
+   `lectura-perfil-tiktok` (otro criterio: mediana de views y compartidos); `get_meta_spend` de la semana si Meta está configurado.
    La comparación semanal de Instagram es `historico.delta_7d` (si es `null`,
    no hay lectura de hace 7 días: se dice, no se estima). Si algo no está
    configurado o falta un permiso, la sección lo dice en una línea — **se
@@ -48,7 +49,9 @@ Instagram de FinZen: seguidores y su delta de 7 días (con la distancia real
 si no es 7), tasa de engagement y mediana de likes con la referencia de
 tamaño dicha como referencia, y —si hay insights— alcance, guardados y taps
 al link. Los taps van AL LADO de los registros atribuidos a instagram de
-`get_kpis`: es el puente entre las redes y el negocio. Competidores guardados:
+`get_kpis`: es el puente entre las redes y el negocio. TikTok de FinZen: seguidores a 30 y 7 días
+(si hubo un salto, a qué video se debe), mediana de views, engagement sobre
+views y lo más compartido. Competidores guardados (solo Instagram):
 una línea cada uno, tasa comparada por tamaño, nada de "les va mejor". Meta:
 gasto de la semana en la moneda de la cuenta y qué campañas gastaron de
 verdad (`effective_status`); el CAC combinado SOLO si los nombres de campaña
