@@ -294,6 +294,11 @@ model DailyCampaignConfig {
   id             Int      @id @default(1)
   enabled        Boolean  @default(false)
   cronHour       Int      @default(9) // 0-23, hora de República Dominicana
+  // Cómo se entrega: 'tarjeta' (la propuesta espera Confirmar/Rechazar en el
+  // chat) o 'directo' (el job confirma en código y crea el borrador en FinZen,
+  // donde un humano lo aprueba en el panel). 'directo' es una decisión de
+  // ADMIN tomada desde Configuración; el modelo nunca la elige.
+  modo           String   @default("tarjeta")
   // La conversación donde cae la tarjeta. Nullable: si el socio la borra, la
   // corrida se omite avisando, no crea una conversación por su cuenta.
   conversationId String?

@@ -8,6 +8,7 @@ import { DAILY_CAMPAIGN_TOOL_LIST } from '../agent/tools';
 import { listSegments } from '../clients/finzenApi';
 import { runningConversations } from '../services/runningConversations';
 import { TZ_RD, todayInRD } from '../util/fecha';
+import { CONFIRMADO_AUTO, confirmarYCrearBorrador } from '../services/confirmarPropuesta';
 
 // ─────────────────────────────────────────────────────────────────────────
 // La campaña diaria (2026-09-20).
@@ -31,6 +32,13 @@ import { TZ_RD, todayInRD } from '../util/fecha';
 //      propose_campaign (segment_count contra evaluate_segment, lectura del
 //      Cerebro) aplican solos: la evidencia es el audit log de esa conversación.
 //
+// MODO DIRECTO (config.modo = 'directo'): después de la corrida, si quedó una
+// tarjeta PROPOSED de esta corrida, ESTE código (no el modelo) la confirma
+// como 'auto:daily-campaign' y dispara el turno que crea el borrador —el
+// mismo servicio que usa el botón—. El borrador nace PENDING_APPROVAL en el
+// panel de FinZen, donde un humano lo aprueba. Es una puerta menos que en
+// modo tarjeta, elegida por un ADMIN en Configuración; Auditoría la marca.
+//
 // Si la conversación elegida está ocupada (el socio escribiendo justo en ese
 // momento), la corrida se omite y se audita; no se encola. Mañana hay otra.
 // ─────────────────────────────────────────────────────────────────────────
@@ -43,8 +51,14 @@ let scheduledTask: ScheduledTask | null = null;
 let isRunning = false;
 
 export type DailyCampaignResult =
-  | { ok: true; conversationId: string; permitidos: string[] }
+  | { ok: true; conversationId: string; permitidos: string[]; modo: string; borradorAutomatico: boolean }
   | { ok: false; omitido: string };
+
+/** Crea la conversación destino a nombre de quien configuró, con un título que dice qué es. */
+async function crearConversacionDestino(partnerId: string, titulo = 'Campañas diarias'): Promise<string> {
+  const c = await db.conversation.create({ data: { partnerId, title: titulo } });
+  return c.id;
+}
 
 /**
  * Los slugs que hoy se pueden proponer. Exportada para probarla sin BD ni
@@ -72,7 +86,7 @@ async function usadosEnDias(dias: number): Promise<string[]> {
   return slugs;
 }
 
-function buildPrompt(permitidos: string[], usados: string[], rotacionDias: number): string {
+function buildPrompt(permitidos: string[], usados: string[], rotacionDias: number, modo: string): string {
   return (
     `<evento_sistema>Corrida automática de la CAMPAÑA DIARIA (${todayInRD()}). Tu tarea: proponer UNA campaña hoy, en esta conversación, con la tarjeta de siempre; el socio la confirma o rechaza con los botones.\n\n` +
     `AUDIENCIA DE HOY — la regla es que cada día se propone a un segmento distinto. Segmentos permitidos hoy: ${permitidos.join(', ')}. ` +
@@ -83,7 +97,10 @@ function buildPrompt(permitidos: string[], usados: string[], rotacionDias: numbe
     `3. get_kpis de los últimos 7 días y get_campaign_results de los últimos 14, para el racional y para no repetir un mensaje que ya no funcionó. get_message_type_performance para elegir el tipo de mensaje.\n` +
     `4. Cargá copy-push y diseno-experimentos, y escribí en el chat 3-5 líneas: qué segmento elegiste y por qué HOY (con cifras de los tools), el Título y el Mensaje, y qué se va a medir. Después llamá a propose_campaign — UNA sola tarjeta, con el count exacto que devolvió evaluate_segment.\n` +
     `5. Si ningún segmento permitido tiene al menos ${MINIMO_ALCANZABLE} usuarios alcanzables, o los datos no muestran ninguna oportunidad clara, NO llames a propose_campaign: escribí en 2-3 líneas por qué hoy no hay campaña y qué mirarías mañana. Es una respuesta válida.\n\n` +
-    `NO llames a create_campaign_draft (no está disponible en esta corrida): el borrador se crea solo si el socio confirma la tarjeta. Si no hay meta vigente, decilo en una línea; no la propongas acá (propose_goal no está disponible), el socio la fija por chat.` +
+    (modo === 'directo'
+      ? `Esta corrida está en MODO DIRECTO: la tarjeta que registres se va a confirmar automáticamente y el borrador se creará en FinZen, donde un humano lo aprueba en el panel. Sé más exigente, no menos: ante la duda, no propongas. `
+      : '') +
+    `NO llames a create_campaign_draft (no está disponible en esta corrida): el borrador se crea solo después de la confirmación. Si no hay meta vigente, decilo en una línea; no la propongas acá (propose_goal no está disponible), el socio la fija por chat.` +
     `</evento_sistema>`
   );
 }
@@ -103,12 +120,25 @@ export async function runDailyCampaign(opts: { forzar?: boolean } = {}): Promise
     if (!config.anthropicApiKey) return await omitir('sin ANTHROPIC_API_KEY');
 
     const cfg = await db.dailyCampaignConfig.findUnique({ where: { id: 1 } });
-    if (!cfg?.enabled && !opts.forzar) return await omitir('la campaña diaria está apagada');
-    if (!cfg?.conversationId) return await omitir('no hay conversación destino configurada');
-
-    const conversacion = await db.conversation.findUnique({ where: { id: cfg.conversationId }, select: { id: true } });
-    if (!conversacion) return await omitir(`la conversación destino ${cfg.conversationId} ya no existe (¿se borró?); elegí otra en Configuración`);
-    if (runningConversations.has(cfg.conversationId)) return await omitir('la conversación destino está ocupada en este momento');
+    if (!cfg) return await omitir('la campaña diaria no está configurada');
+    if (!cfg.enabled && !opts.forzar) return await omitir('la campaña diaria está apagada');
+    // En modo directo no hace falta que el socio elija conversación: el job
+    // crea (o recrea) una a nombre de quien configuró. En modo tarjeta la
+    // conversación es la decisión del socio y sin ella no se corre.
+    let conversationId = cfg.conversationId;
+    const existe = conversationId ? await db.conversation.findUnique({ where: { id: conversationId }, select: { id: true } }) : null;
+    if (!existe) {
+      if (cfg.modo === 'directo' && cfg.updatedBy) {
+        conversationId = await crearConversacionDestino(cfg.updatedBy, 'Campañas diarias (automático)');
+        await db.dailyCampaignConfig.update({ where: { id: 1 }, data: { conversationId } });
+      } else if (!conversationId) {
+        return await omitir('no hay conversación destino configurada');
+      } else {
+        return await omitir(`la conversación destino ${conversationId} ya no existe (¿se borró?); elegí otra en Configuración`);
+      }
+    }
+    if (runningConversations.has(conversationId!)) return await omitir('la conversación destino está ocupada en este momento');
+    cfg.conversationId = conversationId!;
 
     // La rotación, en código.
     let catalogo: string[];
@@ -120,10 +150,11 @@ export async function runDailyCampaign(opts: { forzar?: boolean } = {}): Promise
     const usados = await usadosEnDias(cfg.rotacionDias);
     const permitidos = segmentosPermitidos(catalogo, usados);
 
+    const inicioCorrida = new Date();
     const abort = new AbortController();
     runningConversations.add(cfg.conversationId, abort);
     try {
-      await runAgentTurn(cfg.conversationId, buildPrompt(permitidos, usados, cfg.rotacionDias), undefined, abort.signal, {
+      await runAgentTurn(cfg.conversationId, buildPrompt(permitidos, usados, cfg.rotacionDias, cfg.modo), undefined, abort.signal, {
         toolList: DAILY_CAMPAIGN_TOOL_LIST,
         restricciones: { origen: 'diaria', segmentosPermitidos: permitidos },
         // Cerebro ×2 + list + evaluate ×3 + kpis + results + performance + skills ×3 + propose ≈ 13.
@@ -133,16 +164,36 @@ export async function runDailyCampaign(opts: { forzar?: boolean } = {}): Promise
       runningConversations.delete(cfg.conversationId);
     }
 
+    // Modo directo: la tarjeta de ESTA corrida se confirma en código y se crea
+    // el borrador. Solo una (propose_campaign deja SUPERSEDED las anteriores),
+    // solo si sigue PROPOSED, solo si nació en esta corrida.
+    let borradorAutomatico = false;
+    if (cfg.modo === 'directo') {
+      const tarjeta = await db.proposal.findFirst({
+        where: { conversationId: cfg.conversationId, status: 'PROPOSED', origen: 'diaria', createdAt: { gte: inicioCorrida } },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, conversationId: true },
+      });
+      if (tarjeta) {
+        await confirmarYCrearBorrador(tarjeta, {
+          confirmedBy: CONFIRMADO_AUTO,
+          actor: 'cron',
+          motivo: `campaña diaria en modo directo, configurado por ${cfg.updatedBy ?? '?'}`,
+        });
+        borradorAutomatico = true;
+      }
+    }
+
     await audit.log({
       conversationId: cfg.conversationId,
       actor: 'cron',
       action: 'cron:daily-campaign',
-      resultSummary: `corrió en ${Date.now() - startedAt}ms · permitidos: ${permitidos.join(', ')}${usados.length ? ` · excluidos: ${[...new Set(usados)].join(', ')}` : ''}`,
+      resultSummary: `corrió en ${Date.now() - startedAt}ms · modo ${cfg.modo}${borradorAutomatico ? ' · borrador creado automáticamente' : ''} · permitidos: ${permitidos.join(', ')}${usados.length ? ` · excluidos: ${[...new Set(usados)].join(', ')}` : ''}`,
       isError: false,
       durationMs: Date.now() - startedAt,
     });
-    console.log(`[daily-campaign] listo en ${Date.now() - startedAt}ms (conversación ${cfg.conversationId}).`);
-    return { ok: true, conversationId: cfg.conversationId, permitidos };
+    console.log(`[daily-campaign] listo en ${Date.now() - startedAt}ms (conversación ${cfg.conversationId}, modo ${cfg.modo}).`);
+    return { ok: true, conversationId: cfg.conversationId, permitidos, modo: cfg.modo, borradorAutomatico };
   } catch (e) {
     const motivo = e instanceof Error ? e.message : String(e);
     await audit.log({ conversationId: null, actor: 'cron', action: 'cron:daily-campaign', resultSummary: motivo.slice(0, 2000), isError: true, durationMs: Date.now() - startedAt });

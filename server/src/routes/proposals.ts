@@ -3,8 +3,8 @@ import { db } from '../db';
 import { requireAuth, requirePermission } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { audit } from '../services/audit';
-import { runAgentTurn } from '../agent/runner';
 import { persistUserText } from '../agent/history';
+import { confirmarYCrearBorrador } from '../services/confirmarPropuesta';
 import type { SseWriter } from '../agent/tools/guard';
 import { runningConversations } from '../services/runningConversations';
 
@@ -21,9 +21,14 @@ router.use(requireAuth);
 // Kaizen que PROPONGA una campaña no significa que pueda publicarla.
 router.use(requirePermission('campanas:confirmar'));
 
-/** Propuesta + ownership vía su conversación (nunca se confía en el :id a secas). */
+/**
+ * Propuesta + ownership vía su conversación (nunca se confía en el :id a secas).
+ * Excepción (2026-09-20): las propuestas de la campaña diaria (origen
+ * 'diaria') son del negocio, no del chat privado de un socio — cualquiera
+ * con campanas:confirmar puede decidirlas, también desde Auditoría.
+ */
 async function loadOwnedProposal(proposalId: string, partnerId: string) {
-  return db.proposal.findFirst({ where: { id: proposalId, conversation: { partnerId } } });
+  return db.proposal.findFirst({ where: { id: proposalId, OR: [{ conversation: { partnerId } }, { origen: 'diaria' }] } });
 }
 
 router.post('/:id/confirm', asyncRoute(async (req, res) => {
@@ -40,18 +45,6 @@ router.post('/:id/confirm', asyncRoute(async (req, res) => {
     res.status(409).json({ message: 'El agente ya está respondiendo en esta conversación — espera a que termine.' });
     return;
   }
-
-  // La transición la escribe ESTE endpoint y solo este — nunca una tool (§7).
-  await db.proposal.update({
-    where: { id: proposal.id },
-    data: { status: 'CONFIRMED', confirmedAt: new Date(), confirmedBy: req.partner!.id },
-  });
-  await audit.log({
-    conversationId: proposal.conversationId,
-    actor: `partner:${req.partner!.id}`,
-    action: 'proposal:confirmed',
-    input: { proposal_id: proposal.id },
-  });
 
   // Mismo patrón de streaming que POST /conversations/:id/messages — el turno
   // que crea el borrador se ve en vivo en la misma UI.
@@ -77,18 +70,11 @@ router.post('/:id/confirm', asyncRoute(async (req, res) => {
   // 2026-08-26). El 'close' de la RESPUESTA sí es el cliente desconectándose.
   res.on('close', () => clearInterval(heartbeat));
 
-  // Mensaje user sintético (§7) — el agente lo ve como si el socio lo hubiera
-  // escrito, y sabe exactamente qué tool le toca llamar.
-  const syntheticText =
-    `<evento_sistema>El socio confirmó la propuesta ${proposal.id} pulsando el botón. ` +
-    'Procede a crear el borrador con create_campaign_draft.</evento_sistema>';
-
-  runningConversations.add(proposal.conversationId, new AbortController());
+  // La transición la escribe código nuestro y solo código nuestro — nunca una
+  // tool (§7). Acá, con el id del socio que pulsó el botón.
   try {
-    await db.conversation.update({ where: { id: proposal.conversationId }, data: { updatedAt: new Date() } });
-    await runAgentTurn(proposal.conversationId, syntheticText, sse);
+    await confirmarYCrearBorrador(proposal, { confirmedBy: req.partner!.id, actor: `partner:${req.partner!.id}` }, sse);
   } finally {
-    runningConversations.delete(proposal.conversationId);
     clearInterval(heartbeat);
     res.end();
   }

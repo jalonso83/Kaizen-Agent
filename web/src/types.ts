@@ -298,6 +298,22 @@ export interface GateCampaign {
   error: string | null;
   /** Llegó a FinZen sin que ningún socio pulsara Confirmar. Nunca debería pasar. */
   sinConfirmacion: boolean;
+  /** Confirmada por el job de la campaña diaria en modo directo (configurado por un ADMIN), no por un clic. */
+  automatica: boolean;
+}
+
+/** Una tarjeta PROPOSED que espera decisión, vista desde Auditoría. */
+export interface PropuestaPendiente {
+  id: string;
+  titulo: string;
+  mensaje: string;
+  segmento: string;
+  segmentCount: number | null;
+  origen: string;
+  createdAt: string;
+  conversacion: { id: string; title: string };
+  /** Se puede decidir desde acá: es de la campaña diaria o de una conversación propia. */
+  decidible: boolean;
 }
 
 // ── Metas (server/src/routes/goalsHistory.ts) ─────────────────────────────
@@ -359,6 +375,9 @@ export interface AuditOverview {
     bloqueados: number;
     campanas: GateCampaign[];
     denegados: Array<{ id: string; resultSummary: string | null; createdAt: string }>;
+    /** Borradores creados por confirmación automática (campaña diaria en modo directo). */
+    automaticas: number;
+    pendientes: PropuestaPendiente[];
   };
 }
 
@@ -383,6 +402,8 @@ export type WeekMode = 'rolling' | 'calendar';
 export interface DailyCampaignConfig {
   enabled: boolean;
   cronHour: number; // 0-23, hora de RD
+  /** 'tarjeta' (espera Confirmar/Rechazar) o 'directo' (el job confirma y crea el borrador; FinZen lo aprueba en su panel). */
+  modo: 'tarjeta' | 'directo';
   conversationId: string | null;
   rotacionDias: number;
   conversacion: { id: string; title: string; esMia: boolean } | null;

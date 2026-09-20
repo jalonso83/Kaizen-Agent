@@ -116,7 +116,7 @@ router.post('/weekly-summary/run-now', asyncRoute(async (req, res) => {
 
 router.get('/daily-campaign', asyncRoute(async (req, res) => {
   const cfg = (await db.dailyCampaignConfig.findUnique({ where: { id: 1 } })) ?? {
-    id: 1, enabled: false, cronHour: 9, conversationId: null, rotacionDias: 7, updatedAt: null, updatedBy: null,
+    id: 1, enabled: false, cronHour: 9, modo: 'tarjeta', conversationId: null, rotacionDias: 7, updatedAt: null, updatedBy: null,
   };
   // La conversación destino tiene que existir y ser de quien configura (las
   // conversaciones son por socio; la tarjeta la ve su dueño). Si la borraron,
@@ -130,11 +130,16 @@ router.get('/daily-campaign', asyncRoute(async (req, res) => {
 router.put('/daily-campaign', asyncRoute(async (req, res) => {
   const enabled = req.body?.enabled;
   const cronHour = req.body?.cronHour;
-  const conversationId = req.body?.conversationId as string | null | undefined;
+  let conversationId = req.body?.conversationId as string | null | undefined;
   const rotacionDias = req.body?.rotacionDias ?? 7;
+  const modo = (req.body?.modo ?? 'tarjeta') as string;
 
   if (typeof enabled !== 'boolean') {
     res.status(400).json({ message: '"enabled" debe ser true o false.' });
+    return;
+  }
+  if (modo !== 'tarjeta' && modo !== 'directo') {
+    res.status(400).json({ message: '"modo" debe ser "tarjeta" o "directo".' });
     return;
   }
   const error =
@@ -143,6 +148,13 @@ router.put('/daily-campaign', asyncRoute(async (req, res) => {
   if (error) {
     res.status(400).json({ message: error });
     return;
+  }
+  // "Nueva conversación": la crea el servidor a nombre de quien configura y
+  // queda elegida hasta que alguien la cambie. Así el socio no tiene que
+  // salir del diálogo a crearla.
+  if (conversationId === '__nueva__') {
+    const nueva = await db.conversation.create({ data: { partnerId: req.partner!.id, title: 'Campañas diarias' } });
+    conversationId = nueva.id;
   }
   if (conversationId) {
     const conv = await db.conversation.findUnique({ where: { id: conversationId }, select: { partnerId: true } });
@@ -155,13 +167,15 @@ router.put('/daily-campaign', asyncRoute(async (req, res) => {
       return;
     }
   }
-  if (enabled && !conversationId) {
-    res.status(400).json({ message: 'Para encender la campaña diaria hace falta elegir la conversación donde va a caer la tarjeta.' });
+  // En modo tarjeta la conversación es la decisión del socio. En modo directo
+  // el job la crea solo si falta.
+  if (enabled && modo === 'tarjeta' && !conversationId) {
+    res.status(400).json({ message: 'Para encender la campaña diaria con tarjeta hace falta elegir la conversación donde va a caer (o "Nueva conversación").' });
     return;
   }
 
   const previo = await db.dailyCampaignConfig.findUnique({ where: { id: 1 } });
-  const data = { enabled, cronHour, conversationId: conversationId ?? null, rotacionDias };
+  const data = { enabled, cronHour, modo, conversationId: conversationId ?? null, rotacionDias };
   const updated = await db.dailyCampaignConfig.upsert({
     where: { id: 1 },
     update: { ...data, updatedBy: req.partner!.id },
@@ -171,9 +185,10 @@ router.put('/daily-campaign', asyncRoute(async (req, res) => {
   await audit.log({
     actor: `partner:${req.partner!.id}`,
     action: 'config:daily-campaign-updated',
-    input: { ...data, anterior: previo ? { enabled: previo.enabled, cronHour: previo.cronHour, conversationId: previo.conversationId, rotacionDias: previo.rotacionDias } : null },
+    input: { ...data, anterior: previo ? { enabled: previo.enabled, cronHour: previo.cronHour, modo: previo.modo, conversationId: previo.conversationId, rotacionDias: previo.rotacionDias } : null },
   });
-  res.json(updated);
+  const conv = updated.conversationId ? await db.conversation.findUnique({ where: { id: updated.conversationId }, select: { id: true, title: true, partnerId: true } }) : null;
+  res.json({ ...updated, conversacion: conv ? { id: conv.id, title: conv.title, esMia: conv.partnerId === req.partner!.id } : null });
 }));
 
 // Corrida manual: misma función que el cron. Con forzar, corre aunque esté
@@ -183,7 +198,7 @@ router.post('/daily-campaign/run-now', asyncRoute(async (req, res) => {
   await audit.log({
     actor: `partner:${req.partner!.id}`,
     action: 'config:daily-campaign-run-now',
-    resultSummary: result.ok ? `corrió en ${result.conversationId} · permitidos: ${result.permitidos.join(', ')}` : result.omitido,
+    resultSummary: result.ok ? `corrió en ${result.conversationId} · modo ${result.modo}${result.borradorAutomatico ? ' · borrador automático' : ''} · permitidos: ${result.permitidos.join(', ')}` : result.omitido,
     isError: !result.ok,
   });
   if (result.ok) {

@@ -13,3 +13,6 @@ CREATE TABLE "DailyCampaignConfig" (
 
     CONSTRAINT "DailyCampaignConfig_pkey" PRIMARY KEY ("id")
 );
+
+-- AlterTable (mismo día, misma migración: todavía no se aplicó en ningún lado)
+ALTER TABLE "DailyCampaignConfig" ADD COLUMN "modo" TEXT NOT NULL DEFAULT 'tarjeta';

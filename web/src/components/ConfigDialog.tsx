@@ -57,6 +57,7 @@ export function ConfigDialog({ onClose }: Props) {
   // Campaña diaria (2026-09-20). Se guarda junto con el resumen semanal en el
   // mismo botón Guardar, pero es otra configuración (otro endpoint).
   const [dcEnabled, setDcEnabled] = useState(false);
+  const [dcModo, setDcModo] = useState<'tarjeta' | 'directo'>('tarjeta');
   const [dcHour, setDcHour] = useState(9);
   const [dcConversationId, setDcConversationId] = useState<string | null>(null);
   const [dcRotacion, setDcRotacion] = useState(7);
@@ -82,6 +83,7 @@ export function ConfigDialog({ onClose }: Props) {
       .getDailyCampaignConfig()
       .then((cfg) => {
         setDcEnabled(cfg.enabled);
+        setDcModo(cfg.modo);
         setDcHour(cfg.cronHour);
         setDcRotacion(cfg.rotacionDias);
         // Si la conversación guardada ya no existe, se muestra vacío y se avisa.
@@ -106,7 +108,7 @@ export function ConfigDialog({ onClose }: Props) {
     setError(null);
     try {
       await api.updateWeeklySummaryConfig({ weekMode, weekStartDay, cronDay, cronHour });
-      await api.updateDailyCampaignConfig({ enabled: dcEnabled, cronHour: dcHour, conversationId: dcConversationId, rotacionDias: dcRotacion });
+      await api.updateDailyCampaignConfig({ enabled: dcEnabled, cronHour: dcHour, modo: dcModo, conversationId: dcConversationId, rotacionDias: dcRotacion });
       onClose();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo guardar la configuración.');
@@ -131,19 +133,6 @@ export function ConfigDialog({ onClose }: Props) {
     }
   };
 
-  /** Crea la conversación destino con un nombre claro y la deja elegida. */
-  const crearConversacionDiaria = async () => {
-    try {
-      const c = await api.createConversation();
-      const renombrada = await api.renameConversation(c.id, 'Campañas diarias');
-      setConversaciones((prev) => [renombrada, ...prev]);
-      setDcConversationId(renombrada.id);
-      setDcConvBorrada(false);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo crear la conversación.');
-    }
-  };
-
   // Misma función que el cron diario. Corre aunque esté apagada (para
   // probarla antes de encender), pero sobre la conversación GUARDADA: si se
   // cambió acá y no se guardó, se avisa.
@@ -154,7 +143,11 @@ export function ConfigDialog({ onClose }: Props) {
     try {
       const r = await api.runDailyCampaignNow();
       const conv = conversaciones.find((c) => c.id === r.conversationId);
-      setDcRunResult(`Listo — la propuesta de hoy quedó en "${conv?.title ?? r.conversationId}". Segmentos que podía elegir: ${r.permitidos.join(', ')}.`);
+      setDcRunResult(
+        r.borradorAutomatico
+          ? `Listo — modo directo: el borrador de hoy ya está en FinZen (pendiente de aprobación en su panel). El racional quedó en "${conv?.title ?? r.conversationId}". Segmentos que podía elegir: ${r.permitidos.join(', ')}.`
+          : `Listo — la propuesta de hoy quedó en "${conv?.title ?? r.conversationId}". Segmentos que podía elegir: ${r.permitidos.join(', ')}.`,
+      );
     } catch (err) {
       setDcRunError(err instanceof ApiError ? err.message : 'No se pudo generar la campaña.');
     } finally {
@@ -303,27 +296,41 @@ export function ConfigDialog({ onClose }: Props) {
                   onChange={setDcRotacion}
                 />
               </div>
-              <div className="config-schedule-row">
-                <div className="select-field" style={{ flex: 1 }}>
-                  <span className="select-label">Conversación donde cae la tarjeta:</span>
-                  <select
-                    className="config-native-select"
-                    value={dcConversationId ?? ''}
-                    onChange={(e) => { setDcConversationId(e.target.value || null); setDcConvBorrada(false); }}
-                  >
-                    <option value="">— elegir —</option>
-                    {conversaciones.map((c) => (
-                      <option key={c.id} value={c.id}>{c.title}</option>
-                    ))}
-                  </select>
+              <label className="config-radio">
+                <input type="radio" name="dcModo" checked={dcModo === 'tarjeta'} onChange={() => setDcModo('tarjeta')} />
+                <span>
+                  <strong>Mandar la tarjeta para aprobar</strong> — la propuesta espera Confirmar o Rechazar en el chat elegido (también desde Auditoría).
+                </span>
+              </label>
+              <label className="config-radio">
+                <input type="radio" name="dcModo" checked={dcModo === 'directo'} onChange={() => setDcModo('directo')} />
+                <span>
+                  <strong>Mandar directo al panel de FinZen</strong> — sin tarjeta: Kaizen crea el borrador en FinZen, donde igual lo aprueba un humano antes de enviarse. Es una puerta menos; Auditoría lo marca como automático.
+                </span>
+              </label>
+              {dcModo === 'tarjeta' && (
+                <div className="config-schedule-row">
+                  <div className="select-field" style={{ flex: 1 }}>
+                    <span className="select-label">Conversación donde cae la tarjeta:</span>
+                    <select
+                      className="config-native-select"
+                      value={dcConversationId ?? ''}
+                      onChange={(e) => { setDcConversationId(e.target.value || null); setDcConvBorrada(false); }}
+                    >
+                      <option value="">— elegir —</option>
+                      <option value="__nueva__">+ Nueva conversación (Kaizen la crea: "Campañas diarias")</option>
+                      {conversaciones.map((c) => (
+                        <option key={c.id} value={c.id}>{c.title}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <button type="button" className="dialog-cancel" onClick={() => void crearConversacionDiaria()} disabled={saving}>
-                  Crear "Campañas diarias"
-                </button>
-              </div>
+              )}
               {dcConvBorrada && <p className="config-error">La conversación que estaba elegida ya no existe. Elegí otra o creá una nueva.</p>}
               <p className="config-schedule-hint">
-                Horario UTC-4. Tiene que ser una conversación tuya: la tarjeta la ve quien es dueño del chat. Si esa conversación está en uso justo a esa hora, ese día se omite (queda en Auditoría).
+                Horario UTC-4. {dcModo === 'tarjeta'
+                  ? 'Tiene que ser una conversación tuya: la tarjeta la ve quien es dueño del chat, y ahí queda siempre hasta que la cambies. Si esa conversación está en uso justo a esa hora, ese día se omite (queda en Auditoría).'
+                  : 'En modo directo Kaizen trabaja en una conversación propia ("Campañas diarias (automático)") que crea sola si no existe; ahí queda el racional de cada borrador.'}
               </p>
               <div className="config-run-now">
                 <button type="button" className="dialog-cancel" onClick={handleDailyRunNow} disabled={dcRunning || saving}>

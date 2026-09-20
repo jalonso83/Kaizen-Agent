@@ -659,8 +659,30 @@ en Auditoría (`cron:daily-campaign`); si se borró, se avisa en Configuración.
 Y "no hay campaña hoy" es una respuesta válida: sin un segmento permitido de
 ≥50 alcanzables, Kaizen lo explica y no llama a la tool.
 
-Migración `20260920100000_daily_campaign` — **pendiente en Railway**. Tests
-109/109 (rotación y lista de tools). No probado con un modelo real todavía.
+**Mismo día, tres agregados a pedido del socio:**
+
+- **Modo de entrega** (`DailyCampaignConfig.modo`): `tarjeta` (lo de
+  arriba) o `directo`. En directo, después de la corrida **el job en código**
+  —no el modelo— confirma la tarjeta de esa corrida como
+  `auto:daily-campaign` y dispara el mismo turno que el botón
+  (`services/confirmarPropuesta.ts`, extraído de la ruta para que las dos
+  puertas sean una sola función): el borrador nace `PENDING_APPROVAL` en el
+  panel de FinZen, donde un humano lo aprueba. **Es una puerta menos**,
+  elegida por un ADMIN en Configuración; el prompt del job lo sabe y pide más
+  exigencia, no menos; Auditoría marca esos borradores con "A" y los cuenta
+  aparte (`automaticas`), y `sinConfirmacion` no los confunde con un salto
+  del gate. En modo directo el job crea su propia conversación ("Campañas
+  diarias (automático)") si no hay una.
+- **Las tarjetas pendientes en Auditoría**, con Confirmar/Rechazar. Las de
+  la campaña diaria (`origen = diaria`) son del negocio y las puede decidir
+  cualquiera con `campanas:confirmar`, también desde ahí; las de un chat ajeno
+  se ven pero se deciden en su chat (la ruta de confirmar lo verifica).
+- **"Nueva conversación" dentro del dropdown**: al guardar, el servidor la
+  crea a nombre de quien configura ("Campañas diarias") y queda elegida hasta
+  que alguien la cambie. El dropdown solo aparece en modo tarjeta.
+
+Migración `20260920100000_daily_campaign` (incluye `modo`) — **pendiente en
+Railway**. Tests 109/109. No probado con un modelo real todavía.
 
 **Lo que sigue:** competidores de TikTok por proveedor (decisión del CTO).
 

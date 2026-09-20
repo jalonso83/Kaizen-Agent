@@ -336,6 +336,14 @@ Necesita la migración `daily_campaign` aplicada y `ANTHROPIC_API_KEY`.
    no puede, la tool no está en su lista.
 5. **Sin oportunidad.** Con todos los segmentos permitidos bajo 50 usuarios,
    Kaizen tiene que escribir por qué no hay campaña hoy y NO dejar tarjeta.
+6. **Desde Auditoría.** La tarjeta pendiente aparece arriba, en "propuesta(s)
+   esperando decisión", con botones; confirmar desde ahí crea el borrador y
+   recarga el panel. Una tarjeta de un chat de otro socio se ve sin botones.
+7. **Modo directo.** Configuración → "Mandar directo al panel de FinZen" →
+   Guardar → Generar campaña ahora. Resultado: "el borrador de hoy ya está en
+   FinZen". En Auditoría: `proposal:auto-confirmed` y el borrador con "A"; el
+   contador de "sin confirmación" NO sube. En FinZen, el borrador está
+   PENDING_APPROVAL. Volver a modo tarjeta al terminar la prueba.
 
 ## 12. Marketing e Instagram
 

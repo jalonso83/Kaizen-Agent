@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
+import { esConfirmacionAutomatica } from '../services/confirmarPropuesta';
 import { requireAuth, requirePermission } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { resumenMeta } from '../agent/tools/goals';
@@ -38,10 +39,10 @@ async function ultimaCorrida(...acciones: string[]) {
   return { at: fila.createdAt, ok: !fila.isError, detail: fila.resultSummary ?? '' };
 }
 
-router.get('/overview', asyncRoute(async (_req, res) => {
+router.get('/overview', asyncRoute(async (req, res) => {
   const hace24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  const [resumenSemanal, indexado, errores24h, propuestas, denegados, socios, vigente] = await Promise.all([
+  const [resumenSemanal, indexado, errores24h, propuestas, denegados, socios, vigente, pendientes] = await Promise.all([
     ultimaCorrida('weekly-summary:done', 'weekly-summary:error'),
     // Tres acciones distintas para lo mismo: el job de cada 6h (done/error) y
     // el botón manual. Mirar solo la del botón hacía que la tarjeta mostrara la
@@ -67,6 +68,15 @@ router.get('/overview', asyncRoute(async (_req, res) => {
     }),
     db.partner.findMany({ select: { id: true, name: true } }),
     db.goal.findFirst({ where: { status: 'ACTIVE' }, orderBy: { confirmedAt: 'desc' } }),
+    // Las tarjetas que esperan una decisión, de cualquier conversación. Desde
+    // acá se pueden decidir las de la campaña diaria (origen 'diaria'); las
+    // del chat de otro socio se ven pero se deciden en su chat.
+    db.proposal.findMany({
+      where: { status: 'PROPOSED' },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: { id: true, payload: true, segmentCount: true, origen: true, createdAt: true, conversation: { select: { id: true, title: true, partnerId: true } } },
+    }),
   ]);
 
   const nombrePorId = new Map(socios.map((p) => [p.id, p.name]));
@@ -89,7 +99,12 @@ router.get('/overview', asyncRoute(async (_req, res) => {
       titulo: payload?.title ?? '(sin título)',
       status: p.status,
       confirmedAt: p.confirmedAt,
-      confirmadaPor: p.confirmedBy ? (nombrePorId.get(p.confirmedBy) ?? 'socio desconocido') : null,
+      confirmadaPor: p.confirmedBy
+        ? esConfirmacionAutomatica(p.confirmedBy)
+          ? 'automática (campaña diaria en modo directo)'
+          : (nombrePorId.get(p.confirmedBy) ?? 'socio desconocido')
+        : null,
+      automatica: esConfirmacionAutomatica(p.confirmedBy),
       executedAt: p.executedAt,
       finzenCampaignId: p.finzenCampaignId,
       error: p.error,
@@ -112,6 +127,19 @@ router.get('/overview', asyncRoute(async (_req, res) => {
       bloqueados: await db.auditLog.count({ where: { action: 'gate:denied' } }),
       campanas,
       denegados: denegados.map(serializable),
+      automaticas: campanas.filter((c) => c.automatica && c.finzenCampaignId).length,
+      pendientes: pendientes.map((p) => ({
+        id: p.id,
+        titulo: (p.payload as { title?: string }).title ?? '(sin título)',
+        mensaje: (p.payload as { message?: string }).message ?? '',
+        segmento: (p.payload as { segment_slug?: string }).segment_slug ?? '',
+        segmentCount: p.segmentCount,
+        origen: p.origen,
+        createdAt: p.createdAt,
+        conversacion: { id: p.conversation.id, title: p.conversation.title },
+        // Se puede decidir desde acá si es del negocio (diaria) o del propio socio.
+        decidible: p.origen === 'diaria' || p.conversation.partnerId === req.partner!.id,
+      })),
     },
   });
 }));

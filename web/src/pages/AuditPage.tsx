@@ -197,6 +197,23 @@ function agrupar(eventos: AuditEvent[]): Grupo[] {
 
 export function AuditPage() {
   const [overview, setOverview] = useState<AuditOverview | null>(null);
+  const [decidiendo, setDecidiendo] = useState<string | null>(null);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
+
+  /** Confirmar o rechazar una tarjeta desde acá; después se recarga el panel. */
+  const decidir = async (id: string, accion: 'confirmar' | 'rechazar') => {
+    setDecidiendo(id);
+    setDecisionError(null);
+    try {
+      if (accion === 'confirmar') await api.confirmarPropuestaBloqueante(id);
+      else await api.rechazarPropuesta(id);
+      setOverview(await api.getAuditOverview());
+    } catch (err) {
+      setDecisionError(err instanceof ApiError ? err.message : 'No se pudo aplicar la decisión.');
+    } finally {
+      setDecidiendo(null);
+    }
+  };
   const [eventos, setEventos] = useState<AuditEvent[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [nivel, setNivel] = useState<'important' | 'all'>('important');
@@ -290,6 +307,44 @@ export function AuditPage() {
             </div>
           </section>
 
+          {overview.gate.pendientes.length > 0 && (
+            <section className="audit-gate audit-pendientes">
+              <h2 className="audit-gate-title">{overview.gate.pendientes.length} propuesta(s) esperando decisión</h2>
+              <p className="audit-gate-sub">
+                Las de la campaña diaria se pueden decidir desde acá; las de un chat ajeno se deciden en su chat. Confirmar crea el borrador en FinZen (queda pendiente de aprobación en su panel).
+              </p>
+              {decisionError && <div className="banner-error">{decisionError}</div>}
+              <ul className="audit-gate-list">
+                {overview.gate.pendientes.map((p) => (
+                  <li key={p.id} className="audit-gate-row audit-pendiente">
+                    <div className="audit-pendiente-datos">
+                      <span className="audit-gate-name">
+                        {p.origen === 'diaria' && <span className="marketing-chip-red">diaria</span>}
+                        {p.titulo}
+                      </span>
+                      <span className="audit-pendiente-msg">&ldquo;{p.mensaje}&rdquo;</span>
+                      <span className="audit-gate-meta">
+                        {p.segmento}{p.segmentCount !== null ? ` · ${p.segmentCount.toLocaleString('es-DO')} usuarios` : ''} · {fechaHora(p.createdAt)} · en &ldquo;{p.conversacion.title}&rdquo;
+                      </span>
+                    </div>
+                    {p.decidible ? (
+                      <div className="audit-pendiente-acciones">
+                        <button type="button" className="usuarios-accion is-deshabilitar" disabled={decidiendo === p.id} onClick={() => void decidir(p.id, 'rechazar')}>
+                          Rechazar
+                        </button>
+                        <button type="button" className="dialog-confirm" disabled={decidiendo === p.id} onClick={() => void decidir(p.id, 'confirmar')}>
+                          {decidiendo === p.id ? 'Creando borrador…' : 'Confirmar'}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="audit-gate-meta">se decide en su chat</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className={`audit-gate${sinConfirmacion ? ' is-alert' : ''}`}>
             <h2 className="audit-gate-title">
               {sinConfirmacion
@@ -297,7 +352,8 @@ export function AuditPage() {
                 : 'Ningún borrador sin confirmar'}
             </h2>
             <p className="audit-gate-sub">
-              {overview.gate.borradoresCreados} borrador(es) creados en FinZen · {overview.gate.bloqueados} intento(s)
+              {overview.gate.borradoresCreados} borrador(es) creados en FinZen
+              {overview.gate.automaticas > 0 ? ` (${overview.gate.automaticas} por confirmación automática de la campaña diaria)` : ''} · {overview.gate.bloqueados} intento(s)
               bloqueados por el gate
             </p>
 
@@ -307,7 +363,7 @@ export function AuditPage() {
               <ul className="audit-gate-list">
                 {overview.gate.campanas.map((c) => (
                   <li key={c.id} className={c.sinConfirmacion ? 'audit-gate-row is-alert' : 'audit-gate-row'}>
-                    <span className="audit-gate-check">{c.sinConfirmacion ? '!' : '✓'}</span>
+                    <span className="audit-gate-check">{c.sinConfirmacion ? '!' : c.automatica ? 'A' : '✓'}</span>
                     <span className="audit-gate-name">{c.titulo}</span>
                     <span className="audit-gate-meta">
                       {c.confirmadaPor && c.confirmedAt

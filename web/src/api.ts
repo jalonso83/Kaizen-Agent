@@ -158,10 +158,26 @@ export const api = {
     }),
 
   getDailyCampaignConfig: () => request<DailyCampaignConfig>('/api/config/daily-campaign'),
-  updateDailyCampaignConfig: (cfg: { enabled: boolean; cronHour: number; conversationId: string | null; rotacionDias: number }) =>
+  updateDailyCampaignConfig: (cfg: { enabled: boolean; cronHour: number; modo: 'tarjeta' | 'directo'; conversationId: string | null; rotacionDias: number }) =>
     request<DailyCampaignConfig>('/api/config/daily-campaign', { method: 'PUT', body: JSON.stringify(cfg) }),
   runDailyCampaignNow: () =>
-    request<{ ok: true; conversationId: string; permitidos: string[] }>('/api/config/daily-campaign/run-now', { method: 'POST' }),
+    request<{ ok: true; conversationId: string; permitidos: string[]; modo: string; borradorAutomatico: boolean }>('/api/config/daily-campaign/run-now', { method: 'POST' }),
+
+  /**
+   * Confirmar desde Auditoría (sin ver el stream): el endpoint responde con
+   * SSE mientras Kaizen crea el borrador; acá se espera a que cierre y se
+   * recarga. Un error HTTP se lee del cuerpo antes de que empiece el stream.
+   */
+  confirmarPropuestaBloqueante: async (proposalId: string): Promise<void> => {
+    const res = await fetch(`/api/proposals/${proposalId}/confirm`, { method: 'POST', credentials: 'include' });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { message?: string };
+      throw new ApiError(res.status, body.message ?? `Error ${res.status}`);
+    }
+    await res.text();
+  },
+  rechazarPropuesta: (proposalId: string) =>
+    request<Proposal>(`/api/proposals/${proposalId}/reject`, { method: 'POST' }),
 
   runWeeklySummaryNow: () =>
     request<{ ok: true; from: string; to: string }>('/api/config/weekly-summary/run-now', { method: 'POST' }),
