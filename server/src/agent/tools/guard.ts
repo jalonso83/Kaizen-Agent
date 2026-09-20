@@ -24,6 +24,18 @@ export interface SseWriter {
 export interface ToolContext {
   conversationId: string | null; // null en la corrida del cron (resumen semanal)
   sse?: SseWriter; // ausente en corridas sin UI (cron, tests)
+  /**
+   * Límites que una corrida automática impone a sus tools (2026-09-20, campaña
+   * diaria). Son candados de código, no instrucciones: propose_campaign
+   * rechaza un segmento fuera de `segmentosPermitidos` aunque el modelo lo
+   * pida. Ausente en una conversación normal.
+   */
+  restricciones?: {
+    /** De dónde sale la propuesta; se guarda en Proposal.origen. */
+    origen: 'chat' | 'diaria';
+    /** Slugs que la corrida puede proponer hoy (la rotación de audiencias). */
+    segmentosPermitidos?: string[];
+  };
 }
 
 /**

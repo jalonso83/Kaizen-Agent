@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config';
 import { audit } from '../services/audit';
-import type { SseWriter, ToolContext } from './tools/guard';
+import type { KaizenTool, SseWriter, ToolContext } from './tools/guard';
 import { buildBetaTools } from './adapter';
 import { buildSystemPrompt } from './systemPrompt';
 import { injectDateContext } from './contexto';
@@ -80,6 +80,12 @@ export async function runAgentTurn(
    * mirando — gastando tokens y pudiendo dejar una tarjeta que ya no se quería.
    */
   signal?: AbortSignal,
+  /**
+   * Para corridas automáticas dentro de una conversación real (campaña diaria):
+   * qué tools puede usar, qué restricciones llevan, y cuántas vueltas tiene.
+   * Una conversación normal no pasa nada acá.
+   */
+  opciones?: { toolList?: KaizenTool[]; restricciones?: ToolContext['restricciones']; maxIterations?: number },
 ): Promise<void> {
   // (1) commit del mensaje del socio SIEMPRE, incluso si Kaizen no puede
   // responder (kill switch / sin key) — antes esto pasaba después de los
@@ -119,7 +125,7 @@ export async function runAgentTurn(
     // modelo no pueda perderla de vista entre mensajes.
     const meta = await activeGoal();
     injectDateContext(messages, new Date(), meta && { id: meta.id, resumen: resumenMeta(meta), desde: meta.confirmedAt });
-    const ctx: ToolContext = { conversationId, sse };
+    const ctx: ToolContext = { conversationId, sse, ...(opciones?.restricciones ? { restricciones: opciones.restricciones } : {}) };
     const tonoDeMarca = await getTonoDeMarca().catch(() => undefined); // nunca tumba el turno por esto
 
     const runner = getClient().beta.messages.toolRunner({
@@ -128,10 +134,10 @@ export async function runAgentTurn(
       thinking: { type: 'adaptive' }, // EXPLÍCITO — omitirlo = correr SIN thinking.
       // NO enviar temperature/top_p/top_k (dan 400 en Opus 4.8).
       system: buildSystemPrompt(tonoDeMarca),
-      tools: buildBetaTools(ctx),
+      tools: buildBetaTools(ctx, opciones?.toolList),
       messages,
       stream: true,
-      max_iterations: 12, // tope duro contra runaway loops (un flujo típico usa 3-5).
+      max_iterations: opciones?.maxIterations ?? 12, // tope duro contra runaway loops (un flujo típico usa 3-5).
     }, { signal });
 
     // Cuántos de runner.params.messages ya se guardaron. Sin este índice los

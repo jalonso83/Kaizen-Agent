@@ -43,7 +43,7 @@ export function ProposalCard({ proposal, onConfirm, onReject, puedeDecidir }: Pr
   return (
     <div className={`proposal-card status-${proposal.status.toLowerCase()}`}>
       <div className="proposal-header">
-        <span className="proposal-eyebrow">Propuesta de campaña</span>
+        <span className="proposal-eyebrow">{proposal.origen === 'diaria' ? 'Campaña diaria · propuesta automática' : 'Propuesta de campaña'}</span>
         <span className="proposal-status-pill">{STATUS_LABEL[proposal.status]}</span>
       </div>
 

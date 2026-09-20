@@ -86,6 +86,11 @@ model Proposal {
   // hueco, y la pantalla lo dice tal cual.
   goalId           String?
   goal             Goal?        @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  // De dónde salió: 'chat' (Kaizen la propuso en una conversación con el socio)
+  // o 'diaria' (la corrida automática de campaña diaria, 2026-09-20). Sirve
+  // para la rotación de audiencias: el job no repite un segmento que una
+  // campaña diaria ya usó en la última semana.
+  origen           String       @default("chat")
   createdAt        DateTime     @default(now())
 
   @@index([conversationId, status])
@@ -279,6 +284,23 @@ model MarketingLink {
   url       String
   updatedAt DateTime @updatedAt
   updatedBy String?
+}
+
+model DailyCampaignConfig {
+  // Singleton (id=1). La campaña diaria (2026-09-20): una vez al día, a la
+  // hora elegida, Kaizen propone UNA campaña en la conversación elegida, con
+  // una audiencia distinta cada día. La tarjeta se confirma o rechaza desde
+  // ese chat, con el mismo gate de siempre. Apagada por defecto.
+  id             Int      @id @default(1)
+  enabled        Boolean  @default(false)
+  cronHour       Int      @default(9) // 0-23, hora de República Dominicana
+  // La conversación donde cae la tarjeta. Nullable: si el socio la borra, la
+  // corrida se omite avisando, no crea una conversación por su cuenta.
+  conversationId String?
+  // Cuántos días sin repetir un segmento. 7 con un catálogo de 11 alcanza.
+  rotacionDias   Int      @default(7)
+  updatedAt      DateTime @updatedAt
+  updatedBy      String?
 }
 
 model WeeklySummaryConfig {

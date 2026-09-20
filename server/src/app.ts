@@ -15,6 +15,7 @@ import { startCerebroIndexJob } from './jobs/cerebroIndex';
 import { startWeeklySummaryCron } from './jobs/weeklySummary';
 import { startAcquisitionExportCron } from './jobs/acquisitionExport';
 import { startInstagramSnapshotCron } from './jobs/instagramSnapshot';
+import { startDailyCampaignCron } from './jobs/dailyCampaign';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Kaizen server — Fase 1: /health público; /api/auth, /api/conversations y
@@ -82,3 +83,9 @@ startAcquisitionExportCron();
 
 // Lectura diaria de los perfiles de Instagram guardados → histórico (2am RD). Solo agenda.
 startInstagramSnapshotCron();
+
+// Campaña diaria (hora configurable, apagada por defecto). Solo agenda; lee la
+// config de la BD, así que async y sin tumbar el arranque si falla.
+void startDailyCampaignCron().catch((err) => {
+  console.error('[daily-campaign] No se pudo programar el cron:', err instanceof Error ? err.message : err);
+});

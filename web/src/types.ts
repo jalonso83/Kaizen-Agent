@@ -238,6 +238,8 @@ export interface Proposal {
   segmentCount: number | null;
   expectedMeasurement: string | null;
   messageType: string | null;
+  /** 'chat' o 'diaria' (la corrida automática de campaña diaria). */
+  origen?: string;
   finzenCampaignId: string | null;
   confirmedAt: string | null;
   confirmedBy: string | null;
@@ -376,6 +378,15 @@ export interface AuditEvent {
 }
 
 export type WeekMode = 'rolling' | 'calendar';
+
+// Calca server/prisma/schema.prisma → model DailyCampaignConfig (+ la conversación resuelta).
+export interface DailyCampaignConfig {
+  enabled: boolean;
+  cronHour: number; // 0-23, hora de RD
+  conversationId: string | null;
+  rotacionDias: number;
+  conversacion: { id: string; title: string; esMia: boolean } | null;
+}
 
 // Calca server/prisma/schema.prisma → model WeeklySummaryConfig.
 export interface WeeklySummaryConfig {

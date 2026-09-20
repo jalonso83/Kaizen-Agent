@@ -314,6 +314,29 @@ llama a `search_cerebro` y vuelve a proponer. En Auditoría queda el
 `tool:search_cerebro`. Una búsqueda sin resultados no cuenta: si el Cerebro
 está vacío (indexador sin correr), la propuesta no pasa, y eso es correcto.
 
+## 11c. La campaña diaria
+
+Necesita la migración `daily_campaign` aplicada y `ANTHROPIC_API_KEY`.
+
+1. ⚙ Configuración → **Campaña diaria** → "Crear 'Campañas diarias'" (o elegir
+   una conversación propia) → Guardar. Encender es opcional para probar.
+2. **Generar campaña ahora.** Tarda un minuto. Abrir la conversación: tiene
+   que haber 3-5 líneas de Kaizen con el segmento elegido y por qué, y una
+   tarjeta rotulada "Campaña diaria · propuesta automática". En Auditoría:
+   `cron:daily-campaign` con los segmentos permitidos, y antes de
+   `tool:propose_campaign` tienen que estar `tool:search_cerebro` y
+   `tool:evaluate_segment` de esa conversación (los backstops).
+3. **Rotación.** Generar de nuevo al día siguiente (o de inmediato, para
+   probar): el segmento tiene que ser otro. En Auditoría, la fila del cron
+   lista el anterior como excluido. Si Kaizen intentara repetirlo, quedaría un
+   `tool:propose_campaign` con error "no está entre los segmentos permitidos".
+4. **El gate sigue igual.** Confirmar la tarjeta desde ese chat → turno normal
+   → `create_campaign_draft` → borrador PENDING_APPROVAL en FinZen. Rechazar →
+   Kaizen no insiste. En ningún caso el cron creó un borrador por su cuenta:
+   no puede, la tool no está en su lista.
+5. **Sin oportunidad.** Con todos los segmentos permitidos bajo 50 usuarios,
+   Kaizen tiene que escribir por qué no hay campaña hoy y NO dejar tarjeta.
+
 ## 12. Marketing e Instagram
 
 ### 12.0 Sin credenciales: el simulador de la Graph API (2026-09-14)

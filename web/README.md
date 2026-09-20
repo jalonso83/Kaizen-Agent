@@ -17,8 +17,10 @@ pestaña es cortesía, el servidor niega igual con 403):
 | Marketing | `marketing:ver` / `marketing:editar` | **Configuración**: perfiles de Instagram y TikTok que Kaizen puede leer (`MarketingAccount`, con selector de red) y enlaces de referencia a Meta y al sitio (`MarketingLink`). **Dashboard**: la lectura de cada perfil — seguidores, engagement, últimas piezas, insights de la cuenta propia, y la evolución con deltas a 7/30 días |
 | Usuarios | `usuarios:gestionar` | Alta, rol, habilitar/deshabilitar, restablecer contraseña |
 
-Además: ⚙ Configuración del resumen semanal (día/hora, "correr ahora",
-reindexar el Cerebro) y cambio de contraseña propia.
+Además: ⚙ Configuración — resumen semanal (día/hora, "generar reporte"),
+**campaña diaria** (encendido, hora, conversación destino, días sin repetir
+audiencia, "generar campaña ahora"), reindexar el Cerebro — y cambio de
+contraseña propia.
 
 **Corre en dev vía Vite** (`npm run dev`, puerto 5173) con proxy a
 `localhost:4000` — mismo origen, sin CORS, la cookie viaja normal. En

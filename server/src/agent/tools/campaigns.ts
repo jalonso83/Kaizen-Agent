@@ -323,6 +323,17 @@ export const proposeCampaignTool: KaizenTool = {
     // Backstop de la regla 9: hubo lectura del Cerebro en ESTA conversación.
     await verificarLecturaCerebro(ctx.conversationId);
 
+    // Backstop de la rotación (campaña diaria): la audiencia de hoy no puede
+    // ser una que una campaña diaria ya usó esta semana. La lista la calcula
+    // el job en código; acá solo se hace cumplir.
+    const permitidos = ctx.restricciones?.segmentosPermitidos;
+    if (permitidos && !permitidos.includes(campaignInput.segment_slug)) {
+      throw new Error(
+        `No puedo registrar la propuesta: "${campaignInput.segment_slug}" no está entre los segmentos permitidos para la campaña de hoy ` +
+          `(ya se usó en una campaña diaria reciente o no está en el catálogo). Elige uno de: ${permitidos.join(', ')}.`,
+      );
+    }
+
     // Bajo qué meta nace. Se lee ACÁ y no al ejecutar: entre proponer y crear
     // el borrador el socio puede cambiar la meta, y lo que hay que registrar es
     // la que estaba vigente cuando Kaizen decidió proponer esto.
@@ -343,6 +354,7 @@ export const proposeCampaignTool: KaizenTool = {
           expectedMeasurement,
           messageType,
           goalId: meta?.id ?? null,
+          origen: ctx.restricciones?.origen ?? 'chat',
         },
       });
     });

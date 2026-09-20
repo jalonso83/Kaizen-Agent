@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
-import type { WeekMode } from '../types';
+import type { ConversationSummary, WeekMode } from '../types';
 import { Select } from './Select';
 
 const DAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -54,6 +54,17 @@ export function ConfigDialog({ onClose }: Props) {
   const [reindexing, setReindexing] = useState(false);
   const [reindexError, setReindexError] = useState<string | null>(null);
   const [reindexResult, setReindexResult] = useState<string | null>(null);
+  // Campaña diaria (2026-09-20). Se guarda junto con el resumen semanal en el
+  // mismo botón Guardar, pero es otra configuración (otro endpoint).
+  const [dcEnabled, setDcEnabled] = useState(false);
+  const [dcHour, setDcHour] = useState(9);
+  const [dcConversationId, setDcConversationId] = useState<string | null>(null);
+  const [dcRotacion, setDcRotacion] = useState(7);
+  const [dcConvBorrada, setDcConvBorrada] = useState(false);
+  const [conversaciones, setConversaciones] = useState<ConversationSummary[]>([]);
+  const [dcRunning, setDcRunning] = useState(false);
+  const [dcRunError, setDcRunError] = useState<string | null>(null);
+  const [dcRunResult, setDcRunResult] = useState<string | null>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -67,6 +78,18 @@ export function ConfigDialog({ onClose }: Props) {
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'No se pudo cargar la configuración.'))
       .finally(() => setLoading(false));
+    api
+      .getDailyCampaignConfig()
+      .then((cfg) => {
+        setDcEnabled(cfg.enabled);
+        setDcHour(cfg.cronHour);
+        setDcRotacion(cfg.rotacionDias);
+        // Si la conversación guardada ya no existe, se muestra vacío y se avisa.
+        setDcConversationId(cfg.conversacion ? cfg.conversacion.id : null);
+        setDcConvBorrada(Boolean(cfg.conversationId && !cfg.conversacion));
+      })
+      .catch(() => { /* sin la tabla (migración pendiente) el bloque queda con defaults */ });
+    api.listConversations().then((r) => setConversaciones(r.conversations)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -83,6 +106,7 @@ export function ConfigDialog({ onClose }: Props) {
     setError(null);
     try {
       await api.updateWeeklySummaryConfig({ weekMode, weekStartDay, cronDay, cronHour });
+      await api.updateDailyCampaignConfig({ enabled: dcEnabled, cronHour: dcHour, conversationId: dcConversationId, rotacionDias: dcRotacion });
       onClose();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo guardar la configuración.');
@@ -104,6 +128,37 @@ export function ConfigDialog({ onClose }: Props) {
       setRunNowError(err instanceof ApiError ? err.message : 'No se pudo correr el resumen.');
     } finally {
       setRunningNow(false);
+    }
+  };
+
+  /** Crea la conversación destino con un nombre claro y la deja elegida. */
+  const crearConversacionDiaria = async () => {
+    try {
+      const c = await api.createConversation();
+      const renombrada = await api.renameConversation(c.id, 'Campañas diarias');
+      setConversaciones((prev) => [renombrada, ...prev]);
+      setDcConversationId(renombrada.id);
+      setDcConvBorrada(false);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'No se pudo crear la conversación.');
+    }
+  };
+
+  // Misma función que el cron diario. Corre aunque esté apagada (para
+  // probarla antes de encender), pero sobre la conversación GUARDADA: si se
+  // cambió acá y no se guardó, se avisa.
+  const handleDailyRunNow = async () => {
+    setDcRunning(true);
+    setDcRunError(null);
+    setDcRunResult(null);
+    try {
+      const r = await api.runDailyCampaignNow();
+      const conv = conversaciones.find((c) => c.id === r.conversationId);
+      setDcRunResult(`Listo — la propuesta de hoy quedó en "${conv?.title ?? r.conversationId}". Segmentos que podía elegir: ${r.permitidos.join(', ')}.`);
+    } catch (err) {
+      setDcRunError(err instanceof ApiError ? err.message : 'No se pudo generar la campaña.');
+    } finally {
+      setDcRunning(false);
     }
   };
 
@@ -144,7 +199,7 @@ export function ConfigDialog({ onClose }: Props) {
           Configuración
         </h2>
         <p className="dialog-message">
-          Definí qué semana cubre el resumen semanal automático de Kaizen y cuándo se genera.
+          El resumen semanal automático, la campaña diaria y el Cerebro.
         </p>
 
         {loading ? (
@@ -223,6 +278,63 @@ export function ConfigDialog({ onClose }: Props) {
               </p>
               {runNowResult && <p className="config-run-now-ok">{runNowResult}</p>}
               {runNowError && <p className="config-error">{runNowError}</p>}
+            </div>
+
+            <div className="config-schedule">
+              <p className="config-schedule-title">Campaña diaria</p>
+              <label className="config-check">
+                <input type="checkbox" checked={dcEnabled} onChange={(e) => setDcEnabled(e.target.checked)} />
+                <span>
+                  <strong>Proponer una campaña cada día</strong> — Kaizen elige una audiencia distinta cada día y deja la tarjeta en la conversación elegida. Vos la confirmás o rechazás desde ahí; nada sale a FinZen sin ese clic.
+                </span>
+              </label>
+              <div className="config-schedule-row">
+                <div className="select-field">
+                  <span className="select-label">Hora:</span>
+                  <div className="select-pair">
+                    <Select ariaLabel="Hora de la campaña diaria" compact value={to12h(dcHour).hour12} options={HOUR12_OPTIONS} onChange={(h12) => setDcHour(to24h(h12, to12h(dcHour).meridiem))} />
+                    <Select ariaLabel="AM o PM" compact value={to12h(dcHour).meridiem} options={MERIDIEM_OPTIONS} onChange={(m) => setDcHour(to24h(to12h(dcHour).hour12, m))} />
+                  </div>
+                </div>
+                <Select
+                  label="Sin repetir audiencia por:"
+                  value={dcRotacion}
+                  options={[3, 5, 7, 10, 14].map((d) => ({ value: d, label: `${d} días` }))}
+                  onChange={setDcRotacion}
+                />
+              </div>
+              <div className="config-schedule-row">
+                <div className="select-field" style={{ flex: 1 }}>
+                  <span className="select-label">Conversación donde cae la tarjeta:</span>
+                  <select
+                    className="config-native-select"
+                    value={dcConversationId ?? ''}
+                    onChange={(e) => { setDcConversationId(e.target.value || null); setDcConvBorrada(false); }}
+                  >
+                    <option value="">— elegir —</option>
+                    {conversaciones.map((c) => (
+                      <option key={c.id} value={c.id}>{c.title}</option>
+                    ))}
+                  </select>
+                </div>
+                <button type="button" className="dialog-cancel" onClick={() => void crearConversacionDiaria()} disabled={saving}>
+                  Crear "Campañas diarias"
+                </button>
+              </div>
+              {dcConvBorrada && <p className="config-error">La conversación que estaba elegida ya no existe. Elegí otra o creá una nueva.</p>}
+              <p className="config-schedule-hint">
+                Horario UTC-4. Tiene que ser una conversación tuya: la tarjeta la ve quien es dueño del chat. Si esa conversación está en uso justo a esa hora, ese día se omite (queda en Auditoría).
+              </p>
+              <div className="config-run-now">
+                <button type="button" className="dialog-cancel" onClick={handleDailyRunNow} disabled={dcRunning || saving}>
+                  {dcRunning ? 'Generando…' : 'Generar campaña ahora'}
+                </button>
+                <p className="config-run-now-hint">
+                  Corre la campaña diaria <strong>ahora</strong> sobre la conversación guardada, esté encendida o no. Guardá primero si cambiaste la conversación. Tarda un minuto: Kaizen lee el Cerebro, evalúa segmentos y arma la tarjeta.
+                </p>
+                {dcRunResult && <p className="config-run-now-ok">{dcRunResult}</p>}
+                {dcRunError && <p className="config-error">{dcRunError}</p>}
+              </div>
             </div>
 
             <div className="config-run-now">

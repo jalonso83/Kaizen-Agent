@@ -67,6 +67,18 @@ export const TOOL_LIST: KaizenTool[] = [
 const SOLO_CON_SOCIO = ['propose_campaign', 'create_campaign_draft', 'propose_goal', 'mark_goal_achieved'];
 export const CRON_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter((t) => !SOLO_CON_SOCIO.includes(t.name));
 
+/**
+ * La campaña diaria (2026-09-20) corre DENTRO de una conversación real, así
+ * que la tarjeta la ve un socio: puede usar propose_campaign. Lo que sigue
+ * fuera es lo que escribe hacia FinZen o cambia la meta: create_campaign_draft
+ * (solo después del clic del socio, en el turno que dispara el botón, que es
+ * una corrida normal) y las tools de metas. El cron pone la tarjeta; nunca el
+ * borrador.
+ */
+export const DAILY_CAMPAIGN_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter(
+  (t) => !['create_campaign_draft', 'propose_goal', 'mark_goal_achieved'].includes(t.name),
+);
+
 /** Registro por nombre, para despachar una llamada del modelo. */
 export const TOOLS: Record<string, KaizenTool> = Object.fromEntries(
   TOOL_LIST.map((t) => [t.name, t]),

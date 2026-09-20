@@ -623,6 +623,45 @@ se evalúa cuando haya datos reales de la Display API.
   es un viral.
 - El simulador acepta el canje de `code` para probar el flujo entero en local.
 
+### La campaña diaria (2026-09-20)
+
+Pedido del socio: que Kaizen proponga una campaña por día, con una audiencia
+distinta cada día, a la hora que se elija, y que la tarjeta caiga en un chat
+concreto donde se acepta o rechaza.
+
+**Cómo funciona.** `jobs/dailyCampaign.ts` corre a la hora configurada
+(`DailyCampaignConfig`, singleton; apagada por defecto; se enciende en ⚙
+Configuración junto al resumen semanal) **dentro de la conversación elegida**,
+como un turno más: manda un `<evento_sistema>` (invisible en la web) y Kaizen
+lee el Cerebro, evalúa 2-3 segmentos, escribe 3-5 líneas con el racional y
+llama a `propose_campaign`. La tarjeta es la de siempre, con un rótulo
+"Campaña diaria · propuesta automática"; confirmarla dispara el mismo flujo
+(turno normal → `create_campaign_draft`). "Generar campaña ahora" corre la
+misma función a mano.
+
+**Tres candados de código, no de prompt:**
+
+1. **Rotación.** El job calcula los segmentos permitidos = catálogo en vivo −
+   los usados por campañas diarias en los últimos N días (`Proposal.origen =
+   'diaria'`, columna nueva). La lista viaja en `ctx.restricciones` y
+   `propose_campaign` **rechaza** un slug fuera de ella aunque el modelo lo
+   pida. Si la rotación agota el catálogo, vuelve a empezar en vez de bloquear.
+2. **Tools de la corrida** (`DAILY_CAMPAIGN_TOOL_LIST`): las del cron semanal
+   más `propose_campaign`; sin `create_campaign_draft` ni metas. El cron pone
+   la tarjeta; el borrador en FinZen solo nace del clic del socio.
+3. **Los dos backstops de siempre aplican solos**: al correr en una
+   conversación real, `segment_count` se verifica contra `evaluate_segment` y
+   la lectura del Cerebro contra `search_cerebro` de esa misma conversación.
+
+Además: la conversación destino tiene que ser de quien configura (la tarjeta
+la ve el dueño del chat); si está ocupada a esa hora, el día se omite y queda
+en Auditoría (`cron:daily-campaign`); si se borró, se avisa en Configuración.
+Y "no hay campaña hoy" es una respuesta válida: sin un segmento permitido de
+≥50 alcanzables, Kaizen lo explica y no llama a la tool.
+
+Migración `20260920100000_daily_campaign` — **pendiente en Railway**. Tests
+109/109 (rotación y lista de tools). No probado con un modelo real todavía.
+
 **Lo que sigue:** competidores de TikTok por proveedor (decisión del CTO).
 
 ---

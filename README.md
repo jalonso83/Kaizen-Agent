@@ -39,7 +39,7 @@ Kaizen-Agent/
 ├── docs/                  # PRD, diseño de Fase 1, ESTADO (Fase 1) y ESTADO_FASE_2, SKILLS, cerebro/
 ├── server/
 │   ├── skills/            # 17 playbooks en dos ámbitos: finzen/ (8) y marketing/ (9) — ver docs/SKILLS.md
-│   ├── prisma/            # schema + 16 migraciones SQL (se aplican con prisma migrate deploy)
+│   ├── prisma/            # schema + 17 migraciones SQL (se aplican con prisma migrate deploy)
 │   ├── public/            # la web compilada (committeada; la regenera npm run build)
 │   └── src/
 │       ├── app.ts            # Express: rutas, estático de la web, arranque de los crons
@@ -48,7 +48,7 @@ Kaizen-Agent/
 │       ├── clients/          # finzenApi (Agent API) · drive · graphApi/metaApi/instagramApi · tiktokApi · vision · documentos
 │       ├── routes/           # auth · chat · proposals · goals · goalsHistory · audit · config · users · marketing
 │       ├── services/         # audit (append-only) · instagramAnalisis (un solo análisis para chat y dashboard) · acquisitionExport
-│       ├── jobs/             # cerebroIndex (boot + 6h) · weeklySummary (lunes) · acquisitionExport (lunes) · instagramSnapshot (diario)
+│       ├── jobs/             # cerebroIndex (boot + 6h) · weeklySummary (lunes) · acquisitionExport (lunes) · instagramSnapshot (diario) · dailyCampaign (diario, hora configurable)
 │       ├── agent/            # el loop, las 19 tools, el system prompt, los dos ámbitos, el loader de skills
 │       ├── tests/            # npm test (tsx --test): lógica pura, sin BD ni red
 │       └── scripts/          # seedPartners · chatCli (chat por consola) · testTools
@@ -91,9 +91,9 @@ Railway. Las de Meta/Instagram (`META_SYSTEM_TOKEN`, `META_AD_ACCOUNT_ID`,
 **No se aplican solas en el deploy** (el `start` es `node dist/app.js`; hay un
 commit del 19-jul que dice lo contrario y no lo hace). Quien administre Railway
 corre `railway run npx prisma migrate deploy` después de cada cambio en
-`server/prisma/migrations/`. A 2026-09-19 hay **una pendiente** en producción:
-`20260918100000_tiktok` (credencial e histórico de TikTok). La de los enlaces
-de Marketing se aplicó el 19-sep.
+`server/prisma/migrations/`. A 2026-09-20 hay **dos pendientes** en producción:
+`20260918100000_tiktok` (TikTok) y `20260920100000_daily_campaign` (la campaña
+diaria).
 
 ## Reglas del proyecto
 

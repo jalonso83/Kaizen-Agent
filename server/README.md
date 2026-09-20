@@ -64,9 +64,10 @@ unaccent), `WeeklySummaryConfig` (singleton), `MarketingAccount` (los
 perfiles de redes que Kaizen puede leer), `InstagramSnapshot` (una lectura
 por día por perfil: el histórico) y `MarketingLink` (los enlaces de
 referencia del apartado de Marketing, clave → URL), `TiktokCredential` (el
-refresh token vigente, que TikTok rota) y `TiktokSnapshot`.
+refresh token vigente, que TikTok rota) y `TiktokSnapshot`, y `DailyCampaignConfig` (la campaña diaria; `Proposal.origen`
+marca cuáles nacieron de ella).
 
-16 migraciones SQL en `prisma/migrations/` (escritas a mano; no hay shadow DB
+17 migraciones SQL en `prisma/migrations/` (escritas a mano; no hay shadow DB
 local). Se aplican con:
 
 ```bash
@@ -76,9 +77,10 @@ npx prisma migrate deploy
 ⚠️ **En Railway no corren solas**: el `start` es `node dist/app.js` y el
 `build` solo hace `prisma generate`. Hay un commit del 19-jul cuyo mensaje dice
 que sí y su diff no lo hace. Las de Marketing e Instagram se
-aplicaron el 2026-09-16; a 2026-09-19 está **pendiente**
+aplicaron el 2026-09-16; a 2026-09-20 están **pendientes**
 `20260918100000_tiktok` (credencial e histórico de TikTok; sin ella TikTok
-funciona en memoria y avisa). La de los enlaces se aplicó el 19-sep. Se aplica con `railway run npx prisma migrate
+funciona en memoria y avisa) y `20260920100000_daily_campaign` (la campaña
+diaria; sin ella el bloque de Configuración no guarda). Se aplica con `railway run npx prisma migrate
 deploy`. La propuesta de arreglo de raíz
 —`"start": "prisma migrate deploy && node dist/app.js"`— espera aprobación.
 
@@ -294,6 +296,7 @@ que sigue abierto es de otra naturaleza:
 | Tools de escritura en Meta | `create_meta_campaign_draft` entra cuando FinZen habilite `ads_management` — hoy solo lectura, y `META_WRITE_ENABLED=false` | `docs/ESTADO_FASE_2.md` |
 | Probar Instagram de verdad | Nada de Marketing corrió contra la Graph API real: faltan en Railway el token (`instagram_basic` + `pages_read_engagement`, y `instagram_manage_insights` para los insights), `INSTAGRAM_ACCOUNT_ID`, y las dos migraciones pendientes | `docs/ESTADO_FASE_2.md` |
 | TikTok | Necesita fuente antes que pantalla: API oficial para la cuenta propia, proveedor para terceros, nunca scraping. Decisión del CTO pendiente | documento entregado al CTO (fuera del repo) |
+| Campaña diaria con modelo real | Construida y probada en lógica pura; la primera corrida real (Generar campaña ahora) dirá si el prompt del job llega a la tarjeta dentro de 18 vueltas y si la rotación se lee bien | `docs/ESTADO_FASE_2.md` |
 | Cobertura de pruebas | `npm test` (98) cubre lógica pura: lista blanca, `segment_count`, ventana del Cerebro, visión, despacho de documentos, tono, permisos, parseo de Instagram, cliente de Instagram, análisis y deltas del histórico, ámbitos. El runner, el historial y el gate siguen probados a mano | §3.2 |
 
 ### 3.1 Los dos backstops de las reglas duras (2026-09-03)
@@ -341,6 +344,7 @@ aunque quien las corra tenga un `.env` con la lectura de imágenes encendida.
 | `instagram.test.ts` · `instagramApi.test.ts` | Parseo de URLs/handles; el campo `business_discovery`; errores traducidos |
 | `instagramTool.test.ts` | Resumen (mediana, interacciones, top, ritmo), deltas del histórico, ámbito y fallo legible sin credenciales |
 | `ambitos.test.ts` | Ningún skill suelto; cada tool y skill listado en su ámbito y no en el otro |
+| `dailyCampaign.test.ts` | La rotación de audiencias y que la corrida diaria pueda proponer pero no crear el borrador |
 | `tiktok.test.ts` | Parseo de URLs de TikTok, normalización de videos, resumen con mediana de views, errores traducidos, contrato de la tool |
 
 ---

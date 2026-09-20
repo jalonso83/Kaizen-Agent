@@ -4,6 +4,7 @@ import { requireAuth, requirePermission } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { audit } from '../services/audit';
 import { runWeeklySummary, startWeeklySummaryCron } from '../jobs/weeklySummary';
+import { runDailyCampaign, startDailyCampaignCron } from '../jobs/dailyCampaign';
 import { runCerebroIndex } from '../jobs/cerebroIndex';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -109,6 +110,87 @@ router.post('/weekly-summary/run-now', asyncRoute(async (req, res) => {
     return;
   }
   res.status(result.error.includes('en curso') ? 409 : 502).json({ message: result.error });
+}));
+
+// ── Campaña diaria (2026-09-20) ───────────────────────────────────────────
+
+router.get('/daily-campaign', asyncRoute(async (req, res) => {
+  const cfg = (await db.dailyCampaignConfig.findUnique({ where: { id: 1 } })) ?? {
+    id: 1, enabled: false, cronHour: 9, conversationId: null, rotacionDias: 7, updatedAt: null, updatedBy: null,
+  };
+  // La conversación destino tiene que existir y ser de quien configura (las
+  // conversaciones son por socio; la tarjeta la ve su dueño). Si la borraron,
+  // se devuelve el id igual pero con titulo null, y la interfaz lo dice.
+  const conv = cfg.conversationId
+    ? await db.conversation.findUnique({ where: { id: cfg.conversationId }, select: { id: true, title: true, partnerId: true } })
+    : null;
+  res.json({ ...cfg, conversacion: conv ? { id: conv.id, title: conv.title, esMia: conv.partnerId === req.partner!.id } : null });
+}));
+
+router.put('/daily-campaign', asyncRoute(async (req, res) => {
+  const enabled = req.body?.enabled;
+  const cronHour = req.body?.cronHour;
+  const conversationId = req.body?.conversationId as string | null | undefined;
+  const rotacionDias = req.body?.rotacionDias ?? 7;
+
+  if (typeof enabled !== 'boolean') {
+    res.status(400).json({ message: '"enabled" debe ser true o false.' });
+    return;
+  }
+  const error =
+    invalidInt(cronHour, 0, 23, 'cronHour', 'hora de RD, 0 = medianoche') ??
+    invalidInt(rotacionDias, 1, 30, 'rotacionDias', 'días sin repetir un segmento');
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+  if (conversationId) {
+    const conv = await db.conversation.findUnique({ where: { id: conversationId }, select: { partnerId: true } });
+    if (!conv) {
+      res.status(400).json({ message: 'La conversación elegida no existe.' });
+      return;
+    }
+    if (conv.partnerId !== req.partner!.id) {
+      res.status(400).json({ message: 'La conversación destino tiene que ser tuya: la tarjeta la ve el dueño de la conversación.' });
+      return;
+    }
+  }
+  if (enabled && !conversationId) {
+    res.status(400).json({ message: 'Para encender la campaña diaria hace falta elegir la conversación donde va a caer la tarjeta.' });
+    return;
+  }
+
+  const previo = await db.dailyCampaignConfig.findUnique({ where: { id: 1 } });
+  const data = { enabled, cronHour, conversationId: conversationId ?? null, rotacionDias };
+  const updated = await db.dailyCampaignConfig.upsert({
+    where: { id: 1 },
+    update: { ...data, updatedBy: req.partner!.id },
+    create: { id: 1, ...data, updatedBy: req.partner!.id },
+  });
+  await startDailyCampaignCron();
+  await audit.log({
+    actor: `partner:${req.partner!.id}`,
+    action: 'config:daily-campaign-updated',
+    input: { ...data, anterior: previo ? { enabled: previo.enabled, cronHour: previo.cronHour, conversationId: previo.conversationId, rotacionDias: previo.rotacionDias } : null },
+  });
+  res.json(updated);
+}));
+
+// Corrida manual: misma función que el cron. Con forzar, corre aunque esté
+// apagada (para probarla antes de encenderla), pero necesita la conversación.
+router.post('/daily-campaign/run-now', asyncRoute(async (req, res) => {
+  const result = await runDailyCampaign({ forzar: true });
+  await audit.log({
+    actor: `partner:${req.partner!.id}`,
+    action: 'config:daily-campaign-run-now',
+    resultSummary: result.ok ? `corrió en ${result.conversationId} · permitidos: ${result.permitidos.join(', ')}` : result.omitido,
+    isError: !result.ok,
+  });
+  if (result.ok) {
+    res.json(result);
+    return;
+  }
+  res.status(result.omitido.includes('en curso') || result.omitido.includes('ocupada') ? 409 : 400).json({ message: result.omitido });
 }));
 
 // Reindexado manual del Cerebro. El job corre al boot y cada 6h, así que sin

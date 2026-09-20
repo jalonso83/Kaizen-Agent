@@ -1434,3 +1434,12 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 }
 .marketing-aviso.is-ok { background: var(--signal-bg); border-left-color: var(--signal); }
 .marketing-aviso.is-ok strong { color: var(--signal); }
+
+/* Configuración · campaña diaria */
+.config-check { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 10px; }
+.config-check input { margin-top: 3px; accent-color: var(--signal); flex-shrink: 0; }
+.config-check strong { color: var(--text-primary); }
+.config-native-select {
+  font: inherit; font-size: 13px; color: var(--text-primary); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; width: 100%; max-width: 100%;
+}

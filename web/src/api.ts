@@ -4,6 +4,7 @@ import type {
   AnalisisTiktok,
   AuditOverview,
   CuentaMarketing,
+  DailyCampaignConfig,
   GoalHistory,
   ConversationSummary,
   Goal,
@@ -155,6 +156,12 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(cfg),
     }),
+
+  getDailyCampaignConfig: () => request<DailyCampaignConfig>('/api/config/daily-campaign'),
+  updateDailyCampaignConfig: (cfg: { enabled: boolean; cronHour: number; conversationId: string | null; rotacionDias: number }) =>
+    request<DailyCampaignConfig>('/api/config/daily-campaign', { method: 'PUT', body: JSON.stringify(cfg) }),
+  runDailyCampaignNow: () =>
+    request<{ ok: true; conversationId: string; permitidos: string[] }>('/api/config/daily-campaign/run-now', { method: 'POST' }),
 
   runWeeklySummaryNow: () =>
     request<{ ok: true; from: string; to: string }>('/api/config/weekly-summary/run-now', { method: 'POST' }),
