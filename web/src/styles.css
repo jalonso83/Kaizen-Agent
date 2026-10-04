@@ -1484,3 +1484,19 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .config-tab-desc { margin-top: 6px; }
 /* Dentro de una pestaña, el bloque es lo único que hay: sin la raya de arriba. */
 .config-form > .config-schedule:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+
+/* Tarjeta de anuncio · resultados y recomendación (2026-10-05) */
+.ad-resultados { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--border); }
+.ad-resultados-titulo { margin: 0; font-size: 12.5px; font-weight: 500; color: var(--text-primary); }
+.ad-resultados-titulo span { font-weight: 400; color: var(--text-muted); }
+.ad-resultados dd { font-variant-numeric: tabular-nums; }
+.ad-recomendacion { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: 8px; font-size: 12.5px; line-height: 1.5; }
+.ad-recomendacion p { margin: 0; color: var(--text-secondary); }
+.ad-recomendacion-pill { font-weight: 600; }
+.ad-recomendacion.is-seguir { background: var(--signal-bg); }
+.ad-recomendacion.is-seguir .ad-recomendacion-pill { color: var(--signal); }
+.ad-recomendacion.is-pausar { background: var(--danger-bg); }
+.ad-recomendacion.is-pausar .ad-recomendacion-pill { color: var(--danger); }
+.ad-recomendacion.is-cambiar_post { background: var(--amber-bg); }
+.ad-recomendacion.is-cambiar_post .ad-recomendacion-pill { color: var(--amber-fuerte); }
+.proposal-card a { color: var(--navy); }

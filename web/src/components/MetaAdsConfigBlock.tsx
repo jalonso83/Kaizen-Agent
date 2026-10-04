@@ -54,6 +54,8 @@ export function MetaAdsConfigBlock({ cfg, vista, conversaciones, onChange, desha
   const [corriendo, setCorriendo] = useState(false);
   const [resultado, setResultado] = useState<string | null>(null);
   const [errorCorrida, setErrorCorrida] = useState<string | null>(null);
+  const [leyendo, setLeyendo] = useState(false);
+  const [lectura, setLectura] = useState<string | null>(null);
   const [paisesTexto, setPaisesTexto] = useState(cfg.paises.join(', '));
   const set = (cambios: Partial<MetaAdsConfig>) => onChange({ ...cfg, ...cambios });
   const convBorrada = Boolean(vista.config?.conversationId && !vista.conversacion && cfg.conversationId === vista.config.conversationId);
@@ -79,6 +81,24 @@ export function MetaAdsConfigBlock({ cfg, vista, conversaciones, onChange, desha
       setErrorCorrida(err instanceof ApiError ? err.message : 'No se pudo correr la publicidad automática.');
     } finally {
       setCorriendo(false);
+    }
+  };
+
+  // El seguimiento corre solo a las 7am; esto lo adelanta (misma función).
+  const leerResultados = async () => {
+    setLeyendo(true);
+    setLectura(null);
+    try {
+      const r = await api.runAdResultsNow();
+      const partes = [`${r.leidos} anuncio(s) leído(s)`];
+      if (r.evaluados.length) partes.push(`evaluados: ${r.evaluados.join(', ')}`);
+      if (r.omitidos.length) partes.push(r.omitidos.join(' · '));
+      if (r.fallidos.length) partes.push(`fallaron: ${r.fallidos.join(' · ')}`);
+      setLectura(partes.join(' · '));
+    } catch (err) {
+      setLectura(err instanceof ApiError ? err.message : 'No se pudieron leer los resultados.');
+    } finally {
+      setLeyendo(false);
     }
   };
 
@@ -227,6 +247,16 @@ export function MetaAdsConfigBlock({ cfg, vista, conversaciones, onChange, desha
         </p>
         {resultado && <p className="config-run-now-ok">{resultado}</p>}
         {errorCorrida && <p className="config-error">{errorCorrida}</p>}
+      </div>
+
+      <div className="config-run-now">
+        <button type="button" className="dialog-cancel" onClick={leerResultados} disabled={leyendo || deshabilitado}>
+          {leyendo ? 'Leyendo…' : 'Leer resultados ahora'}
+        </button>
+        <p className="config-run-now-hint">
+          Kaizen lee cómo van sus anuncios todos los días a las 7am y, cuando uno cumple 7 días con gasto, deja su recomendación en la conversación del anuncio. Esto lo adelanta.
+        </p>
+        {lectura && <p className="config-run-now-ok">{lectura}</p>}
       </div>
     </div>
   );

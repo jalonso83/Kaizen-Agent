@@ -1478,6 +1478,30 @@ puede fallar.
 **Para encenderla:** migración `20261004100000_meta_ads`, `META_PAGE_ID`, token
 con `ads_management`, `META_WRITE_ENABLED=true`. Pruebas: `TESTING.md` §11d.
 
+## Seguimiento de los anuncios de Kaizen (2026-10-05)
+
+Kaizen proponía un anuncio y nunca se enteraba de si funcionó. Ahora:
+
+- **Todos los días a las 7am** (`jobs/adResults.ts`) se leen Meta (por día: gasto,
+  impresiones, alcance, clics al enlace) y FinZen (visitantes y clics únicos a
+  descargar con `utm_campaign` = nombre) para cada anuncio creado en su
+  ventana. El resultado se calcula en código (`services/resultadosAnuncios.ts`)
+  y se guarda en `AdProposal.resultado`. El primer día con gasto dice cuándo
+  lo activaron, porque activar es manual.
+- **A los 7 días con gasto**, el job corre un turno en la conversación del
+  anuncio con `AD_EVALUATION_TOOL_LIST`: Kaizen escribe el análisis y registra
+  `seguir`, `pausar` o `cambiar_post` (`record_meta_ad_evaluation`).
+- **La próxima propuesta aprende**: el prompt de la publicidad automática
+  incluye el historial calculado de los anuncios anteriores.
+- **El resumen semanal** lee `get_meta_ad_results`.
+
+Candados: no se evalúa con menos de 7 días con gasto ni con una lectura de más
+de 48 h; una recomendación no se sobrescribe; ninguna tool escribe en Meta.
+**No se llaman "registros" a los clics a descargar** (skill
+lectura-adquisicion-finzen §1): los campos se llaman como lo que son.
+
+Migración: `20261005100000_ad_results` (seis columnas en `AdProposal`).
+
 ## 🚧 Bloqueado — lo que solo puede aportar FinZen
 
 | Qué | Por qué hace falta |
@@ -1597,8 +1621,7 @@ Windows.
 4. **La prueba adversarial de Meta** — el equivalente de la del gate de Fase 1:
    intentar por chat que active una campaña o se pase del tope, y verificar en
    el audit log que no salió ni un POST.
-5. **Cerrar el loop externo** (PRD §2.4): reportar spend cruzado con CAC en el
-   resumen semanal. Las tools de lectura ya están disponibles para el cron.
+5. **Cerrar el loop externo** (PRD §2.4): hecho para los anuncios de Kaizen (2026-10-05, ver abajo). Para las campañas que cargan personas sigue pendiente validar el cruce de nombres.
 6. **Conceptos de contenido como Docs** (PRD §2.3).
 
 ---

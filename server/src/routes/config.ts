@@ -7,6 +7,7 @@ import { runWeeklySummary, startWeeklySummaryCron } from '../jobs/weeklySummary'
 import { runDailyCampaign, startDailyCampaignCron } from '../jobs/dailyCampaign';
 import { runCerebroIndex } from '../jobs/cerebroIndex';
 import { runMetaAds, startMetaAdsCron } from '../jobs/metaAds';
+import { runAdResults } from '../jobs/adResults';
 import { faltaParaCrear, validarConfigPublicidad } from '../services/publicidad';
 import { config as appConfig } from '../config';
 
@@ -319,6 +320,18 @@ router.post('/meta-ads/run-now', asyncRoute(async (req, res) => {
     return;
   }
   res.status(result.omitido.includes('en curso') || result.omitido.includes('ocupada') ? 409 : 400).json({ message: result.omitido });
+}));
+
+// Seguimiento manual de los anuncios: la misma función que el job de las 7am.
+router.post('/meta-ads/results-now', asyncRoute(async (req, res) => {
+  const r = await runAdResults();
+  await audit.log({
+    actor: `partner:${req.partner!.id}`,
+    action: 'config:ad-results-run-now',
+    resultSummary: `${r.leidos} leídos · ${r.evaluados.length} evaluados${r.fallidos.length ? ` · fallidos: ${r.fallidos.join(' · ')}` : ''}`,
+    isError: r.fallidos.length > 0,
+  });
+  res.json(r);
 }));
 
 // Reindexado manual del Cerebro. El job corre al boot y cada 6h, así que sin

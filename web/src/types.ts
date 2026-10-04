@@ -281,6 +281,34 @@ export interface AdProposal {
   createdAt: string;
   /** Link a la campaña en Ads Manager, cuando ya existe. Lo arma el servidor. */
   adsManager?: string | null;
+  // Seguimiento (2026-10-05): la última lectura y la recomendación de Kaizen.
+  resultado?: ResultadoAnuncio | null;
+  resultadoEn?: string | null;
+  activadaEn?: string | null;
+  recomendacion?: 'seguir' | 'pausar' | 'cambiar_post' | null;
+  recomendacionRazon?: string | null;
+  evaluadaEn?: string | null;
+}
+
+// Calca server/src/services/resultadosAnuncios.ts → ResultadoAnuncio.
+export interface ResultadoAnuncio {
+  estadoMeta: string;
+  desde: string;
+  hasta: string;
+  primerDiaConGasto: string | null;
+  diasConGasto: number;
+  gasto: number;
+  impresiones: number;
+  alcance: number;
+  clicsEnlace: number;
+  ctrPct: number | null;
+  costoPorClic: number | null;
+  cpm: number | null;
+  finzen: { visitantes: number; clicsDescarga: number } | null;
+  costoPorVisitante: number | null;
+  costoPorClicDescarga: number | null;
+  avisos: string[];
+  evaluable: boolean;
 }
 
 // Calca server/prisma/schema.prisma → model MetaAdsConfig.

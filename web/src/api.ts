@@ -189,6 +189,8 @@ export const api = {
   getMetaAdsConfig: () => request<MetaAdsVista>('/api/config/meta-ads'),
   updateMetaAdsConfig: (cfg: Omit<MetaAdsConfig, 'conversationId'> & { conversationId: string | null }) =>
     request<MetaAdsVista>('/api/config/meta-ads', { method: 'PUT', body: JSON.stringify(cfg) }),
+  runAdResultsNow: () =>
+    request<{ leidos: number; evaluados: string[]; omitidos: string[]; fallidos: string[] }>('/api/config/meta-ads/results-now', { method: 'POST' }),
   runMetaAdsNow: () =>
     request<{ ok: true; conversationId: string; tarjeta: string | null }>('/api/config/meta-ads/run-now', { method: 'POST' }),
 

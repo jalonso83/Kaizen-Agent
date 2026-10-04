@@ -186,6 +186,39 @@ app.get('/__ultimo', (_req, res) => {
   res.json(ultimo);
 });
 
+// ── Seguimiento de una campaña creada por Kaizen (2026-10-05) ─────────────
+// Las campañas creadas acá empiezan con 1202199. Datos deterministas para
+// que las pruebas afirmen cifras: los 2 primeros días de la ventana sin
+// gasto (todavía en pausa), después 8 días activos. Una campaña cuyo id
+// termina en 0000 "nunca se activó" (sin filas, PAUSED).
+const CAMPANA_KAIZEN = /^1202199\d+$/;
+
+app.get('/:campaignId/insights', (req, res, next) => {
+  const id = req.params.campaignId;
+  if (!CAMPANA_KAIZEN.test(id)) return next();
+  if (id.endsWith('0000')) return res.json({ data: [] });
+  let since = '2026-10-01';
+  try {
+    since = JSON.parse(String(req.query.time_range ?? '{}')).since ?? since;
+  } catch {
+    errorGraph(res, 400, 100, '(#100) Invalid parameter: time_range');
+    return;
+  }
+  const base = new Date(`${since}T12:00:00Z`);
+  const data = Array.from({ length: 8 }, (_, i) => {
+    const d = new Date(base.getTime() + (i + 2) * 86_400_000).toISOString().slice(0, 10);
+    // Todo string, como la real.
+    return { date_start: d, date_stop: d, spend: (4.5 + (i % 3) * 0.25).toFixed(2), impressions: String(1800 + i * 40), reach: String(1500 + i * 30), clicks: String(40 + i), inline_link_clicks: String(22 + i) };
+  });
+  res.json({ data, paging: { cursors: { before: 'MAZDZD', after: 'MQZDZD' } } });
+});
+
+app.get('/:campaignId', (req, res, next) => {
+  const id = req.params.campaignId;
+  if (!CAMPANA_KAIZEN.test(id)) return next();
+  res.json({ id, effective_status: id.endsWith('0000') ? 'PAUSED' : 'ACTIVE' });
+});
+
 // ── Instagram: business_discovery ─────────────────────────────────────────
 
 interface PerfilMock {

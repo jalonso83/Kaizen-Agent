@@ -420,3 +420,60 @@ export function urlAdsManager(campaignId: string): string {
   const act = config.meta.adAccountId.replace(/^act_/, '');
   return `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${act}&selected_campaign_ids=${campaignId}`;
 }
+
+// ── Seguimiento de una campaña (2026-10-05) ───────────────────────────────
+
+export interface DiaCampana {
+  fecha: string; // YYYY-MM-DD, zona de la CUENTA
+  gasto: number;
+  impresiones: number;
+  alcance: number;
+  /** Clics al enlace (inline_link_clicks): los que salen hacia el destino. */
+  clicsEnlace: number;
+  /** Todos los clics (incluye abrir el perfil, ver más, etc.). */
+  clics: number;
+}
+
+/**
+ * Métricas DIARIAS de una campaña. Diarias y no un total: el primer día con
+ * gasto es la única forma de saber cuándo alguien la activó (activar es
+ * manual, en Ads Manager), y la regla de los 7 días cuenta días con gasto.
+ * Meta solo devuelve los días que tuvieron actividad.
+ */
+export async function getDiasCampana(campaignId: string, since: string, until: string): Promise<DiaCampana[]> {
+  interface Pagina {
+    data: Array<Record<string, unknown>>;
+    paging?: { cursors?: { after?: string }; next?: string };
+  }
+  const num = (v: unknown) => (v == null ? 0 : Number(v));
+  const dias: DiaCampana[] = [];
+  let after: string | undefined;
+  for (let pagina = 0; pagina < 5; pagina++) {
+    const r = await request<Pagina>('GET', `/${campaignId}/insights`, {
+      fields: 'spend,impressions,reach,clicks,inline_link_clicks',
+      time_range: JSON.stringify({ since, until }),
+      time_increment: '1',
+      limit: '100',
+      ...(after ? { after } : {}),
+    });
+    for (const d of r.data ?? []) {
+      dias.push({
+        fecha: String(d.date_start ?? ''),
+        gasto: num(d.spend),
+        impresiones: num(d.impressions),
+        alcance: num(d.reach),
+        clicsEnlace: num(d.inline_link_clicks),
+        clics: num(d.clicks),
+      });
+    }
+    after = r.paging?.cursors?.after;
+    if (!after || !r.paging?.next) break;
+  }
+  return dias.sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+
+/** effective_status de una campaña: ACTIVE, PAUSED, CAMPAIGN_PAUSED, DELETED… */
+export async function getEstadoCampana(campaignId: string): Promise<string> {
+  const r = await request<{ effective_status?: string }>('GET', `/${campaignId}`, { fields: 'effective_status' });
+  return String(r.effective_status ?? 'DESCONOCIDO');
+}

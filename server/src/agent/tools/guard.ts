@@ -83,6 +83,8 @@ const LABELS: Record<string, string> = {
   get_instagram_profile: 'Leyendo el perfil de Instagram…',
   get_tiktok_profile: 'Leyendo la cuenta de TikTok…',
   propose_meta_ad: 'Preparando la tarjeta del anuncio…',
+  get_meta_ad_results: 'Leyendo cómo rindieron los anuncios…',
+  record_meta_ad_evaluation: 'Registrando la recomendación…',
 };
 
 function truncate(s: string, n = 2000): string {

@@ -164,6 +164,19 @@ async function main(): Promise<void> {
     }
   });
 
+  await caso('Seguimiento: métricas diarias y estado de una campaña de Kaizen (2026-10-05)', async () => {
+    const dias = await meta.getDiasCampana('120219912345678', '2026-10-04', '2026-10-14');
+    afirmar(dias.length === 8, `8 días con actividad (${dias.length})`);
+    afirmar(dias[0].fecha === '2026-10-06' && typeof dias[0].gasto === 'number', 'arranca 2 días después (estuvo en pausa) y los strings llegan como número');
+    afirmar(dias[0].clicsEnlace === 22 && dias[0].clics === 40, 'separa clics al enlace de todos los clics');
+    afirmar((await meta.getEstadoCampana('120219912345678')) === 'ACTIVE', 'estado ACTIVE');
+    const nunca = await meta.getDiasCampana('120219900000000', '2026-10-04', '2026-10-14');
+    afirmar(nunca.length === 0 && (await meta.getEstadoCampana('120219900000000')) === 'PAUSED', 'una que nadie activó: sin días y PAUSED');
+    const { calcularResultado } = await import('../services/resultadosAnuncios');
+    const r = calcularResultado('kaizen-ig-x', 'ACTIVE', '2026-10-04', '2026-10-14', dias, null);
+    afirmar(r.diasConGasto === 8 && r.evaluable && r.primerDiaConGasto === '2026-10-06', 'evaluable a los 8 días con gasto, activada el 6');
+  });
+
   await caso('Instagram: la cuenta propia', async () => {
     const p = await ig.getPerfil('finzenai', 25);
     afirmar(p.usuario === 'finzenai' && p.seguidores === 4820, `seguidores ${p.seguidores}`);

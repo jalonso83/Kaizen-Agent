@@ -117,3 +117,48 @@ así que el cruce con FinZen sí une para las campañas que crea Kaizen.
 
 **Si ningún post cumple, no propongas.** Es una respuesta válida y mejor que
 pagar para empujar una pieza mediocre.
+
+**Antes de proponer, mira cómo rindieron los anteriores** con
+get_meta_ad_results. Si un tipo de pieza (reel, carrusel) o un tema tuvo un
+costo por clic a descargar claramente peor que otro, no repitas lo que no
+funcionó sin decir por qué esta vez sería distinto.
+
+## 8. Evaluar un anuncio de Kaizen (get_meta_ad_results, record_meta_ad_evaluation)
+
+Los anuncios que propone Kaizen se pueden medir de punta a punta porque su
+nombre es su `utm_campaign`. get_meta_ad_results trae todo calculado en
+código: úsalo tal cual y no recalcules.
+
+**Qué significa cada número:**
+
+| Campo | Qué es | Trampa |
+|---|---|---|
+| `diasConGasto` | Días en que Meta cobró algo | Activar es manual: el primer día con gasto es cuándo la activaron |
+| `ctrPct`, `costoPorClic` | Sobre clics **al enlace**, no todos los clics | Miden el anuncio, no la app (§3) |
+| `finzen.visitantes` | Visitantes de la landing con ese utm_campaign | Si es mucho menor que `clicsEnlace`, se pierde gente entre el clic y la página (carga lenta, enlace roto) |
+| `finzen.clicsDescarga` | Clics **únicos** al botón Descargar | **No son registros ni suscripciones.** La atribución se puede perder en la tienda (lectura-adquisicion-finzen §2) |
+| `costoPorClicDescarga` | gasto / clics a descargar | La mejor medida que hay hoy del anuncio de punta a punta |
+
+**Cuándo evaluar:** con `evaluable: true` (7 días con gasto o más). Antes, la
+tool de evaluación lo rechaza; tú tampoco adelantes veredictos.
+
+**Contra qué comparar**, en este orden:
+1. Los otros anuncios de Kaizen (get_meta_ad_results sin ad_id).
+2. Las campañas pagadas de FinZen en get_meta_spend, con su CTR y CPC.
+3. Si no hay con qué comparar, dilo: "es el primero, no hay base". No
+   inventes un benchmark.
+
+**Las tres recomendaciones:**
+- **seguir:** el costo por clic a descargar es igual o mejor que la
+  comparación, y el gasto va según lo previsto.
+- **cambiar_post:** el CTR es bajo contra la comparación, pero la cadena
+  después del clic funciona (visitantes y clics a descargar en proporción).
+  Lo que falla es la pieza.
+- **pausar:** gasta sin traer clics a descargar, o el costo por clic a
+  descargar es varias veces peor que la comparación. También si visitantes
+  es casi cero con clics al enlace altos: hay algo roto en la landing y no
+  se arregla pagando más.
+
+**En la razón van las cifras** de la lectura y la comparación. Siempre
+termina con lo que tiene que hacer el socio: con seguir, nada; con pausar o
+cambiar_post, hacerlo en Ads Manager (tú no puedes).

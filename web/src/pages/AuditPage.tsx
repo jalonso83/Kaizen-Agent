@@ -53,6 +53,8 @@ const ACTION_LABELS: Record<string, string> = {
   'cron:meta-ads': 'Corrida de la publicidad automática',
   'config:meta-ads-updated': 'Cambió la configuración de publicidad',
   'config:meta-ads-run-now': 'Pidió un anuncio a mano',
+  'cron:ad-results': 'Seguimiento diario de los anuncios',
+  'config:ad-results-run-now': 'Leyó los resultados de los anuncios a mano',
 };
 
 function etiqueta(action: string): string {
@@ -388,6 +390,13 @@ export function AuditPage() {
                         {a.conversacion ? <> · en &ldquo;{a.conversacion.title}&rdquo;</> : null}
                       </span>
                       {a.status === 'ERROR' && a.error && <span className="audit-pendiente-msg">{a.error}</span>}
+                      {a.resultado?.primerDiaConGasto && (
+                        <span className="audit-gate-meta">
+                          {a.resultado.diasConGasto} días con gasto · {a.resultado.gasto} {a.moneda} gastados ·{' '}
+                          {a.resultado.finzen ? `${a.resultado.finzen.clicsDescarga} clics a descargar` : 'sin datos de FinZen'}
+                          {a.recomendacion ? ` · Kaizen recomienda: ${a.recomendacion === 'cambiar_post' ? 'probar otro post' : a.recomendacion}` : ''}
+                        </span>
+                      )}
                     </div>
                     {a.status === 'PROPOSED' ? (
                       a.decidible ? (

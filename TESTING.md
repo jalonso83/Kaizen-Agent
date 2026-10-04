@@ -386,6 +386,16 @@ más bajo posible.
    derechos), la tarjeta queda "Meta la rechazó" con los ids ya creados en
    pausa, y Auditoría marca la sección en rojo: hay que borrarlos a mano.
 
+7. **Seguimiento (2026-10-05).** Contra el simulador, `npm run test:graph`
+   incluye "Seguimiento: métricas diarias y estado". Con Meta real, después de
+   activar una campaña de prueba: Configuración → Publicidad en Meta → **Leer
+   resultados ahora**. La tarjeta pasa a "Activa en Meta · N días con gasto" con
+   gasto, clics al enlace, CTR y, de FinZen, visitantes y clics a descargar
+   (nunca "registros"). Con menos de 7 días dice cuántos faltan; a los 7, la
+   corrida deja el análisis de Kaizen en la conversación del anuncio y la
+   recomendación en la tarjeta. En Auditoría: `cron:ad-results`. Si se le pide
+   por chat que evalúe uno con 3 días, `record_meta_ad_evaluation` lo rechaza.
+
 ## 12. Marketing e Instagram
 
 ### 12.0 Sin credenciales: el simulador de la Graph API (2026-09-14)

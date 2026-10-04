@@ -28,6 +28,86 @@ function dinero(n: number, moneda: string): string {
   return `${n.toLocaleString('es-DO', { maximumFractionDigits: 2 })} ${moneda}`;
 }
 
+const RECOMENDACION_LABEL: Record<NonNullable<AdProposal['recomendacion']>, string> = {
+  seguir: 'Seguir',
+  pausar: 'Pausar',
+  cambiar_post: 'Probar otro post',
+};
+
+const ESTADO_META: Record<string, string> = {
+  ACTIVE: 'Activa en Meta',
+  PAUSED: 'Pausada en Meta',
+  CAMPAIGN_PAUSED: 'Pausada en Meta',
+  ADSET_PAUSED: 'Pausada en Meta',
+  DELETED: 'Borrada en Meta',
+  ARCHIVED: 'Archivada en Meta',
+};
+
+const num = (n: number) => n.toLocaleString('es-DO');
+
+/**
+ * Lo que trajo el anuncio (2026-10-05). Todo viene calculado del servidor
+ * (services/resultadosAnuncios.ts). "Clics a descargar" se llama así y no
+ * "registros" a propósito: es lo que es (skill lectura-adquisicion-finzen §1).
+ */
+function Resultados({ p }: { p: AdProposal }) {
+  const r = p.resultado!;
+  const faltan = Math.max(0, 7 - r.diasConGasto);
+  return (
+    <div className="ad-resultados">
+      <p className="ad-resultados-titulo">
+        {ESTADO_META[r.estadoMeta] ?? r.estadoMeta} · {r.diasConGasto} {r.diasConGasto === 1 ? 'día' : 'días'} con gasto
+        {p.resultadoEn && <span> · leído el {new Date(p.resultadoEn).toLocaleDateString('es-DO')}</span>}
+      </p>
+      <dl className="proposal-meta">
+        <div>
+          <dt>Gastado</dt>
+          <dd>{dinero(r.gasto, p.moneda)}</dd>
+        </div>
+        <div>
+          <dt>Impresiones</dt>
+          <dd>{num(r.impresiones)}</dd>
+        </div>
+        <div>
+          <dt>Clics al enlace</dt>
+          <dd>
+            {num(r.clicsEnlace)}
+            {r.ctrPct != null ? ` · CTR ${r.ctrPct}%` : ''}
+            {r.costoPorClic != null ? ` · ${dinero(r.costoPorClic, p.moneda)} c/u` : ''}
+          </dd>
+        </div>
+        {r.finzen && (
+          <div>
+            <dt>En la landing</dt>
+            <dd>
+              {num(r.finzen.visitantes)} visitantes · {num(r.finzen.clicsDescarga)} clics a descargar
+              {r.costoPorClicDescarga != null ? ` · ${dinero(r.costoPorClicDescarga, p.moneda)} c/u` : ''}
+            </dd>
+          </div>
+        )}
+      </dl>
+      {r.avisos.map((a) => (
+        <p key={a} className="proposal-note proposal-note-warning">{a}</p>
+      ))}
+      {p.recomendacion ? (
+        <div className={`ad-recomendacion is-${p.recomendacion}`}>
+          <span className="ad-recomendacion-pill">Kaizen recomienda: {RECOMENDACION_LABEL[p.recomendacion]}</span>
+          {p.recomendacionRazon && <p>{p.recomendacionRazon}</p>}
+          {p.recomendacion !== 'seguir' && p.adsManager && (
+            <a href={p.adsManager} target="_blank" rel="noreferrer">Hacerlo en Ads Manager</a>
+          )}
+        </div>
+      ) : (
+        <p className="proposal-note">
+          {faltan > 0
+            ? `Kaizen lo evalúa con 7 días con gasto: faltan ${faltan}. Antes, Meta todavía está aprendiendo.`
+            : 'Kaizen lo evalúa en la próxima lectura (todos los días a las 7am).'}
+        </p>
+      )}
+    </div>
+  );
+}
+
 interface Props {
   propuesta: AdProposal;
   onConfirm: (id: string) => void;
@@ -46,7 +126,13 @@ export function AdProposalCard({ propuesta: p, onConfirm, onReject, puedeDecidir
     <div className={`proposal-card status-${p.status.toLowerCase()}`}>
       <div className="proposal-header">
         <span className="proposal-eyebrow">{p.origen === 'programada' ? 'Anuncio en Meta · propuesta automática' : 'Anuncio en Meta'}</span>
-        <span className="proposal-status-pill">{ocupada ? 'Creando en Meta…' : STATUS_LABEL[p.status]}</span>
+        <span className="proposal-status-pill">
+          {ocupada
+            ? 'Creando en Meta…'
+            : p.status === 'CREATED_PAUSED' && p.resultado?.primerDiaConGasto
+              ? (ESTADO_META[p.resultado.estadoMeta] ?? p.resultado.estadoMeta)
+              : STATUS_LABEL[p.status]}
+        </span>
       </div>
 
       <p className="proposal-title">
@@ -93,7 +179,7 @@ export function AdProposalCard({ propuesta: p, onConfirm, onReject, puedeDecidir
           Al confirmar, Kaizen crea la campaña en Meta <strong>en pausa</strong>: no gasta nada hasta que alguien la active en Ads Manager.
         </p>
       )}
-      {p.status === 'CREATED_PAUSED' && (
+      {p.status === 'CREATED_PAUSED' && !p.resultado?.primerDiaConGasto && (
         <p className="proposal-note">
           Creada en pausa{p.fin ? `; si se activa, corre hasta el ${new Date(p.fin).toLocaleDateString('es-DO')}` : ''}.{' '}
           {p.adsManager && (
@@ -103,6 +189,7 @@ export function AdProposalCard({ propuesta: p, onConfirm, onReject, puedeDecidir
           )}
         </p>
       )}
+      {p.status === 'CREATED_PAUSED' && p.resultado?.primerDiaConGasto && <Resultados p={p} />}
       {p.status === 'EXPIRED' && <p className="proposal-note proposal-note-warning">La tarjeta venció: pedile a Kaizen una nueva con datos actuales.</p>}
       {p.error && <p className="proposal-note proposal-note-warning">{p.error}</p>}
 

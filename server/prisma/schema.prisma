@@ -339,44 +339,57 @@ model AdProposal {
   // qué se va a medir. Lo que NO elige, porque sale de la configuración en el
   // momento de proponer: presupuesto, duración, objetivo, destino y
   // segmentación. El modelo no tiene dónde escribir un presupuesto.
-  id                String        @id @default(cuid())
-  conversationId    String?
-  conversation      Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
-  status            String        @default("PROPOSED")
+  id                 String        @id @default(cuid())
+  conversationId     String?
+  conversation       Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  status             String        @default("PROPOSED")
   // 'chat' (Kaizen la propuso conversando) o 'programada' (la corrida de la
   // publicidad automática). Las programadas son del negocio: cualquiera con
   // publicidad:confirmar las decide, también desde Auditoría.
-  origen            String        @default("chat")
+  origen             String        @default("chat")
   // El post de Instagram de FinZen que se promociona, verificado en código
   // contra las publicaciones reales de la cuenta propia al proponer.
-  mediaId           String
-  mediaPermalink    String
-  mediaTipo         String?
-  mediaCaption      String? // inicio del caption, para la tarjeta
+  mediaId            String
+  mediaPermalink     String
+  mediaTipo          String?
+  mediaCaption       String? // inicio del caption, para la tarjeta
   // kaizen-ig-AAAAMMDD-<slug>. Es también el utm_campaign del destino: así el
   // gasto de Meta y la adquisición de FinZen unen por nombre sin adivinar.
-  nombre            String
-  objetivo          String // OUTCOME_TRAFFIC | OUTCOME_ENGAGEMENT | OUTCOME_AWARENESS
-  urlDestino        String? // con los UTM ya puestos; null si el objetivo no lleva link
-  presupuestoDiario Float // en la moneda de la cuenta (hoy el tope exige USD)
-  moneda            String        @default("USD")
-  duracionDias      Int
-  segmentacion      Json // { paises, edadMin, edadMax, categoriaFinanciera }
-  racional          String
-  medicion          String
+  nombre             String
+  objetivo           String // OUTCOME_TRAFFIC | OUTCOME_ENGAGEMENT | OUTCOME_AWARENESS
+  urlDestino         String? // con los UTM ya puestos; null si el objetivo no lleva link
+  presupuestoDiario  Float // en la moneda de la cuenta (hoy el tope exige USD)
+  moneda             String        @default("USD")
+  duracionDias       Int
+  segmentacion       Json // { paises, edadMin, edadMax, categoriaFinanciera }
+  racional           String
+  medicion           String
   // Lo que Meta devolvió al crear, paso a paso. Si un paso falla, los
   // anteriores quedan acá: todo nace en PAUSA, así que no gasta, pero un
   // humano tiene que borrarlo en Ads Manager.
-  metaCampaignId    String?
-  metaAdSetId       String?
-  metaCreativeId    String?
-  metaAdId          String?
-  inicio            DateTime?
-  fin               DateTime?
-  error             String?
-  confirmedAt       DateTime?
-  confirmedBy       String? // partnerId — SOLO lo escribe el endpoint HTTP
-  createdAt         DateTime      @default(now())
+  metaCampaignId     String?
+  metaAdSetId        String?
+  metaCreativeId     String?
+  metaAdId           String?
+  inicio             DateTime?
+  fin                DateTime?
+  error              String?
+  confirmedAt        DateTime?
+  confirmedBy        String? // partnerId — SOLO lo escribe el endpoint HTTP
+  createdAt          DateTime      @default(now())
+  // ── Seguimiento (2026-10-05) ──
+  // La última lectura de resultados (Meta + adquisición de FinZen por
+  // utm_campaign), calculada en código: ver services/resultadosAnuncios.ts.
+  resultado          Json?
+  resultadoEn        DateTime?
+  // El primer día con gasto: cuándo alguien la activó de verdad en Ads
+  // Manager. Kaizen no lo sabe de otra forma (activar es manual).
+  activadaEn         DateTime?
+  // La evaluación de Kaizen a los ≥7 días con gasto: seguir | pausar |
+  // cambiar_post. Es una RECOMENDACIÓN; pausar o seguir lo hace un humano.
+  recomendacion      String?
+  recomendacionRazon String?
+  evaluadaEn         DateTime?
 
   @@index([conversationId, status])
   @@index([status, createdAt])

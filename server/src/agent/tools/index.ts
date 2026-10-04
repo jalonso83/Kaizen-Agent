@@ -8,7 +8,7 @@ import { proposeGoalTool, getActiveGoalTool, markGoalAchievedTool } from './goal
 import { getMetaCampaignsTool, getMetaSpendTool } from './meta';
 import { listMarketingAccountsTool, getInstagramProfileTool } from './instagram';
 import { getTiktokProfileTool } from './tiktok';
-import { proposeMetaAdTool } from './publicidad';
+import { proposeMetaAdTool, getMetaAdResultsTool, recordMetaAdEvaluationTool } from './publicidad';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Registro de tools de Kaizen — DISENO_FASE1.md §6. Las 9 originales +
@@ -61,6 +61,9 @@ export const TOOL_LIST: KaizenTool[] = [
   // Publicidad en Meta (2026-10-04): solo registra la tarjeta; lo que llega a
   // Meta lo crea el botón, en pausa (routes/adProposals.ts).
   proposeMetaAdTool,
+  // Seguimiento de esos anuncios (2026-10-05): leer resultados y recomendar.
+  getMetaAdResultsTool,
+  recordMetaAdEvaluationTool,
 ];
 
 /**
@@ -68,7 +71,7 @@ export const TOOL_LIST: KaizenTool[] = [
  * tools de escritura hacia FinZen — un cron no debe *poder* crear borradores,
  * ni siquiera por un bug de prompt. Solo lecturas + Drive.
  */
-const SOLO_CON_SOCIO = ['propose_campaign', 'create_campaign_draft', 'propose_goal', 'mark_goal_achieved', 'propose_meta_ad'];
+const SOLO_CON_SOCIO = ['propose_campaign', 'create_campaign_draft', 'propose_goal', 'mark_goal_achieved', 'propose_meta_ad', 'record_meta_ad_evaluation'];
 export const CRON_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter((t) => !SOLO_CON_SOCIO.includes(t.name));
 
 /**
@@ -80,7 +83,7 @@ export const CRON_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter((t) => !SOLO_CON_SO
  * borrador.
  */
 export const DAILY_CAMPAIGN_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter(
-  (t) => !['create_campaign_draft', 'propose_goal', 'mark_goal_achieved', 'propose_meta_ad'].includes(t.name),
+  (t) => !['create_campaign_draft', 'propose_goal', 'mark_goal_achieved', 'propose_meta_ad', 'record_meta_ad_evaluation'].includes(t.name),
 );
 
 /**
@@ -91,9 +94,20 @@ export const DAILY_CAMPAIGN_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter(
 const PUBLICIDAD = [
   'search_cerebro', 'list_cerebro_folders', 'load_skill', 'get_kpis',
   'list_marketing_accounts', 'get_instagram_profile', 'get_meta_campaigns', 'get_meta_spend',
-  'propose_meta_ad',
+  'propose_meta_ad', 'get_meta_ad_results',
 ];
 export const META_ADS_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter((t) => PUBLICIDAD.includes(t.name));
+
+/**
+ * La evaluación de un anuncio a los 7 días con gasto (2026-10-05): leer sus
+ * resultados, el Cerebro y el Instagram, y dejar la recomendación. No puede
+ * proponer otro anuncio ni tocar nada de FinZen.
+ */
+const EVALUACION = [
+  'search_cerebro', 'load_skill', 'get_kpis', 'list_marketing_accounts', 'get_instagram_profile',
+  'get_meta_campaigns', 'get_meta_ad_results', 'record_meta_ad_evaluation',
+];
+export const AD_EVALUATION_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter((t) => EVALUACION.includes(t.name));
 
 /** Registro por nombre, para despachar una llamada del modelo. */
 export const TOOLS: Record<string, KaizenTool> = Object.fromEntries(

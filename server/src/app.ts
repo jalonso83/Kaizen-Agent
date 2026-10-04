@@ -18,6 +18,7 @@ import { startAcquisitionExportCron } from './jobs/acquisitionExport';
 import { startInstagramSnapshotCron } from './jobs/instagramSnapshot';
 import { startDailyCampaignCron } from './jobs/dailyCampaign';
 import { startMetaAdsCron } from './jobs/metaAds';
+import { startAdResultsCron } from './jobs/adResults';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Kaizen server — Fase 1: /health público; /api/auth, /api/conversations y
@@ -92,6 +93,9 @@ startInstagramSnapshotCron();
 void startDailyCampaignCron().catch((err) => {
   console.error('[daily-campaign] No se pudo programar el cron:', err instanceof Error ? err.message : err);
 });
+
+// Seguimiento de los anuncios de Kaizen (7am RD): resultados y evaluación a los 7 días. Solo agenda.
+startAdResultsCron();
 
 // Publicidad automática en Meta (días y hora configurables, apagada por defecto).
 void startMetaAdsCron().catch((err) => {
