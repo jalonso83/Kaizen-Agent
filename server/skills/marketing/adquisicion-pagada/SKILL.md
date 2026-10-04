@@ -1,6 +1,6 @@
 ---
 name: adquisicion-pagada
-description: Úsalo al leer datos que vienen de Meta con get_meta_campaigns o get_meta_spend — qué significa cada campo, y qué puede y no puede hacer Kaizen en esa cuenta. Para interpretar CAC, atribución o si la pauta rinde, el skill es lectura-adquisicion-finzen.
+description: Úsalo al leer datos que vienen de Meta con get_meta_campaigns o get_meta_spend, y SIEMPRE antes de propose_meta_ad — qué significa cada campo, cómo elegir un post para promocionar, y qué puede y no puede hacer Kaizen en esa cuenta. Para interpretar CAC, atribución o si la pauta rinde, el skill es lectura-adquisicion-finzen.
 ---
 
 # Los datos de Meta: qué son y qué puede hacer Kaizen
@@ -77,9 +77,43 @@ comparables es una lectura que no se sostiene.
 - **No puede convertir monedas.** Si la cuenta factura en una moneda distinta de
   la del tope, el sistema rechaza en vez de aplicar un tipo de cambio. Di que
   hay que redefinir el tope en la moneda de la cuenta.
-- **Por ahora solo lee.** La creación de borradores entra cuando FinZen habilite
-  el permiso de escritura.
+- **No elige el presupuesto, la duración, el objetivo, el destino ni a quién.**
+  Salen de Configuración → Publicidad automática y los fija un admin.
+  propose_meta_ad no tiene dónde recibirlos. Si el socio quiere otros, se
+  cambian ahí.
+- **Solo promociona posts de Instagram propios.** El id se verifica contra la
+  cuenta de FinZen; un post de un competidor o uno inventado se rechaza.
 
 Estas no son reglas que estés siguiendo por buena voluntad: son límites del
 código. Dilo así si te preguntan — es más honesto y más tranquilizador que
 prometer que te vas a portar bien.
+## 7. Proponer un anuncio (propose_meta_ad)
+
+Kaizen puede proponer **promocionar un post de Instagram de FinZen que ya está
+publicado**. La tarjeta no gasta: al confirmarla, el sistema crea la campaña
+**en pausa**, y la activa un humano en Ads Manager.
+
+**Cómo elegir el post**, con los datos de get_instagram_profile:
+
+1. **Rindió claramente mejor que la mediana de la cuenta** en interacciones.
+   Con 2 o 3 piezas virales, el promedio miente: compara contra la mediana
+   (`resumen_publicaciones.likes_mediana`). Un post que está en la mediana no
+   tiene por qué rendir mejor pagado.
+2. **Se entiende sin contexto.** Quien lo va a ver no sigue a FinZen. Un
+   chiste interno, una respuesta a un comentario o un post que depende del
+   anterior no sirven.
+3. **Vende algo que la app hace hoy.** Si el post promete una función que no
+   existe o un resultado ("ahorra X"), no se promociona: regla de marca.
+4. **Es reciente** (idealmente de los últimos 60 días) y **no se promocionó**
+   en la ventana de rotación (la tool lo rechaza igual).
+5. **No compite con lo que ya corre.** Mira get_meta_campaigns: si hay una
+   campaña activa con el mismo tema, dilo y no propongas otra encima.
+
+**El racional lleva cifras**: interacciones del post contra la mediana, tipo
+(reel o carrusel) y fecha. **La medición** dice qué se mira y cuándo: CTR y
+CPC a los 7 días como mínimo (§4: antes no se evalúa), y los registros con
+ese `utm_campaign` en get_kpis. El nombre de la campaña ES el utm_campaign,
+así que el cruce con FinZen sí une para las campañas que crea Kaizen.
+
+**Si ningún post cumple, no propongas.** Es una respuesta válida y mejor que
+pagar para empujar una pieza mediocre.

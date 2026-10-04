@@ -5,6 +5,7 @@ import { config } from './config';
 import authRoutes from './routes/auth';
 import chatRoutes from './routes/chat';
 import proposalsRoutes from './routes/proposals';
+import adProposalsRoutes from './routes/adProposals';
 import configRoutes from './routes/config';
 import auditRoutes from './routes/audit';
 import goalsRoutes from './routes/goals';
@@ -16,6 +17,7 @@ import { startWeeklySummaryCron } from './jobs/weeklySummary';
 import { startAcquisitionExportCron } from './jobs/acquisitionExport';
 import { startInstagramSnapshotCron } from './jobs/instagramSnapshot';
 import { startDailyCampaignCron } from './jobs/dailyCampaign';
+import { startMetaAdsCron } from './jobs/metaAds';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Kaizen server — Fase 1: /health público; /api/auth, /api/conversations y
@@ -42,6 +44,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/conversations', chatRoutes);
 app.use('/api/proposals', proposalsRoutes);
+app.use('/api/ad-proposals', adProposalsRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/marketing', marketingRoutes);
@@ -88,4 +91,9 @@ startInstagramSnapshotCron();
 // config de la BD, así que async y sin tumbar el arranque si falla.
 void startDailyCampaignCron().catch((err) => {
   console.error('[daily-campaign] No se pudo programar el cron:', err instanceof Error ? err.message : err);
+});
+
+// Publicidad automática en Meta (días y hora configurables, apagada por defecto).
+void startMetaAdsCron().catch((err) => {
+  console.error('[meta-ads] No se pudo programar el cron:', err instanceof Error ? err.message : err);
 });

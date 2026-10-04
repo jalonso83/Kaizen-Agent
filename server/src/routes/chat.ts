@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { db } from '../db';
+import { urlAdsManager } from '../clients/metaApi';
 import { requireAuth, requirePermission } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { runAgentTurn } from '../agent/runner';
@@ -157,10 +158,11 @@ router.get('/:id/messages', asyncRoute(async (req, res) => {
     return;
   }
 
-  const [messages, proposals, goals] = await Promise.all([
+  const [messages, proposals, goals, adProposals] = await Promise.all([
     db.message.findMany({ where: { conversationId: conversation.id }, orderBy: { seq: 'asc' } }),
     db.proposal.findMany({ where: { conversationId: conversation.id }, orderBy: { createdAt: 'asc' } }),
     db.goal.findMany({ where: { conversationId: conversation.id }, orderBy: { createdAt: 'asc' } }),
+    db.adProposal.findMany({ where: { conversationId: conversation.id }, orderBy: { createdAt: 'asc' } }),
   ]);
 
   // Para pintar el "antes → después" de un cambio de meta hace falta la meta
@@ -173,7 +175,13 @@ router.get('/:id/messages', asyncRoute(async (req, res) => {
   // Se devuelven los bloques crudos (incluye thinking) — es la fuente de
   // verdad guardada. Filtrar bloques thinking del render es responsabilidad
   // de la web (DISENO §10), no de esta API.
-  res.json({ messages, proposals, goals, replacedGoals: reemplazadas });
+  res.json({
+    messages,
+    proposals,
+    goals,
+    replacedGoals: reemplazadas,
+    adProposals: adProposals.map((a) => ({ ...a, adsManager: a.metaCampaignId ? urlAdsManager(a.metaCampaignId) : null })),
+  });
 }));
 
 // La respuesta ES el stream (decisión cerrada §0.4): un fetch+POST directo, no

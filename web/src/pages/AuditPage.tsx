@@ -28,6 +28,7 @@ const TOOL_LABELS: Record<string, string> = {
   get_active_goal: 'Consultó la meta vigente',
   propose_goal: 'Propuso una meta',
   mark_goal_achieved: 'Dio la meta por lograda',
+  propose_meta_ad: 'Propuso un anuncio en Meta',
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -45,6 +46,13 @@ const ACTION_LABELS: Record<string, string> = {
   'config:weekly-summary-updated': 'Cambió la configuración del resumen',
   'config:weekly-summary-run-now': 'Generó el reporte a mano',
   'config:cerebro-reindex': 'Reindexó el Cerebro',
+  'ad-proposal:confirmed': 'Confirmó un anuncio en Meta',
+  'ad-proposal:rejected': 'Rechazó un anuncio en Meta',
+  'ad-proposal:created-paused': 'Anuncio creado en Meta, en pausa',
+  'ad-proposal:error': 'Meta rechazó crear un anuncio',
+  'cron:meta-ads': 'Corrida de la publicidad automática',
+  'config:meta-ads-updated': 'Cambió la configuración de publicidad',
+  'config:meta-ads-run-now': 'Pidió un anuncio a mano',
 };
 
 function etiqueta(action: string): string {
@@ -214,6 +222,21 @@ export function AuditPage() {
       setDecidiendo(null);
     }
   };
+
+  /** Lo mismo para las tarjetas de anuncio en Meta: confirmar crea la campaña EN PAUSA. */
+  const decidirAnuncio = async (id: string, accion: 'confirmar' | 'rechazar') => {
+    setDecidiendo(id);
+    setDecisionError(null);
+    try {
+      if (accion === 'confirmar') await api.confirmarAnuncio(id);
+      else await api.rechazarAnuncio(id);
+      setOverview(await api.getAuditOverview());
+    } catch (err) {
+      setDecisionError(err instanceof ApiError ? err.message : 'No se pudo aplicar la decisión.');
+    } finally {
+      setDecidiendo(null);
+    }
+  };
   const [eventos, setEventos] = useState<AuditEvent[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [nivel, setNivel] = useState<'important' | 'all'>('important');
@@ -338,6 +361,51 @@ export function AuditPage() {
                       </div>
                     ) : (
                       <span className="audit-gate-meta">se decide en su chat</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {(overview.gate.anuncios?.length ?? 0) > 0 && (
+            <section className={`audit-gate audit-pendientes${overview.gate.anuncios!.some((a) => a.status === 'ERROR') ? ' is-alert' : ''}`}>
+              <h2 className="audit-gate-title">Anuncios en Meta</h2>
+              <p className="audit-gate-sub">
+                Confirmar crea la campaña en Meta <strong>en pausa</strong>; no gasta hasta que alguien la active en Ads Manager. Las fallidas pueden haber dejado objetos en pausa que hay que borrar a mano.
+              </p>
+              {decisionError && <div className="banner-error">{decisionError}</div>}
+              <ul className="audit-gate-list">
+                {overview.gate.anuncios!.map((a) => (
+                  <li key={a.id} className="audit-gate-row audit-pendiente">
+                    <div className="audit-pendiente-datos">
+                      <span className="audit-gate-name">
+                        {a.origen === 'programada' && <span className="marketing-chip-red">automática</span>}
+                        <a href={a.mediaPermalink} target="_blank" rel="noreferrer">{a.nombre}</a>
+                      </span>
+                      <span className="audit-gate-meta">
+                        {a.presupuestoDiario} {a.moneda}/día · {a.duracionDias} días (máx. {a.presupuestoDiario * a.duracionDias} {a.moneda}) · {fechaHora(a.createdAt)}
+                        {a.conversacion ? <> · en &ldquo;{a.conversacion.title}&rdquo;</> : null}
+                      </span>
+                      {a.status === 'ERROR' && a.error && <span className="audit-pendiente-msg">{a.error}</span>}
+                    </div>
+                    {a.status === 'PROPOSED' ? (
+                      a.decidible ? (
+                        <div className="audit-pendiente-acciones">
+                          <button type="button" className="usuarios-accion is-deshabilitar" disabled={decidiendo === a.id} onClick={() => void decidirAnuncio(a.id, 'rechazar')}>
+                            Rechazar
+                          </button>
+                          <button type="button" className="dialog-confirm" disabled={decidiendo === a.id} onClick={() => void decidirAnuncio(a.id, 'confirmar')}>
+                            {decidiendo === a.id ? 'Creando en Meta…' : 'Confirmar y crear en pausa'}
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="audit-gate-meta">se decide en su chat</span>
+                      )
+                    ) : a.status === 'CREATED_PAUSED' ? (
+                      a.adsManager ? <a className="audit-gate-meta" href={a.adsManager} target="_blank" rel="noreferrer">en pausa · abrir en Ads Manager</a> : <span className="audit-gate-meta">en pausa</span>
+                    ) : (
+                      <span className="audit-gate-meta">{a.status === 'ERROR' ? 'falló' : 'creando…'}</span>
                     )}
                   </li>
                 ))}

@@ -32,7 +32,7 @@ export interface ToolContext {
    */
   restricciones?: {
     /** De dónde sale la propuesta; se guarda en Proposal.origen. */
-    origen: 'chat' | 'diaria';
+    origen: 'chat' | 'diaria' | 'publicidad';
     /** Slugs que la corrida puede proponer hoy (la rotación de audiencias). */
     segmentosPermitidos?: string[];
   };
@@ -82,6 +82,7 @@ const LABELS: Record<string, string> = {
   list_marketing_accounts: 'Revisando los perfiles guardados…',
   get_instagram_profile: 'Leyendo el perfil de Instagram…',
   get_tiktok_profile: 'Leyendo la cuenta de TikTok…',
+  propose_meta_ad: 'Preparando la tarjeta del anuncio…',
 };
 
 function truncate(s: string, n = 2000): string {

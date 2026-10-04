@@ -13,6 +13,7 @@ export type Permiso =
   | 'metas:ver'
   | 'metas:confirmar'
   | 'campanas:confirmar'
+  | 'publicidad:confirmar'
   | 'auditoria:ver'
   | 'config:editar'
   | 'marketing:ver'
@@ -248,6 +249,66 @@ export interface Proposal {
   createdAt: string;
 }
 
+// Calca server/prisma/schema.prisma → model AdProposal (2026-10-04): la
+// tarjeta de un anuncio en Meta que promociona un post de Instagram.
+export type AdProposalStatus = 'PROPOSED' | 'CONFIRMED' | 'CREATING' | 'CREATED_PAUSED' | 'ERROR' | 'REJECTED' | 'SUPERSEDED' | 'EXPIRED';
+export type ObjetivoAnuncio = 'OUTCOME_TRAFFIC' | 'OUTCOME_ENGAGEMENT' | 'OUTCOME_AWARENESS';
+
+export interface AdProposal {
+  id: string;
+  conversationId: string | null;
+  status: AdProposalStatus;
+  /** 'chat' o 'programada' (la corrida de la publicidad automática). */
+  origen: string;
+  mediaId: string;
+  mediaPermalink: string;
+  mediaTipo: string | null;
+  mediaCaption: string | null;
+  nombre: string;
+  objetivo: ObjetivoAnuncio;
+  urlDestino: string | null;
+  presupuestoDiario: number;
+  moneda: string;
+  duracionDias: number;
+  segmentacion: { paises: string[]; edadMin: number; edadMax: number; categoriaFinanciera: boolean };
+  racional: string;
+  medicion: string;
+  metaCampaignId: string | null;
+  inicio: string | null;
+  fin: string | null;
+  error: string | null;
+  confirmedAt: string | null;
+  createdAt: string;
+  /** Link a la campaña en Ads Manager, cuando ya existe. Lo arma el servidor. */
+  adsManager?: string | null;
+}
+
+// Calca server/prisma/schema.prisma → model MetaAdsConfig.
+export interface MetaAdsConfig {
+  enabled: boolean;
+  diasSemana: number[];
+  cronHour: number;
+  conversationId: string | null;
+  presupuestoDiario: number;
+  duracionDias: number;
+  objetivo: ObjetivoAnuncio;
+  urlDestino: string | null;
+  paises: string[];
+  edadMin: number;
+  edadMax: number;
+  categoriaFinanciera: boolean;
+  rotacionDias: number;
+}
+
+export interface MetaAdsVista {
+  config: MetaAdsConfig | null;
+  conversacion: { id: string; title: string; esMia: boolean } | null;
+  /** META_MAX_DAILY_BUDGET_USD: la pantalla no deja pedir más. */
+  topeDiarioUsd: number;
+  /** Qué falta para poder crear en Meta (variables, escritura); null si nada. */
+  falta: string | null;
+}
+
 // Calca server/prisma/schema.prisma → model Goal.
 export type GoalStatus = 'PROPOSED' | 'ACTIVE' | 'ACHIEVED' | 'REJECTED' | 'SUPERSEDED';
 
@@ -378,6 +439,8 @@ export interface AuditOverview {
     /** Borradores creados por confirmación automática (campaña diaria en modo directo). */
     automaticas: number;
     pendientes: PropuestaPendiente[];
+    /** Tarjetas de anuncio en Meta: pendientes, creadas en pausa y fallidas. */
+    anuncios?: Array<AdProposal & { conversacion: { id: string; title: string } | null; decidible: boolean }>;
   };
 }
 

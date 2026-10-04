@@ -96,6 +96,74 @@ async function main(): Promise<void> {
   });
 
   // ── Instagram: perfiles ─────────────────────────────────────────────────
+  await caso('Publicidad: la cadena completa nace EN PAUSA (2026-10-04)', async () => {
+    const { config } = await import('../config');
+    const m = config.meta as { writeEnabled: boolean; pageId: string };
+    const antes = { ...m };
+    m.writeEnabled = true;
+    m.pageId = '100000000000001';
+    const base = {
+      nombre: 'kaizen-ig-20261004-gastos-hormiga',
+      objetivo: 'OUTCOME_TRAFFIC' as const,
+      presupuestoDiarioUsd: 5,
+      inicio: new Date('2026-10-05T12:00:00Z'),
+      fin: new Date('2026-10-12T12:00:00Z'),
+      paises: ['DO'],
+      edadMin: 18,
+      edadMax: 45,
+      categoriaFinanciera: false,
+      mediaId: '180048200000',
+      urlDestino: 'https://finzen.ai/?utm_source=meta&utm_medium=paid_social&utm_campaign=kaizen-ig-20261004-gastos-hormiga',
+    };
+    try {
+      const pasos: string[] = [];
+      const ids = await meta.crearAnuncioIgEnPausa(base, async (i) => {
+        pasos.push(Object.keys(i).join('+'));
+      });
+      afirmar(Boolean(ids.campaignId && ids.adSetId && ids.creativeId && ids.adId), 'devuelve los cuatro ids');
+      afirmar(pasos.length === 4, `avisa después de cada paso (${pasos.length})`);
+
+      const r = await fetch(`${process.env.META_API_BASE_URL}/__ultimo`, { headers: { Authorization: `Bearer ${config.meta.systemToken}` } });
+      const u = (await r.json()) as { adset: Record<string, any>; creative: Record<string, any>; ad: Record<string, any> };
+      afirmar(u.adset.status === 'PAUSED' && u.ad.status === 'PAUSED', 'conjunto y anuncio llegan PAUSED');
+      afirmar(u.adset.optimization_goal === 'LINK_CLICKS' && u.adset.destination_type === 'WEBSITE', 'tráfico → LINK_CLICKS a WEBSITE');
+      afirmar(JSON.stringify(u.adset.targeting.publisher_platforms) === '["instagram"]', 'solo Instagram');
+      afirmar(u.adset.targeting.targeting_automation?.advantage_audience === 0, 'Advantage+ audience apagado: se respeta la edad configurada');
+      afirmar(u.adset.targeting.age_max === 45 && u.adset.end_time === base.fin.toISOString(), 'edad y fecha de fin llegan tal cual (la fecha de fin acota el gasto total)');
+      afirmar(u.creative.source_instagram_media_id === base.mediaId && u.creative.object_id === '100000000000001', 'el creativo es el post, con la página');
+      afirmar(/utm_campaign=kaizen-ig-20261004-gastos-hormiga/.test(u.creative.call_to_action?.value?.link ?? ''), 'el botón lleva el utm_campaign = nombre de la campaña');
+      afirmar(u.ad.creative?.creative_id === ids.creativeId && u.ad.adset_id === ids.adSetId, 'el anuncio une conjunto y creativo');
+
+      // Interacción: un objetivo sin link no manda call_to_action.
+      await meta.crearAnuncioIgEnPausa({ ...base, objetivo: 'OUTCOME_ENGAGEMENT', urlDestino: null });
+      const u2 = (await (await fetch(`${process.env.META_API_BASE_URL}/__ultimo`, { headers: { Authorization: `Bearer ${config.meta.systemToken}` } })).json()) as typeof u;
+      afirmar(!u2.creative.call_to_action && u2.adset.optimization_goal === 'POST_ENGAGEMENT', 'interacción: sin botón, optimiza interacción con el post');
+
+      // Falla a mitad: lo creado antes queda informado.
+      const parcial: Array<Record<string, string>> = [];
+      await esperaError(
+        () => meta.crearAnuncioIgEnPausa({ ...base, mediaId: 'FALLA' }, async (i) => { parcial.push(i as Record<string, string>); }),
+        /not eligible/i,
+        'un post no elegible corta la cadena en el creativo',
+      );
+      const ultimoParcial = parcial.at(-1) ?? {};
+      afirmar(Boolean(ultimoParcial.campaignId && ultimoParcial.adSetId && !ultimoParcial.creativeId), 'quedan informados la campaña y el conjunto ya creados (para borrarlos a mano)');
+
+      await esperaError(
+        () => meta.crearAnuncioIgEnPausa({ ...base, presupuestoDiarioUsd: config.meta.maxDailyBudgetUsd + 1 }),
+        /supera el tope/,
+        'un presupuesto sobre META_MAX_DAILY_BUDGET_USD no sale',
+      );
+      m.pageId = '';
+      await esperaError(() => meta.crearAnuncioIgEnPausa(base), /META_PAGE_ID/, 'sin META_PAGE_ID no se intenta nada');
+      m.pageId = '100000000000001';
+      m.writeEnabled = false;
+      await esperaError(() => meta.crearAnuncioIgEnPausa(base), /deshabilitada/, 'con META_WRITE_ENABLED=false no sale nada');
+    } finally {
+      Object.assign(m, antes);
+    }
+  });
+
   await caso('Instagram: la cuenta propia', async () => {
     const p = await ig.getPerfil('finzenai', 25);
     afirmar(p.usuario === 'finzenai' && p.seguidores === 4820, `seguidores ${p.seguidores}`);

@@ -3,7 +3,8 @@ import { config } from '../../config';
 import type { KaizenTool } from './guard';
 
 // ─────────────────────────────────────────────────────────────────────────
-// Tools de Meta — Fase 2, PRD §2.2. SOLO LECTURA.
+// Tools de Meta — Fase 2, PRD §2.2. LECTURA. (Proponer un anuncio es otra
+// tool, propose_meta_ad en tools/publicidad.ts, desde 2026-10-04.)
 //
 // Por qué no está create_meta_campaign_draft acá todavía: el PRD §2.1 manda
 // `ads_read` primero y `ads_management` recién tras ≥1 semana de lecturas
@@ -72,7 +73,7 @@ export const getMetaCampaignsTool: KaizenTool = {
     'Úsala para saber qué publicidad pagada está corriendo antes de hablar de adquisición pagada o de proponer algo relacionado. ' +
     'IMPORTANTE: status es lo que se pidió y effective_status es lo que Meta aplica — una campaña ACTIVE con effective_status CAMPAIGN_PAUSED no gasta. ' +
     'Los presupuestos ya vienen convertidos a unidades enteras de la moneda de la cuenta (no centavos). ' +
-    'Esta tool SOLO LEE: Kaizen no puede crear ni activar campañas en Meta.',
+    'Esta tool SOLO LEE. Para proponer promocionar un post está propose_meta_ad (crea en pausa tras la confirmación del socio); activar una campaña es siempre de un humano en Ads Manager.',
   inputSchema: {
     type: 'object',
     properties: {

@@ -1432,6 +1432,52 @@ prueba que hay que correr en el server donde el socio prueba.
 
 ---
 
+## Publicidad automática en Meta (2026-10-04)
+
+Pedido: *"automatizar la parte de las publicidades dentro de Kaizen: que dada una
+hora y un presupuesto haga las campañas"*. Decisiones del socio:
+
+| Pregunta | Decisión |
+|---|---|
+| ¿Qué hace Kaizen a la hora configurada? | **Crea en pausa + tarjeta.** Propone; al confirmar, el código crea todo en pausa; un humano la activa en Ads Manager. El PRD no cambia |
+| ¿De dónde sale el creativo? | **Promocionar un post de Instagram** ya publicado (`source_instagram_media_id`). Kaizen no genera imágenes |
+| ¿Qué es el presupuesto? | **Diario por campaña**, con fecha de fin (duración) que acota el gasto total |
+| ¿Cada cuánto? | **Configurable** en Configuración: días de la semana y hora |
+
+**Cómo funciona.** `jobs/metaAds.ts` corre los días y a la hora elegidos dentro
+de una conversación real, con `META_ADS_TOOL_LIST` (lecturas de Instagram, de
+Meta y del Cerebro, más `propose_meta_ad`). La tool registra un `AdProposal`.
+El botón (`routes/adProposals.ts`, permiso `publicidad:confirmar`) llama a
+`services/publicidad.ts`, que crea campaña → conjunto → creativo → anuncio con
+`crearAnuncioIgEnPausa` (`clients/metaApi.ts`), guardando cada id apenas existe.
+
+**Candados de código:**
+
+1. Presupuesto, duración, objetivo, destino y segmentación salen de
+   `MetaAdsConfig`; la tool no los recibe (probado: el schema solo tiene
+   `media_id`, `nombre_corto`, `racional`, `medicion`).
+2. El post se verifica contra las publicaciones reales de la cuenta propia y
+   no se repite dentro de `rotacionDias`.
+3. Ninguna función recibe `status`: los cuatro objetos nacen `PAUSED`.
+4. El presupuesto no pasa `META_MAX_DAILY_BUDGET_USD` (al guardar la
+   configuración y otra vez al crear), en la moneda real de la cuenta.
+5. `META_WRITE_ENABLED=false` frena todo antes de cualquier POST.
+6. La tarjeta vence a las 72 h; la transición PROPOSED → CONFIRMED es
+   condicional al estado (dos clics no crean dos campañas).
+7. Regla 9: `propose_meta_ad` exige una lectura del Cerebro en la conversación.
+
+**El nombre es el UTM.** `kaizen-ig-AAAAMMDD-tema` va como nombre de la campaña
+y como `utm_campaign` del destino: para las campañas que crea Kaizen, el cruce
+gasto ↔ adquisición une por nombre sin depender de nadie.
+
+**Si un paso falla a mitad**, lo ya creado queda en pausa (no gasta) y la
+tarjeta queda en ERROR con los ids; Auditoría la marca en rojo para borrarlos
+a mano. No se intenta deshacer automáticamente: borrar es otra escritura que
+puede fallar.
+
+**Para encenderla:** migración `20261004100000_meta_ads`, `META_PAGE_ID`, token
+con `ads_management`, `META_WRITE_ENABLED=true`. Pruebas: `TESTING.md` §11d.
+
 ## 🚧 Bloqueado — lo que solo puede aportar FinZen
 
 | Qué | Por qué hace falta |
@@ -1535,7 +1581,7 @@ Windows.
 | # | Criterio | Estado |
 |---|---|---|
 | 1 | Responde "¿cuánto gastamos en Meta este mes y a qué CAC?" con datos reales cruzados | ⏳ Tools listas contra mock. Falta el token y validar el cruce |
-| 2 | Puede crear una campaña en Meta **en pausa**, con presupuesto ≤ tope, tras confirmación del socio | ⏳ Cliente listo y probado. Falta `ads_management`, la tool y el gate |
+| 2 | Puede crear una campaña en Meta **en pausa**, con presupuesto ≤ tope, tras confirmación del socio | ⏳ Construido (2026-10-04): `propose_meta_ad` + tarjeta + botón que crea la cadena completa en pausa. Probado contra el simulador. Falta `ads_management`, `META_PAGE_ID`, la migración y la primera corrida real |
 | 3 | Es **imposible (probado)** que el agente active una campaña o exceda el tope | ⏳ Imposible por estructura y probado contra mock. Falta la prueba adversarial por chat |
 | 4 | Conceptos de contenido generados como Docs con la estructura estándar | ⏳ No empezado |
 
@@ -1547,8 +1593,7 @@ Windows.
    semana de lecturas estables antes de tocar escritura.
 2. **Validar el cruce de nombres** con FinZen y, si hay convención, moverlo a
    código.
-3. **La tool de escritura** (`create_meta_campaign_draft`) pasando por el gate de
-   confirmación, cuando FinZen habilite `ads_management`.
+3. ~~La tool de escritura~~ → hecha como **publicidad automática** (2026-10-04, ver la sección de abajo). Falta encenderla en producción.
 4. **La prueba adversarial de Meta** — el equivalente de la del gate de Fase 1:
    intentar por chat que active una campaña o se pase del tope, y verificar en
    el audit log que no salió ni un POST.

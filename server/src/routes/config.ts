@@ -6,6 +6,9 @@ import { audit } from '../services/audit';
 import { runWeeklySummary, startWeeklySummaryCron } from '../jobs/weeklySummary';
 import { runDailyCampaign, startDailyCampaignCron } from '../jobs/dailyCampaign';
 import { runCerebroIndex } from '../jobs/cerebroIndex';
+import { runMetaAds, startMetaAdsCron } from '../jobs/metaAds';
+import { faltaParaCrear, validarConfigPublicidad } from '../services/publicidad';
+import { config as appConfig } from '../config';
 
 // ─────────────────────────────────────────────────────────────────────────
 // /api/config/weekly-summary — el apartado de Configuración pedido junto con
@@ -199,6 +202,116 @@ router.post('/daily-campaign/run-now', asyncRoute(async (req, res) => {
     actor: `partner:${req.partner!.id}`,
     action: 'config:daily-campaign-run-now',
     resultSummary: result.ok ? `corrió en ${result.conversationId} · modo ${result.modo}${result.borradorAutomatico ? ' · borrador automático' : ''} · permitidos: ${result.permitidos.join(', ')}` : result.omitido,
+    isError: !result.ok,
+  });
+  if (result.ok) {
+    res.json(result);
+    return;
+  }
+  res.status(result.omitido.includes('en curso') || result.omitido.includes('ocupada') ? 409 : 400).json({ message: result.omitido });
+}));
+
+// ── Publicidad automática en Meta (2026-10-04) ────────────────────────────
+// Lo que devuelve además de la fila: el tope de Railway (para que la pantalla
+// no deje pedir más) y qué falta para poder crear (variables o escritura).
+async function vistaMetaAds(partnerId: string) {
+  const cfg = await db.metaAdsConfig.findUnique({ where: { id: 1 } });
+  const conv = cfg?.conversationId
+    ? await db.conversation.findUnique({ where: { id: cfg.conversationId }, select: { id: true, title: true, partnerId: true } })
+    : null;
+  return {
+    config: cfg,
+    conversacion: conv ? { id: conv.id, title: conv.title, esMia: conv.partnerId === partnerId } : null,
+    topeDiarioUsd: appConfig.meta.maxDailyBudgetUsd,
+    falta: faltaParaCrear(),
+  };
+}
+
+router.get('/meta-ads', asyncRoute(async (req, res) => {
+  res.json(await vistaMetaAds(req.partner!.id));
+}));
+
+router.put('/meta-ads', asyncRoute(async (req, res) => {
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const cuerpo = {
+    enabled: b.enabled,
+    diasSemana: b.diasSemana,
+    cronHour: b.cronHour,
+    presupuestoDiario: b.presupuestoDiario,
+    duracionDias: b.duracionDias,
+    objetivo: b.objetivo,
+    urlDestino: typeof b.urlDestino === 'string' && b.urlDestino.trim() ? b.urlDestino.trim() : null,
+    paises: b.paises,
+    edadMin: b.edadMin,
+    edadMax: b.edadMax,
+    categoriaFinanciera: b.categoriaFinanciera,
+    rotacionDias: b.rotacionDias ?? 30,
+  };
+  const error = validarConfigPublicidad(cuerpo);
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  let conversationId = b.conversationId as string | null | undefined;
+  if (conversationId === '__nueva__') {
+    const nueva = await db.conversation.create({ data: { partnerId: req.partner!.id, title: 'Publicidad en Meta' } });
+    conversationId = nueva.id;
+  }
+  if (conversationId) {
+    const conv = await db.conversation.findUnique({ where: { id: conversationId }, select: { partnerId: true } });
+    if (!conv) {
+      res.status(400).json({ message: 'La conversación elegida no existe.' });
+      return;
+    }
+    if (conv.partnerId !== req.partner!.id) {
+      res.status(400).json({ message: 'La conversación destino tiene que ser tuya: la tarjeta la ve el dueño de la conversación.' });
+      return;
+    }
+  }
+  if (cuerpo.enabled && !conversationId) {
+    res.status(400).json({ message: 'Para encender la publicidad automática hace falta elegir la conversación donde van a caer las tarjetas (o "Nueva conversación").' });
+    return;
+  }
+
+  const data = {
+    enabled: cuerpo.enabled as boolean,
+    diasSemana: [...new Set(cuerpo.diasSemana as number[])].sort((x, y) => x - y),
+    cronHour: cuerpo.cronHour as number,
+    presupuestoDiario: cuerpo.presupuestoDiario as number,
+    duracionDias: cuerpo.duracionDias as number,
+    objetivo: cuerpo.objetivo as string,
+    urlDestino: cuerpo.urlDestino,
+    paises: cuerpo.paises as string[],
+    edadMin: cuerpo.edadMin as number,
+    edadMax: cuerpo.edadMax as number,
+    categoriaFinanciera: cuerpo.categoriaFinanciera as boolean,
+    rotacionDias: cuerpo.rotacionDias as number,
+    conversationId: conversationId ?? null,
+  };
+  const previo = await db.metaAdsConfig.findUnique({ where: { id: 1 } });
+  await db.metaAdsConfig.upsert({
+    where: { id: 1 },
+    update: { ...data, updatedBy: req.partner!.id },
+    create: { id: 1, ...data, updatedBy: req.partner!.id },
+  });
+  await startMetaAdsCron();
+  await audit.log({
+    actor: `partner:${req.partner!.id}`,
+    action: 'config:meta-ads-updated',
+    input: { ...data, anterior: previo ? { ...previo, updatedAt: undefined } : null },
+  });
+  res.json(await vistaMetaAds(req.partner!.id));
+}));
+
+// Corrida manual: misma función que el cron. Con forzar corre aunque esté
+// apagada, para probarla antes de encenderla.
+router.post('/meta-ads/run-now', asyncRoute(async (req, res) => {
+  const result = await runMetaAds({ forzar: true });
+  await audit.log({
+    actor: `partner:${req.partner!.id}`,
+    action: 'config:meta-ads-run-now',
+    resultSummary: result.ok ? `corrió en ${result.conversationId} · ${result.tarjeta ? `tarjeta ${result.tarjeta}` : 'sin tarjeta'}` : result.omitido,
     isError: !result.ok,
   });
   if (result.ok) {

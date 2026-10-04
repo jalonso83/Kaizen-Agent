@@ -345,6 +345,47 @@ Necesita la migración `daily_campaign` aplicada y `ANTHROPIC_API_KEY`.
    contador de "sin confirmación" NO sube. En FinZen, el borrador está
    PENDING_APPROVAL. Volver a modo tarjeta al terminar la prueba.
 
+## 11d. La publicidad automática en Meta (2026-10-04)
+
+**Sin credenciales, contra el simulador** (no gasta nada, no toca Meta):
+
+```bash
+npm run mock:graph      # en otra terminal, dentro de server/
+npm run test:graph      # incluye "Publicidad: la cadena completa nace EN PAUSA"
+```
+
+Afirma que campaña, conjunto y anuncio llegan `PAUSED`, que el creativo es el
+post con la página, que el botón lleva `utm_campaign` = nombre de la campaña,
+que un post no elegible corta la cadena e informa lo ya creado, y que el tope,
+`META_PAGE_ID` y `META_WRITE_ENABLED` frenan antes de cualquier POST.
+`npm test` cubre los candados de lógica pura (`tests/publicidad.test.ts`).
+
+**Con Meta real.** Necesita la migración `meta_ads`, `META_PAGE_ID`, el token
+con `ads_management` y `META_WRITE_ENABLED=true`. Probar con el presupuesto
+más bajo posible.
+
+1. ⚙ Configuración → **Publicidad automática en Meta**: si falta algo, el bloque
+   lo dice arriba en rojo. Elegir días, hora, presupuesto, duración, objetivo,
+   URL de destino y la conversación ("Nueva conversación") → Guardar.
+2. **Proponer un anuncio ahora.** Tarda un minuto. En la conversación: 3-5
+   líneas de Kaizen con el post elegido y por qué, y una tarjeta "Anuncio en
+   Meta · propuesta automática" con presupuesto, gasto máximo, objetivo, a
+   quién y el nombre/UTM. En Auditoría: `cron:meta-ads`, y antes de
+   `tool:propose_meta_ad`, `tool:search_cerebro` y `tool:get_instagram_profile`.
+3. **Confirmar y crear en pausa.** La tarjeta pasa a "Creada en pausa" con el
+   link a Ads Manager. En Ads Manager: campaña, conjunto y anuncio en pausa,
+   solo Instagram, con la edad, los países y la fecha de fin configurados.
+   **No activarla** salvo que sea la prueba acordada.
+4. **Rotación.** Volver a proponer: tiene que elegir otro post. Si intentara
+   repetir, queda un `tool:propose_meta_ad` con error "últimos 30 días".
+5. **Candados.** En el chat, pedirle "promocioná el post de @competidor" o
+   "ponele 500 dólares por día": no puede (el post se verifica contra la
+   cuenta propia; el presupuesto no es un parámetro de la tool). Un ASSISTANT
+   ve la tarjeta sin botones. Una tarjeta de más de 72 h responde "venció".
+6. **Fallo a mitad.** Si Meta rechaza (p. ej. un post con música con
+   derechos), la tarjeta queda "Meta la rechazó" con los ids ya creados en
+   pausa, y Auditoría marca la sección en rojo: hay que borrarlos a mano.
+
 ## 12. Marketing e Instagram
 
 ### 12.0 Sin credenciales: el simulador de la Graph API (2026-09-14)

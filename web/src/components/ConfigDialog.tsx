@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
-import type { ConversationSummary, WeekMode } from '../types';
+import type { ConversationSummary, MetaAdsConfig, MetaAdsVista, WeekMode } from '../types';
 import { Select } from './Select';
+import { MetaAdsConfigBlock, configPorDefecto } from './MetaAdsConfigBlock';
 
 const DAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const DAY_OPTIONS = DAY_LABELS.map((label, value) => ({ value, label }));
@@ -31,6 +32,17 @@ function to24h(hour12: number, meridiem: number): number {
 interface Props {
   onClose: () => void;
 }
+
+// Los cuatro apartados van en pestañas (2026-10-04): uno debajo del otro el
+// diálogo quedaba demasiado largo. Guardar sigue siendo UNO y guarda todo, así
+// que cambiar de pestaña no pierde lo que se editó en otra.
+type Seccion = 'resumen' | 'diaria' | 'publicidad' | 'cerebro';
+const SECCIONES: Array<{ id: Seccion; label: string; descripcion: string }> = [
+  { id: 'resumen', label: 'Resumen semanal', descripcion: 'Qué semana reporta el resumen automático y cuándo se genera.' },
+  { id: 'diaria', label: 'Campaña diaria', descripcion: 'Una campaña de push por día, con una audiencia distinta cada vez.' },
+  { id: 'publicidad', label: 'Publicidad en Meta', descripcion: 'Anuncios que promocionan posts de Instagram de FinZen. Se crean en pausa.' },
+  { id: 'cerebro', label: 'Cerebro', descripcion: 'La copia local de los documentos de Drive que Kaizen consulta.' },
+];
 
 // Apartado de Configuración (DISENO_FASE1.md §12 addendum). Define dos cosas
 // INDEPENDIENTES, y por eso van en bloques separados en la UI:
@@ -66,6 +78,11 @@ export function ConfigDialog({ onClose }: Props) {
   const [dcRunning, setDcRunning] = useState(false);
   const [dcRunError, setDcRunError] = useState<string | null>(null);
   const [dcRunResult, setDcRunResult] = useState<string | null>(null);
+  // Publicidad automática en Meta (2026-10-04). Se guarda solo si se tocó.
+  const [maVista, setMaVista] = useState<MetaAdsVista | null>(null);
+  const [ma, setMa] = useState<MetaAdsConfig | null>(null);
+  const [maSucio, setMaSucio] = useState(false);
+  const [seccion, setSeccion] = useState<Seccion>('resumen');
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -92,6 +109,13 @@ export function ConfigDialog({ onClose }: Props) {
       })
       .catch(() => { /* sin la tabla (migración pendiente) el bloque queda con defaults */ });
     api.listConversations().then((r) => setConversaciones(r.conversations)).catch(() => {});
+    api
+      .getMetaAdsConfig()
+      .then((v) => {
+        setMaVista(v);
+        setMa(v.config ? { ...v.config, conversationId: v.conversacion ? v.conversacion.id : null } : configPorDefecto(v.topeDiarioUsd));
+      })
+      .catch(() => { /* sin la tabla (migración pendiente) el bloque no se muestra */ });
   }, []);
 
   useEffect(() => {
@@ -109,6 +133,7 @@ export function ConfigDialog({ onClose }: Props) {
     try {
       await api.updateWeeklySummaryConfig({ weekMode, weekStartDay, cronDay, cronHour });
       await api.updateDailyCampaignConfig({ enabled: dcEnabled, cronHour: dcHour, modo: dcModo, conversationId: dcConversationId, rotacionDias: dcRotacion });
+      if (ma && maSucio) await api.updateMetaAdsConfig({ ...ma, urlDestino: ma.urlDestino || null });
       onClose();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo guardar la configuración.');
@@ -182,7 +207,7 @@ export function ConfigDialog({ onClose }: Props) {
   return (
     <div className="dialog-backdrop" role="presentation" onClick={onClose}>
       <div
-        className="dialog-card"
+        className="dialog-card config-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="config-title"
@@ -191,14 +216,38 @@ export function ConfigDialog({ onClose }: Props) {
         <h2 id="config-title" className="dialog-title">
           Configuración
         </h2>
-        <p className="dialog-message">
-          El resumen semanal automático, la campaña diaria y el Cerebro.
-        </p>
+        <div className="config-tabs" role="tablist" aria-label="Apartados de la configuración">
+          {SECCIONES.map((s) => {
+            // El punto marca lo que está encendido, para verlo sin abrir cada pestaña.
+            const encendida = (s.id === 'diaria' && dcEnabled) || (s.id === 'publicidad' && Boolean(ma?.enabled));
+            return (
+              <button
+                key={s.id}
+                type="button"
+                role="tab"
+                id={`config-tab-${s.id}`}
+                aria-selected={seccion === s.id}
+                aria-controls="config-panel"
+                className={`config-tab${seccion === s.id ? ' is-active' : ''}`}
+                onClick={(e) => {
+                  setSeccion(s.id);
+                  // En el teléfono la barra se desplaza: que la pestaña elegida quede a la vista.
+                  e.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+                }}
+              >
+                {s.label}
+                {encendida && <span className="config-tab-dot" aria-label="encendida" />}
+              </button>
+            );
+          })}
+        </div>
+        <p className="dialog-message config-tab-desc">{SECCIONES.find((s) => s.id === seccion)!.descripcion}</p>
 
         {loading ? (
           <p className="config-loading">Cargando…</p>
         ) : (
-          <div className="config-form">
+          <div className="config-form" role="tabpanel" id="config-panel" aria-labelledby={`config-tab-${seccion}`}>
+            {seccion === 'resumen' && (<>
             <label className="config-radio">
               <input
                 type="radio"
@@ -273,8 +322,10 @@ export function ConfigDialog({ onClose }: Props) {
               {runNowError && <p className="config-error">{runNowError}</p>}
             </div>
 
+            </>)}
+
+            {seccion === 'diaria' && (
             <div className="config-schedule">
-              <p className="config-schedule-title">Campaña diaria</p>
               <label className="config-check">
                 <input type="checkbox" checked={dcEnabled} onChange={(e) => setDcEnabled(e.target.checked)} />
                 <span>
@@ -344,6 +395,23 @@ export function ConfigDialog({ onClose }: Props) {
               </div>
             </div>
 
+            )}
+
+            {seccion === 'publicidad' && (ma && maVista ? (
+              <MetaAdsConfigBlock
+                cfg={ma}
+                vista={maVista}
+                conversaciones={conversaciones}
+                onChange={(c) => { setMa(c); setMaSucio(true); }}
+                deshabilitado={saving}
+              />
+            ) : (
+              <p className="config-schedule-hint">
+                No se pudo cargar esta sección. Lo más probable es que falte aplicar la migración <code>20261004100000_meta_ads</code> en la base de datos.
+              </p>
+            ))}
+
+            {seccion === 'cerebro' && (
             <div className="config-run-now">
               <button type="button" className="dialog-cancel" onClick={handleReindex} disabled={reindexing || saving}>
                 {reindexing ? 'Reindexando…' : 'Reindexar el Cerebro'}
@@ -354,6 +422,7 @@ export function ConfigDialog({ onClose }: Props) {
               {reindexResult && <p className="config-run-now-ok">{reindexResult}</p>}
               {reindexError && <p className="config-error">{reindexError}</p>}
             </div>
+            )}
           </div>
         )}
 

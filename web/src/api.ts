@@ -1,4 +1,7 @@
 import type {
+  AdProposal,
+  MetaAdsConfig,
+  MetaAdsVista,
   AuditEvent,
   AnalisisInstagram,
   AnalisisTiktok,
@@ -116,7 +119,7 @@ export const api = {
   createConversation: () => request<ConversationSummary>('/api/conversations', { method: 'POST' }),
 
   getMessages: (conversationId: string) =>
-    request<{ messages: StoredMessage[]; proposals: Proposal[]; goals: Goal[]; replacedGoals: Goal[] }>(
+    request<{ messages: StoredMessage[]; proposals: Proposal[]; goals: Goal[]; replacedGoals: Goal[]; adProposals?: AdProposal[] }>(
       `/api/conversations/${conversationId}/messages`,
     ),
 
@@ -178,6 +181,16 @@ export const api = {
   },
   rechazarPropuesta: (proposalId: string) =>
     request<Proposal>(`/api/proposals/${proposalId}/reject`, { method: 'POST' }),
+
+  // Publicidad en Meta (2026-10-04). Confirmar crea la campaña EN PAUSA en Meta.
+  confirmarAnuncio: (id: string) =>
+    request<{ propuesta: AdProposal; adsManager: string }>(`/api/ad-proposals/${id}/confirm`, { method: 'POST' }),
+  rechazarAnuncio: (id: string) => request<{ propuesta: AdProposal }>(`/api/ad-proposals/${id}/reject`, { method: 'POST' }),
+  getMetaAdsConfig: () => request<MetaAdsVista>('/api/config/meta-ads'),
+  updateMetaAdsConfig: (cfg: Omit<MetaAdsConfig, 'conversationId'> & { conversationId: string | null }) =>
+    request<MetaAdsVista>('/api/config/meta-ads', { method: 'PUT', body: JSON.stringify(cfg) }),
+  runMetaAdsNow: () =>
+    request<{ ok: true; conversationId: string; tarjeta: string | null }>('/api/config/meta-ads/run-now', { method: 'POST' }),
 
   runWeeklySummaryNow: () =>
     request<{ ok: true; from: string; to: string }>('/api/config/weekly-summary/run-now', { method: 'POST' }),

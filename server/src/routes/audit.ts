@@ -4,6 +4,7 @@ import { esConfirmacionAutomatica } from '../services/confirmarPropuesta';
 import { requireAuth, requirePermission } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { resumenMeta } from '../agent/tools/goals';
+import { urlAdsManager } from '../clients/metaApi';
 
 // ─────────────────────────────────────────────────────────────────────────
 // /api/audit — la pantalla de Auditoría (criterio 6 del PRD: "audit log
@@ -42,7 +43,7 @@ async function ultimaCorrida(...acciones: string[]) {
 router.get('/overview', asyncRoute(async (req, res) => {
   const hace24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  const [resumenSemanal, indexado, errores24h, propuestas, denegados, socios, vigente, pendientes] = await Promise.all([
+  const [resumenSemanal, indexado, errores24h, propuestas, denegados, socios, vigente, pendientes, anuncios] = await Promise.all([
     ultimaCorrida('weekly-summary:done', 'weekly-summary:error'),
     // Tres acciones distintas para lo mismo: el job de cada 6h (done/error) y
     // el botón manual. Mirar solo la del botón hacía que la tarjeta mostrara la
@@ -76,6 +77,15 @@ router.get('/overview', asyncRoute(async (req, res) => {
       orderBy: { createdAt: 'desc' },
       take: 20,
       select: { id: true, payload: true, segmentCount: true, origen: true, createdAt: true, conversation: { select: { id: true, title: true, partnerId: true } } },
+    }),
+    // Las tarjetas de anuncio en Meta: las pendientes y las últimas creadas o
+    // fallidas (2026-10-04). Las fallidas importan: pueden haber dejado
+    // objetos en pausa en Ads Manager que alguien tiene que borrar.
+    db.adProposal.findMany({
+      where: { status: { in: ['PROPOSED', 'CREATED_PAUSED', 'ERROR', 'CREATING'] } },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      include: { conversation: { select: { id: true, title: true, partnerId: true } } },
     }),
   ]);
 
@@ -128,6 +138,13 @@ router.get('/overview', asyncRoute(async (req, res) => {
       campanas,
       denegados: denegados.map(serializable),
       automaticas: campanas.filter((c) => c.automatica && c.finzenCampaignId).length,
+      anuncios: anuncios.map((a) => ({
+        ...a,
+        conversation: undefined,
+        conversacion: a.conversation ? { id: a.conversation.id, title: a.conversation.title } : null,
+        adsManager: a.metaCampaignId ? urlAdsManager(a.metaCampaignId) : null,
+        decidible: a.status === 'PROPOSED' && (a.origen === 'programada' || a.conversation?.partnerId === req.partner!.id),
+      })),
       pendientes: pendientes.map((p) => ({
         id: p.id,
         titulo: (p.payload as { title?: string }).title ?? '(sin título)',

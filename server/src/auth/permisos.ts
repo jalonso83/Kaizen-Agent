@@ -21,6 +21,12 @@ export const PERMISOS = [
   'metas:confirmar',
   /** El gate: confirmar o rechazar una campaña antes de que llegue a FinZen. */
   'campanas:confirmar',
+  /**
+   * Confirmar o rechazar una tarjeta de anuncio en Meta (2026-10-04). Separado
+   * de campanas:confirmar porque acá se compromete gasto real: al confirmar,
+   * el sistema crea la campaña (en pausa) en la cuenta publicitaria.
+   */
+  'publicidad:confirmar',
   /** Ver la pantalla de Auditoría. */
   'auditoria:ver',
   /** Cambiar la config del resumen semanal y reindexar el Cerebro. */

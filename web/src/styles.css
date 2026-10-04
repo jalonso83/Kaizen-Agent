@@ -1449,3 +1449,38 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .audit-pendiente-datos { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 320px; }
 .audit-pendiente-msg { font-size: 12.5px; color: var(--text-secondary); font-style: italic; }
 .audit-pendiente-acciones { display: flex; gap: 8px; align-items: center; }
+
+/* Configuración · publicidad automática en Meta (2026-10-04) */
+.config-dias { display: flex; flex-wrap: wrap; gap: 4px; }
+.config-dia {
+  display: inline-flex; align-items: center; padding: 4px 8px; border: 1px solid var(--border);
+  border-radius: 999px; font-size: 12px; cursor: pointer; user-select: none; color: var(--text-secondary);
+}
+.config-dia input { position: absolute; opacity: 0; pointer-events: none; }
+.config-dia.activo { background: var(--signal); border-color: var(--signal); color: var(--bg); }
+.config-dia:focus-within { outline: 2px solid var(--signal); outline-offset: 1px; }
+.config-numero { width: 96px; }
+.config-edad { width: 64px; }
+
+/* Configuración en pestañas (2026-10-04). Más ancho que el resto de los
+   diálogos: la publicidad tiene filas de varios campos. */
+.dialog-card.config-dialog { max-width: 560px; }
+.config-tabs {
+  display: flex; gap: 2px; border-bottom: 1px solid var(--border);
+  overflow-x: auto; scrollbar-width: none; margin: 4px -4px 0; padding: 0 4px;
+  /* El diálogo es flex en columna con alto máximo: sin esto la barra (que
+     tiene overflow propio) se encoge hasta desaparecer. */
+  flex-shrink: 0;
+}
+.config-tabs::-webkit-scrollbar { display: none; }
+.config-tab {
+  background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  color: var(--text-secondary); font-size: 13px; padding: 8px 10px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+}
+.config-tab:hover { color: var(--text-primary); }
+.config-tab.is-active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 500; }
+.config-tab-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--signal); }
+.config-tab-desc { margin-top: 6px; }
+/* Dentro de una pestaña, el bloque es lo único que hay: sin la raya de arriba. */
+.config-form > .config-schedule:first-child { border-top: none; padding-top: 0; margin-top: 0; }

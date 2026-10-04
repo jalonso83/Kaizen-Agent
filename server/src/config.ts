@@ -134,6 +134,10 @@ export const config = {
     baseUrl: (optional('META_API_BASE_URL') ?? 'https://graph.facebook.com/v21.0').replace(/\/+$/, ''),
     systemToken: optional('META_SYSTEM_TOKEN') ?? '',
     adAccountId: optional('META_AD_ACCOUNT_ID') ?? '',
+    // La página de Facebook vinculada a la cuenta de Instagram de FinZen. Meta
+    // la exige para crear un anuncio que promociona un post de Instagram
+    // (object_id del creativo), aunque el anuncio solo salga en Instagram.
+    pageId: optional('META_PAGE_ID') ?? '',
     // Tope de gasto diario por campaña. El default es deliberadamente bajo:
     // si alguien despliega sin definirlo, el error tiene que ser "no me deja
     // gastar", nunca "gastó de más".

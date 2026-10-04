@@ -25,7 +25,7 @@ estructura lo refleja en vez de dejárselo al criterio del modelo:
 | Ámbito | Carpeta | De qué se habla | Tools propias |
 |---|---|---|---|
 | **finzen** — la app y su tablero (8 skills) | `server/skills/finzen/` | KPIs de la Agent API, segmentos, campañas internas por push, metas, retención, experimentos de producto | `get_kpis`, `get_campaign_results`, `list_segments`, `evaluate_segment`, `propose_campaign`, `create_campaign_draft`, `get_message_type_performance`, `propose_goal`, `get_active_goal`, `mark_goal_achieved` |
-| **marketing** — redes, contenido y pauta (9 skills) | `server/skills/marketing/` | Instagram (TikTok después), ideas y piezas de contenido, resultados de piezas, Meta Ads, los perfiles guardados en el apartado de Marketing | `save_content_draft`, `get_meta_campaigns`, `get_meta_spend`, `list_marketing_accounts`, `get_instagram_profile` |
+| **marketing** — redes, contenido y pauta (9 skills) | `server/skills/marketing/` | Instagram (TikTok después), ideas y piezas de contenido, resultados de piezas, Meta Ads, los perfiles guardados en el apartado de Marketing | `save_content_draft`, `get_meta_campaigns`, `get_meta_spend`, `propose_meta_ad`, `list_marketing_accounts`, `get_instagram_profile` |
 | *(comunes)* | — | Sirven en los dos | `load_skill`, `search_cerebro`, `save_cerebro_note`, `list_cerebro_folders` |
 
 **La carpeta ES la clasificación del skill** (no hay campo en el frontmatter

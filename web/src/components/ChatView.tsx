@@ -7,8 +7,9 @@ import type { Components } from 'react-markdown';
 // vista — y Kaizen usa tablas seguido para comparar campañas o KPIs (bug real,
 // 2026-08-18). Trae además tachado, listas de tareas y autolinks.
 import remarkGfm from 'remark-gfm';
-import type { ContentBlock, Goal, Proposal, StoredMessage } from '../types';
+import type { AdProposal, ContentBlock, Goal, Proposal, StoredMessage } from '../types';
 import { ProposalCard } from './ProposalCard';
+import { AdProposalCard } from './AdProposalCard';
 import { GoalCard } from './GoalCard';
 import { CheckIcon, CopyIcon } from './Icons';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -113,6 +114,13 @@ interface Props {
   onRewindMessage: (messageId: string) => void;
   onConfirmGoal: (goalId: string) => void;
   onRejectGoal: (goalId: string) => void;
+  /** Tarjetas de anuncio en Meta (2026-10-04). */
+  adProposals: AdProposal[];
+  onConfirmAd: (id: string) => void;
+  onRejectAd: (id: string) => void;
+  /** La tarjeta que se está creando en Meta en este momento. */
+  anuncioOcupado: string | null;
+  puedeConfirmarPublicidad: boolean;
   /** Permisos del socio, para saber si las tarjetas se pueden decidir o solo leer. */
   puedeConfirmarCampanas: boolean;
   puedeConfirmarMetas: boolean;
@@ -134,6 +142,11 @@ export function ChatView({
   onRejectGoal,
   puedeConfirmarCampanas,
   puedeConfirmarMetas,
+  adProposals,
+  onConfirmAd,
+  onRejectAd,
+  anuncioOcupado,
+  puedeConfirmarPublicidad,
 }: Props) {
   const endRef = useRef<HTMLDivElement>(null);
   const [rewindTarget, setRewindTarget] = useState<string | null>(null);
@@ -224,6 +237,21 @@ export function ChatView({
           onConfirm={onConfirmGoal}
           onReject={onRejectGoal}
           puedeDecidir={puedeConfirmarMetas}
+        />
+      ),
+    })),
+    ...adProposals.map((ad): ProposalEntry => ({
+      kind: 'proposal',
+      id: ad.id,
+      createdAt: ad.createdAt,
+      node: (
+        <AdProposalCard
+          key={ad.id}
+          propuesta={ad}
+          onConfirm={onConfirmAd}
+          onReject={onRejectAd}
+          puedeDecidir={puedeConfirmarPublicidad}
+          ocupada={anuncioOcupado === ad.id}
         />
       ),
     })),

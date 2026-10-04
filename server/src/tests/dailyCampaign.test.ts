@@ -24,5 +24,5 @@ test('la corrida diaria puede proponer pero nunca crear el borrador ni tocar la 
   }
   // Es un superconjunto estricto del cron semanal: todo lo que lee el cron, más la tarjeta.
   for (const t of CRON_TOOL_LIST) assert.ok(DAILY_CAMPAIGN_TOOL_LIST.includes(t), `${t.name} falta`);
-  assert.equal(DAILY_CAMPAIGN_TOOL_LIST.length, TOOL_LIST.length - 3);
+  assert.equal(DAILY_CAMPAIGN_TOOL_LIST.length, TOOL_LIST.length - 4, "create_campaign_draft, propose_goal, mark_goal_achieved y propose_meta_ad");
 });

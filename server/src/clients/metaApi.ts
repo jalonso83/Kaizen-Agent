@@ -235,6 +235,12 @@ export interface MetaCampaignDraftInput {
   name: string;
   objective: string;
   dailyBudgetUsd: number;
+  /**
+   * Categoría especial "productos y servicios financieros". Si se declara,
+   * Meta exige los países donde corre y limita la segmentación. Viene de la
+   * configuración, no del modelo.
+   */
+  categoriaFinanciera?: { paises: string[] };
 }
 
 /**
@@ -267,6 +273,150 @@ export async function createCampaignDraft(input: MetaCampaignDraftInput): Promis
     // Unidades menores: Meta espera centavos. 50 USD => 5000.
     daily_budget: Math.round(input.dailyBudgetUsd * 100),
     status: 'PAUSED',
-    special_ad_categories: [],
+    // Con presupuesto en la campaña (un solo conjunto adentro), la estrategia
+    // de puja va acá. "Menor costo sin tope" es la de Meta por defecto.
+    bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+    special_ad_categories: input.categoriaFinanciera ? ['FINANCIAL_PRODUCTS_SERVICES'] : [],
+    ...(input.categoriaFinanciera ? { special_ad_category_country: input.categoriaFinanciera.paises } : {}),
   });
+}
+
+// ── Anuncio completo que promociona un post de Instagram (2026-10-04) ─────
+//
+// Una campaña de Meta no es un objeto sino cuatro: campaña (objetivo y
+// presupuesto), conjunto de anuncios (a quién, cuándo, qué optimiza),
+// creativo (qué se ve: acá, un post de Instagram ya publicado) y anuncio
+// (el que une conjunto y creativo). Los cuatro nacen EN PAUSA, y ninguna de
+// estas funciones recibe `status`: es el mismo guardarraíl que
+// createCampaignDraft, extendido a toda la cadena.
+//
+// Si un paso falla, los anteriores YA EXISTEN en Meta (en pausa: no gastan).
+// No se intenta deshacer: borrar en Meta es otra escritura que puede fallar
+// a su vez, y un humano en Ads Manager lo resuelve mejor. Lo que sí se hace
+// es avisar cada id apenas existe (alAvanzar), para que quede en la BD aunque
+// el paso siguiente reviente.
+
+export const OBJETIVOS_ANUNCIO = ['OUTCOME_TRAFFIC', 'OUTCOME_ENGAGEMENT', 'OUTCOME_AWARENESS'] as const;
+export type ObjetivoAnuncio = (typeof OBJETIVOS_ANUNCIO)[number];
+
+/** Qué optimiza el conjunto según el objetivo. Una combinación inválida Meta la rechaza con (#100). */
+const OPTIMIZACION: Record<ObjetivoAnuncio, { optimization_goal: string; destination_type?: string }> = {
+  OUTCOME_TRAFFIC: { optimization_goal: 'LINK_CLICKS', destination_type: 'WEBSITE' },
+  OUTCOME_ENGAGEMENT: { optimization_goal: 'POST_ENGAGEMENT', destination_type: 'ON_POST' },
+  OUTCOME_AWARENESS: { optimization_goal: 'REACH' },
+};
+
+export interface AnuncioIgInput {
+  /** kaizen-ig-AAAAMMDD-slug: también es el utm_campaign. */
+  nombre: string;
+  objetivo: ObjetivoAnuncio;
+  presupuestoDiarioUsd: number;
+  inicio: Date;
+  fin: Date;
+  paises: string[];
+  edadMin: number;
+  edadMax: number;
+  categoriaFinanciera: boolean;
+  /** Id del post de Instagram de FinZen (verificado antes contra la cuenta propia). */
+  mediaId: string;
+  /** Con los UTM ya puestos. Obligatorio con OUTCOME_TRAFFIC; ignorado en los demás. */
+  urlDestino: string | null;
+}
+
+export interface IdsAnuncio {
+  campaignId?: string;
+  adSetId?: string;
+  creativeId?: string;
+  adId?: string;
+}
+
+/**
+ * Crea campaña + conjunto + creativo + anuncio, TODO EN PAUSA. Devuelve los
+ * cuatro ids. `alAvanzar` se llama con lo acumulado después de cada paso.
+ */
+export async function crearAnuncioIgEnPausa(
+  input: AnuncioIgInput,
+  alAvanzar: (ids: IdsAnuncio) => Promise<void> = async () => {},
+): Promise<Required<IdsAnuncio>> {
+  assertWriteEnabled();
+  if (!config.meta.pageId) {
+    throw new GraphApiError(0, 'Falta META_PAGE_ID (la página de Facebook vinculada al Instagram de FinZen). Meta la exige para promocionar un post de Instagram.');
+  }
+  if (!config.instagram.accountId) {
+    throw new GraphApiError(0, 'Falta INSTAGRAM_ACCOUNT_ID. Sin la cuenta de Instagram no se puede promocionar un post.');
+  }
+  if (!(OBJETIVOS_ANUNCIO as readonly string[]).includes(input.objetivo)) {
+    throw new GraphApiError(0, `Objetivo no permitido: ${input.objetivo}.`);
+  }
+  if (input.objetivo === 'OUTCOME_TRAFFIC' && !input.urlDestino) {
+    throw new GraphApiError(0, 'Con el objetivo de tráfico hace falta una URL de destino.');
+  }
+  if (!(input.fin > input.inicio)) {
+    throw new GraphApiError(0, 'La fecha de fin tiene que ser posterior a la de inicio.');
+  }
+
+  const ids: IdsAnuncio = {};
+
+  // 1. Campaña (valida cuenta activa, moneda y tope antes de salir).
+  const campana = await createCampaignDraft({
+    name: input.nombre,
+    objective: input.objetivo,
+    dailyBudgetUsd: input.presupuestoDiarioUsd,
+    ...(input.categoriaFinanciera ? { categoriaFinanciera: { paises: input.paises } } : {}),
+  });
+  ids.campaignId = campana.id;
+  await alAvanzar({ ...ids });
+
+  // 2. Conjunto: a quién, cuándo, qué optimiza. Solo Instagram, porque el
+  //    creativo es un post de Instagram. Advantage+ audience apagado: la
+  //    edad y los países configurados se respetan tal cual.
+  const conjunto = await request<{ id: string }>('POST', `/${cuenta()}/adsets`, {}, {
+    name: `${input.nombre} · conjunto`,
+    campaign_id: campana.id,
+    status: 'PAUSED',
+    billing_event: 'IMPRESSIONS',
+    ...OPTIMIZACION[input.objetivo],
+    start_time: input.inicio.toISOString(),
+    end_time: input.fin.toISOString(),
+    targeting: {
+      geo_locations: { countries: input.paises },
+      age_min: input.edadMin,
+      age_max: input.edadMax,
+      publisher_platforms: ['instagram'],
+      targeting_automation: { advantage_audience: 0 },
+    },
+  });
+  ids.adSetId = conjunto.id;
+  await alAvanzar({ ...ids });
+
+  // 3. Creativo: el post tal cual, con sus likes y comentarios.
+  const creativo = await request<{ id: string }>('POST', `/${cuenta()}/adcreatives`, {}, {
+    name: `${input.nombre} · creativo`,
+    object_id: config.meta.pageId,
+    instagram_user_id: config.instagram.accountId,
+    source_instagram_media_id: input.mediaId,
+    ...(input.objetivo === 'OUTCOME_TRAFFIC' && input.urlDestino
+      ? { call_to_action: { type: 'LEARN_MORE', value: { link: input.urlDestino } } }
+      : {}),
+  });
+  ids.creativeId = creativo.id;
+  await alAvanzar({ ...ids });
+
+  // 4. Anuncio.
+  const anuncio = await request<{ id: string }>('POST', `/${cuenta()}/ads`, {}, {
+    name: `${input.nombre} · anuncio`,
+    adset_id: conjunto.id,
+    creative: { creative_id: creativo.id },
+    status: 'PAUSED',
+  });
+  ids.adId = anuncio.id;
+  await alAvanzar({ ...ids });
+
+  return ids as Required<IdsAnuncio>;
+}
+
+/** Link directo a la campaña en Ads Manager, para el humano que la activa. */
+export function urlAdsManager(campaignId: string): string {
+  const act = config.meta.adAccountId.replace(/^act_/, '');
+  return `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${act}&selected_campaign_ids=${campaignId}`;
 }

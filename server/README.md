@@ -190,7 +190,8 @@ los dos. El system prompt arma la sección "Tus dos ámbitos" leyendo ese campo
 | `create_campaign_draft` | finzen | **El gate**: solo acepta un `proposal_id` en `CONFIRMED`, y a ese estado solo se llega por el botón. Crea el borrador `PENDING_APPROVAL` en FinZen |
 | `get_message_type_performance` | finzen | Lift real acumulado por tipo de mensaje |
 | `propose_goal` · `get_active_goal` · `mark_goal_achieved` | finzen | La meta vigente: se propone en tarjeta, la confirma el socio, se cierra solo con un número medido |
-| `get_meta_campaigns` · `get_meta_spend` | marketing | Meta Ads, **solo lectura** (`ads_read`). El cruce con el CAC de FinZen no se hace en código porque la unión por nombre de campaña no está validada |
+| `get_meta_campaigns` · `get_meta_spend` | marketing | Meta Ads, lectura (`ads_read`). El cruce con el CAC de FinZen no se hace en código porque la unión por nombre de campaña no está validada (las campañas que crea Kaizen sí unen: su nombre es el `utm_campaign`) |
+| `propose_meta_ad` | marketing | La tarjeta de un anuncio que promociona un post de Instagram de FinZen. El modelo elige el post, el nombre, el racional y la medición; **presupuesto, duración, objetivo, destino y segmentación salen de Configuración**. El post se verifica contra la cuenta propia y no se repite en la ventana de rotación. Al confirmar (permiso `publicidad:confirmar`), el código crea campaña, conjunto, creativo y anuncio **en pausa** (`services/publicidad.ts`); un humano la activa en Ads Manager |
 | `list_marketing_accounts` | marketing | Los perfiles guardados en Marketing → Configuración, por red |
 | `get_tiktok_profile` | marketing | La cuenta de TikTok de FinZen por la Display API (solo la propia: TikTok no lee terceros): perfil, últimos videos, mediana de views, engagement sobre views, histórico |
 | `get_instagram_profile` | marketing | Lee UNO de esos perfiles (sin parámetros, el de FinZen): perfil, últimas piezas, resumen calculado, insights de la cuenta propia e histórico con deltas. Mismo análisis que el Dashboard (`services/instagramAnalisis.ts`) |
@@ -293,11 +294,11 @@ que sigue abierto es de otra naturaleza:
 
 | Falta | Qué es | Dónde |
 |---|---|---|
-| Tools de escritura en Meta | `create_meta_campaign_draft` entra cuando FinZen habilite `ads_management` — hoy solo lectura, y `META_WRITE_ENABLED=false` | `docs/ESTADO_FASE_2.md` |
+| Publicidad en Meta con datos reales | Construida y probada contra el simulador (2026-10-04). Para usarla: migración `20261004100000_meta_ads`, `META_PAGE_ID`, token con `ads_management` y `META_WRITE_ENABLED=true` | `TESTING.md` §11d |
 | Probar Instagram de verdad | Nada de Marketing corrió contra la Graph API real: faltan en Railway el token (`instagram_basic` + `pages_read_engagement`, y `instagram_manage_insights` para los insights), `INSTAGRAM_ACCOUNT_ID`, y las dos migraciones pendientes | `docs/ESTADO_FASE_2.md` |
 | TikTok | Necesita fuente antes que pantalla: API oficial para la cuenta propia, proveedor para terceros, nunca scraping. Decisión del CTO pendiente | documento entregado al CTO (fuera del repo) |
 | Campaña diaria con modelo real | Construida y probada en lógica pura; la primera corrida real (Generar campaña ahora) dirá si el prompt del job llega a la tarjeta dentro de 18 vueltas y si la rotación se lee bien | `docs/ESTADO_FASE_2.md` |
-| Cobertura de pruebas | `npm test` (98) cubre lógica pura: lista blanca, `segment_count`, ventana del Cerebro, visión, despacho de documentos, tono, permisos, parseo de Instagram, cliente de Instagram, análisis y deltas del histórico, ámbitos. El runner, el historial y el gate siguen probados a mano | §3.2 |
+| Cobertura de pruebas | `npm test` (122) cubre lógica pura: lista blanca, `segment_count`, ventana del Cerebro, visión, despacho de documentos, tono, permisos, parseo de Instagram, cliente de Instagram, análisis y deltas del histórico, ámbitos, campaña diaria y los candados de la publicidad en Meta. El runner, el historial y el gate siguen probados a mano | §3.2 |
 
 ### 3.1 Los dos backstops de las reglas duras (2026-09-03)
 

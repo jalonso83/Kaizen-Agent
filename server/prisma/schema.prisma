@@ -32,17 +32,18 @@ model Partner {
 }
 
 model Conversation {
-  id             String     @id @default(cuid())
+  id             String       @id @default(cuid())
   partnerId      String
-  partner        Partner    @relation(fields: [partnerId], references: [id])
-  title          String     @default("Nueva conversación")
+  partner        Partner      @relation(fields: [partnerId], references: [id])
+  title          String       @default("Nueva conversación")
   summary        String? // resumen rodante para compactación (§5); null hasta que haga falta
   summaryUpToSeq Int? // hasta qué seq cubre el resumen
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
   messages       Message[]
   proposals      Proposal[]
   goals          Goal[]
+  adProposals    AdProposal[]
 
   @@index([partnerId, updatedAt])
 }
@@ -63,35 +64,35 @@ model Message {
 }
 
 model Proposal {
-  id               String       @id @default(cuid())
-  conversationId   String
-  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  status           String       @default("PROPOSED")
+  id                  String       @id @default(cuid())
+  conversationId      String
+  conversation        Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  status              String       @default("PROPOSED")
   // PROPOSED → CONFIRMED → EXECUTING → EXECUTED
   //          ↘ REJECTED (botón Rechazar) · SUPERSEDED (propuesta más nueva en la conversación)
   //            EXECUTING → UNKNOWN_OUTCOME (fallo a mitad del POST — requiere verificación humana)
-  payload          Json // CampaignDraftInput COMPLETO al momento de proponer — la única fuente de verdad
-  segmentCount     Int? // count real al proponer, para la tarjeta
+  payload             Json // CampaignDraftInput COMPLETO al momento de proponer — la única fuente de verdad
+  segmentCount        Int? // count real al proponer, para la tarjeta
   expectedMeasurement String? // qué se va a medir y cómo (DISENO §6) — no viaja a FinZen, solo para la tarjeta/auditoría
-  messageType      String? // taxonomía de tipo de mensaje (2026-07-24): urgencia|educativo|incentivo|social_proof|pregunta_directa|otro — no viaja a FinZen, es para que get_message_type_performance agregue lift por tipo
-  finzenCampaignId String?
-  confirmedAt      DateTime?
-  confirmedBy      String? // partnerId — SOLO lo escribe el endpoint HTTP, jamás el agente
-  executedAt       DateTime?
-  error            String?
+  messageType         String? // taxonomía de tipo de mensaje (2026-07-24): urgencia|educativo|incentivo|social_proof|pregunta_directa|otro — no viaja a FinZen, es para que get_message_type_performance agregue lift por tipo
+  finzenCampaignId    String?
+  confirmedAt         DateTime?
+  confirmedBy         String? // partnerId — SOLO lo escribe el endpoint HTTP, jamás el agente
+  executedAt          DateTime?
+  error               String?
   // Bajo qué meta nació esta campaña. Se graba al proponer, desde la meta
   // ACTIVE del momento — no se deduce después por fechas, porque una meta
   // puede cambiar entre que se propone y que se ejecuta. Null en las
   // propuestas anteriores a que existieran las metas: eso es un dato, no un
   // hueco, y la pantalla lo dice tal cual.
-  goalId           String?
-  goal             Goal?        @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  goalId              String?
+  goal                Goal?        @relation(fields: [goalId], references: [id], onDelete: SetNull)
   // De dónde salió: 'chat' (Kaizen la propuso en una conversación con el socio)
   // o 'diaria' (la corrida automática de campaña diaria, 2026-09-20). Sirve
   // para la rotación de audiencias: el job no repite un segmento que una
   // campaña diaria ya usó en la última semana.
-  origen           String       @default("chat")
-  createdAt        DateTime     @default(now())
+  origen              String       @default("chat")
+  createdAt           DateTime     @default(now())
 
   @@index([conversationId, status])
   @@index([goalId])
@@ -102,7 +103,7 @@ model Goal {
   // Mismo principio que Proposal (DISENO §7): el estado ACTIVE lo escribe SOLO
   // el endpoint HTTP del botón, nunca el agente. Kaizen puede *proponer* una
   // meta o su cambio, pero no puede activarla ni reemplazarla por su cuenta.
-  id             String    @id @default(cuid())
+  id             String        @id @default(cuid())
   conversationId String? // dónde se propuso, para pintar la tarjeta
   conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
   metric         String // identificador corto, ej. 'lift_pts'
@@ -111,9 +112,9 @@ model Goal {
   unit           String // 'pts' | '%' | 'usuarios' | 'usd' | ...
   // 'gte' = se logra al alcanzar o superar el target; 'lte' = al bajar de él
   // (para métricas donde menos es mejor, como churn o CAC).
-  direction      String    @default("gte")
+  direction      String        @default("gte")
   rationale      String
-  status         String    @default("PROPOSED")
+  status         String        @default("PROPOSED")
   // PROPOSED → ACTIVE → ACHIEVED
   //          ↘ REJECTED (botón Rechazar) · SUPERSEDED (la reemplazó otra meta confirmada)
   confirmedAt    DateTime?
@@ -124,7 +125,7 @@ model Goal {
   // Si esta meta nace para reemplazar a otra, cuál. Permite mostrar el
   // "antes → después" en la tarjeta de confirmación.
   replacesGoalId String?
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime      @default(now())
   // Las campañas que se propusieron persiguiendo esta meta. Es la evidencia de
   // si la meta guió algo o quedó de adorno.
   proposals      Proposal[]
@@ -211,28 +212,28 @@ model InstagramSnapshot {
   // hace upsert de la fila de HOY, y un cron diario lee todas las cuentas
   // guardadas para que la serie no dependa de que alguien abra el dashboard.
   // Una fila por (usuario, fecha): la última lectura del día gana.
-  id                     String   @id @default(cuid())
+  id                    String   @id @default(cuid())
   // El handle normalizado, igual que MarketingAccount.usuario. Sin FK a
   // propósito: si un socio quita la cuenta y la vuelve a agregar, su histórico
   // sigue ahí, que es lo que se quiere.
-  usuario                String
+  usuario               String
   // El día (fecha civil en hora RD) al que pertenece la lectura. DATE, no
   // timestamp: la unicidad es por día, y comparar timestamps con truncado
   // en cada consulta es la clase de cosa que se hace mal una vez.
-  fecha                  DateTime @db.Date
-  leidoEn                DateTime
-  seguidores             Int
-  seguidos               Int
-  publicacionesTotales   Int
+  fecha                 DateTime @db.Date
+  leidoEn               DateTime
+  seguidores            Int
+  seguidos              Int
+  publicacionesTotales  Int
   // Del resumen de las últimas piezas leídas ese día. Redondeados como en el
   // análisis (1 decimal; la tasa 2).
-  interaccionesPromedio  Float
-  likesMediana           Float
-  tasaEngagementPct      Float?
+  interaccionesPromedio Float
+  likesMediana          Float
+  tasaEngagementPct     Float?
   // Solo la cuenta propia: los totales de insights (28 días) tal cual vinieron,
   // para poder graficar alcance o guardados por día sin otra migración. Null
   // para terceros o si no llegaron.
-  insights               Json?
+  insights              Json?
 
   @@unique([usuario, fecha])
   @@index([usuario, fecha(sort: Desc)])
@@ -244,13 +245,13 @@ model TiktokCredential {
   // el anterior deja de valer, así que no puede vivir solo en una variable de
   // entorno que nadie actualiza. TIKTOK_REFRESH_TOKEN siembra la primera fila;
   // después manda esta tabla.
-  id               Int      @id @default(1)
+  id               Int       @id @default(1)
   refreshToken     String
   accessToken      String?
   accessExpiresAt  DateTime?
   refreshExpiresAt DateTime?
   openId           String?
-  updatedAt        DateTime @updatedAt
+  updatedAt        DateTime  @updatedAt
 }
 
 model TiktokSnapshot {
@@ -321,4 +322,95 @@ model WeeklySummaryConfig {
   cronHour     Int      @default(8) // 0-23, hora de República Dominicana
   updatedAt    DateTime @updatedAt
   updatedBy    String? // partnerId de quien lo cambió por última vez (null = nunca configurado a mano)
+}
+
+model AdProposal {
+  // Una campaña de Meta Ads propuesta por Kaizen (2026-10-04): promocionar un
+  // post de Instagram de FinZen. Tabla propia y no una fila más de Proposal:
+  // Proposal.payload es un CampaignDraftInput de FinZen y create_campaign_draft
+  // lo lee tal cual; mezclar las dos cosas en una tabla es invitar a que un
+  // borrador de push se arme con el payload de un anuncio.
+  //
+  // PROPOSED → CONFIRMED → CREATING → CREATED_PAUSED
+  //          ↘ REJECTED · SUPERSEDED (otra tarjeta más nueva) · EXPIRED
+  //            CREATING → ERROR (Meta rechazó un paso; lo creado quedó EN PAUSA)
+  //
+  // Lo que el MODELO elige: el post (mediaId), el nombre corto, el racional y
+  // qué se va a medir. Lo que NO elige, porque sale de la configuración en el
+  // momento de proponer: presupuesto, duración, objetivo, destino y
+  // segmentación. El modelo no tiene dónde escribir un presupuesto.
+  id                String        @id @default(cuid())
+  conversationId    String?
+  conversation      Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  status            String        @default("PROPOSED")
+  // 'chat' (Kaizen la propuso conversando) o 'programada' (la corrida de la
+  // publicidad automática). Las programadas son del negocio: cualquiera con
+  // publicidad:confirmar las decide, también desde Auditoría.
+  origen            String        @default("chat")
+  // El post de Instagram de FinZen que se promociona, verificado en código
+  // contra las publicaciones reales de la cuenta propia al proponer.
+  mediaId           String
+  mediaPermalink    String
+  mediaTipo         String?
+  mediaCaption      String? // inicio del caption, para la tarjeta
+  // kaizen-ig-AAAAMMDD-<slug>. Es también el utm_campaign del destino: así el
+  // gasto de Meta y la adquisición de FinZen unen por nombre sin adivinar.
+  nombre            String
+  objetivo          String // OUTCOME_TRAFFIC | OUTCOME_ENGAGEMENT | OUTCOME_AWARENESS
+  urlDestino        String? // con los UTM ya puestos; null si el objetivo no lleva link
+  presupuestoDiario Float // en la moneda de la cuenta (hoy el tope exige USD)
+  moneda            String        @default("USD")
+  duracionDias      Int
+  segmentacion      Json // { paises, edadMin, edadMax, categoriaFinanciera }
+  racional          String
+  medicion          String
+  // Lo que Meta devolvió al crear, paso a paso. Si un paso falla, los
+  // anteriores quedan acá: todo nace en PAUSA, así que no gasta, pero un
+  // humano tiene que borrarlo en Ads Manager.
+  metaCampaignId    String?
+  metaAdSetId       String?
+  metaCreativeId    String?
+  metaAdId          String?
+  inicio            DateTime?
+  fin               DateTime?
+  error             String?
+  confirmedAt       DateTime?
+  confirmedBy       String? // partnerId — SOLO lo escribe el endpoint HTTP
+  createdAt         DateTime      @default(now())
+
+  @@index([conversationId, status])
+  @@index([status, createdAt])
+  @@index([mediaId])
+}
+
+model MetaAdsConfig {
+  // Singleton (id=1). La publicidad automática (2026-10-04): los días y a la
+  // hora elegidos, Kaizen elige un post de Instagram de FinZen y propone
+  // promocionarlo, con la tarjeta en la conversación elegida. Al confirmar,
+  // el CÓDIGO crea campaña, conjunto, creativo y anuncio EN PAUSA; un humano
+  // la activa en Ads Manager. Apagada por defecto.
+  id                  Int      @id @default(1)
+  enabled             Boolean  @default(false)
+  // Días de la semana en que corre: 0 = domingo … 6 = sábado (como cron).
+  diasSemana          Int[]    @default([1])
+  cronHour            Int      @default(9) // hora de RD
+  conversationId      String?
+  // Presupuesto DIARIO de cada campaña, en la moneda de la cuenta. El tope
+  // duro sigue siendo META_MAX_DAILY_BUDGET_USD: esto no puede superarlo.
+  presupuestoDiario   Float    @default(5)
+  duracionDias        Int      @default(7)
+  objetivo            String   @default("OUTCOME_TRAFFIC")
+  // A dónde lleva el anuncio (la landing). Obligatorio con OUTCOME_TRAFFIC.
+  urlDestino          String?
+  paises              String[] @default(["DO"])
+  edadMin             Int      @default(18)
+  edadMax             Int      @default(65)
+  // Categoría especial de Meta "productos y servicios financieros". Si
+  // FinZen debe declararla, Meta limita la segmentación (edad 18-65, sin
+  // segmentación fina) y el código lo respeta.
+  categoriaFinanciera Boolean  @default(false)
+  // Cuántos días sin volver a promocionar el mismo post.
+  rotacionDias        Int      @default(30)
+  updatedAt           DateTime @updatedAt
+  updatedBy           String?
 }

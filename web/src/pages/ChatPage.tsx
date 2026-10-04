@@ -11,7 +11,7 @@ import { AuditPage } from './AuditPage';
 import { MarketingPage } from './MarketingPage';
 import { MetasPage } from './MetasPage';
 import { UsuariosPage } from './UsuariosPage';
-import type { ConversationSummary, Goal, Partner, Permiso, Proposal, StoredMessage } from '../types';
+import type { AdProposal, ConversationSummary, Goal, Partner, Permiso, Proposal, StoredMessage } from '../types';
 
 interface Props {
   partner: Partner;
@@ -55,6 +55,8 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [replacedGoals, setReplacedGoals] = useState<Goal[]>([]);
+  const [adProposals, setAdProposals] = useState<AdProposal[]>([]);
+  const [anuncioOcupado, setAnuncioOcupado] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   // Cajón de conversaciones en móvil. En escritorio el sidebar es una columna
   // fija y este estado no afecta nada.
@@ -84,7 +86,8 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
   }, []);
 
   const loadConversation = useCallback(async (id: string) => {
-    const { messages: msgs, proposals: props, goals: gs, replacedGoals: rgs } = await api.getMessages(id);
+    const { messages: msgs, proposals: props, goals: gs, replacedGoals: rgs, adProposals: ads } = await api.getMessages(id);
+    setAdProposals(ads ?? []);
     setMessages(msgs);
     setProposals(props);
     setGoals(gs);
@@ -118,6 +121,7 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
     setProposals([]);
     setGoals([]);
     setReplacedGoals([]);
+    setAdProposals([]);
     setActiveId(conversation.id);
   }, [refreshConversations]);
 
@@ -202,6 +206,7 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
           setProposals([]);
           setGoals([]);
           setReplacedGoals([]);
+          setAdProposals([]);
         }
       }
     } catch (err) {
@@ -236,6 +241,30 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
       if (activeId) await loadConversation(activeId);
     } catch (err) {
       setLoadError(err instanceof ApiError ? err.message : 'No se pudo rechazar la meta.');
+    }
+  };
+
+  // Anuncio en Meta (2026-10-04): confirmar es un POST que crea la campaña
+  // EN PAUSA en Meta y tarda unos segundos (cuatro llamadas). No dispara un
+  // turno del agente: el resultado queda como evento en la conversación.
+  const handleConfirmAd = async (id: string) => {
+    setAnuncioOcupado(id);
+    try {
+      await api.confirmarAnuncio(id);
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : 'No se pudo crear el anuncio en Meta.');
+    } finally {
+      setAnuncioOcupado(null);
+      if (activeId) await loadConversation(activeId);
+    }
+  };
+
+  const handleRejectAd = async (id: string) => {
+    try {
+      await api.rechazarAnuncio(id);
+      if (activeId) await loadConversation(activeId);
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : 'No se pudo rechazar el anuncio.');
     }
   };
 
@@ -389,6 +418,11 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
               onRejectGoal={handleRejectGoal}
               puedeConfirmarCampanas={partner.permisos.includes('campanas:confirmar')}
               puedeConfirmarMetas={partner.permisos.includes('metas:confirmar')}
+              adProposals={adProposals}
+              onConfirmAd={handleConfirmAd}
+              onRejectAd={handleRejectAd}
+              anuncioOcupado={anuncioOcupado}
+              puedeConfirmarPublicidad={partner.permisos.includes('publicidad:confirmar')}
             />
             <AgentStatusBar toolLabel={stream.toolStatus?.label ?? null} isStreaming={stream.isStreaming} />
             <Composer

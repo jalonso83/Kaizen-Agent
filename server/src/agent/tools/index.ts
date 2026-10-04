@@ -8,6 +8,7 @@ import { proposeGoalTool, getActiveGoalTool, markGoalAchievedTool } from './goal
 import { getMetaCampaignsTool, getMetaSpendTool } from './meta';
 import { listMarketingAccountsTool, getInstagramProfileTool } from './instagram';
 import { getTiktokProfileTool } from './tiktok';
+import { proposeMetaAdTool } from './publicidad';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Registro de tools de Kaizen — DISENO_FASE1.md §6. Las 9 originales +
@@ -57,6 +58,9 @@ export const TOOL_LIST: KaizenTool[] = [
   getInstagramProfileTool,
   // TikTok — solo lectura, solo la cuenta propia (tools/tiktok.ts).
   getTiktokProfileTool,
+  // Publicidad en Meta (2026-10-04): solo registra la tarjeta; lo que llega a
+  // Meta lo crea el botón, en pausa (routes/adProposals.ts).
+  proposeMetaAdTool,
 ];
 
 /**
@@ -64,7 +68,7 @@ export const TOOL_LIST: KaizenTool[] = [
  * tools de escritura hacia FinZen — un cron no debe *poder* crear borradores,
  * ni siquiera por un bug de prompt. Solo lecturas + Drive.
  */
-const SOLO_CON_SOCIO = ['propose_campaign', 'create_campaign_draft', 'propose_goal', 'mark_goal_achieved'];
+const SOLO_CON_SOCIO = ['propose_campaign', 'create_campaign_draft', 'propose_goal', 'mark_goal_achieved', 'propose_meta_ad'];
 export const CRON_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter((t) => !SOLO_CON_SOCIO.includes(t.name));
 
 /**
@@ -76,8 +80,20 @@ export const CRON_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter((t) => !SOLO_CON_SO
  * borrador.
  */
 export const DAILY_CAMPAIGN_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter(
-  (t) => !['create_campaign_draft', 'propose_goal', 'mark_goal_achieved'].includes(t.name),
+  (t) => !['create_campaign_draft', 'propose_goal', 'mark_goal_achieved', 'propose_meta_ad'].includes(t.name),
 );
+
+/**
+ * La publicidad automática (2026-10-04): lectura de Instagram, de Meta y del
+ * Cerebro, y propose_meta_ad. Nada que escriba hacia FinZen ni las metas, y
+ * nada de push: esta corrida es sobre pauta paga.
+ */
+const PUBLICIDAD = [
+  'search_cerebro', 'list_cerebro_folders', 'load_skill', 'get_kpis',
+  'list_marketing_accounts', 'get_instagram_profile', 'get_meta_campaigns', 'get_meta_spend',
+  'propose_meta_ad',
+];
+export const META_ADS_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter((t) => PUBLICIDAD.includes(t.name));
 
 /** Registro por nombre, para despachar una llamada del modelo. */
 export const TOOLS: Record<string, KaizenTool> = Object.fromEntries(

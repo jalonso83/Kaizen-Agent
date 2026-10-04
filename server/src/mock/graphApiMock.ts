@@ -134,6 +134,58 @@ app.post(`/${AD_ACCOUNT}/campaigns`, (req, res) => {
   res.json({ id: `1202199${Date.now().toString().slice(-8)}` });
 });
 
+// ── Publicidad automática: conjunto, creativo y anuncio (2026-10-04) ──────
+// Mismo criterio que el POST de campañas: si llega algo que no esté EN
+// PAUSA, el simulador lo rechaza en voz alta. Y para forzar el fallo a mitad
+// de la cadena (lo que deja objetos huérfanos en pausa), un creativo sobre
+// el media id "FALLA" responde (#100) como Meta con un post no elegible.
+
+const ultimo = { adset: null as Record<string, unknown> | null, creative: null as Record<string, unknown> | null, ad: null as Record<string, unknown> | null };
+const nuevoId = (prefijo: string) => `${prefijo}${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 90 + 10)}`;
+
+app.post(`/${AD_ACCOUNT}/adsets`, (req, res) => {
+  const b = req.body ?? {};
+  if (b.status !== 'PAUSED') {
+    errorGraph(res, 400, 100, `(#100) mock: el conjunto tiene que nacer PAUSED y llegó ${JSON.stringify(b.status)}`);
+    return;
+  }
+  if (!b.campaign_id || !b.end_time || !b.targeting?.geo_locations?.countries?.length) {
+    errorGraph(res, 400, 100, '(#100) mock: faltan campaign_id, end_time o targeting.geo_locations.countries');
+    return;
+  }
+  ultimo.adset = b;
+  res.json({ id: nuevoId('1202300') });
+});
+
+app.post(`/${AD_ACCOUNT}/adcreatives`, (req, res) => {
+  const b = req.body ?? {};
+  if (b.source_instagram_media_id === 'FALLA') {
+    errorGraph(res, 400, 100, '(#100) The Instagram post is not eligible to be used as an ad.', 2446383);
+    return;
+  }
+  if (!b.object_id || !b.instagram_user_id || !b.source_instagram_media_id) {
+    errorGraph(res, 400, 100, '(#100) mock: faltan object_id (página), instagram_user_id o source_instagram_media_id');
+    return;
+  }
+  ultimo.creative = b;
+  res.json({ id: nuevoId('1202400') });
+});
+
+app.post(`/${AD_ACCOUNT}/ads`, (req, res) => {
+  const b = req.body ?? {};
+  if (b.status !== 'PAUSED') {
+    errorGraph(res, 400, 100, `(#100) mock: el anuncio tiene que nacer PAUSED y llegó ${JSON.stringify(b.status)}`);
+    return;
+  }
+  ultimo.ad = b;
+  res.json({ id: nuevoId('1202500') });
+});
+
+/** Solo del simulador: lo último que recibió cada endpoint, para que las pruebas miren el cuerpo real. */
+app.get('/__ultimo', (_req, res) => {
+  res.json(ultimo);
+});
+
 // ── Instagram: business_discovery ─────────────────────────────────────────
 
 interface PerfilMock {
