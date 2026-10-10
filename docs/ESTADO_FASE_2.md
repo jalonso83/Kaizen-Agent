@@ -1527,6 +1527,36 @@ system prompt (cambia una vez por día) lo resolvería; se decide midiendo
 En Opus 4.8, omitirlo significa correr sin razonamiento, a diferencia del chat
 (`thinking: adaptive` en `runner.ts`). No se cambió en este paso.
 
+## El método de pauta de Junior entra como skill (2026-10-10)
+
+Junior entregó el traspaso de su agente de pautas
+(`docs/recibido/2026-10-07-junior-agente-de-pautas/`). Entra como el skill
+**`pautas-meta`**, que **manda** sobre `adquisicion-pagada` (regla 10 de
+`SKILLS.md`): cada anuncio es un experimento pre-registrado, con una variable,
+comparador, umbral en tres franjas (±15 %) y predicción con confianza;
+calendario día 3 / cierre / cierre + 7; pieza elegida por moneda social.
+
+`adquisicion-pagada` quedó recortado a la mecánica de los campos. Los prompts
+de la publicidad automática y de la evaluación ahora cargan `pautas-meta`,
+piden la ficha en `racional` y `medicion` (que quedan fijos en la tarjeta) y
+cierran el experimento con `save_cerebro_note` en el registro (se agregó esa
+tool a la corrida de evaluación; solo escribe en `50-kaizen/`).
+
+**Lo que el código todavía no sigue del método** (próximo paso):
+
+| Método de Junior | Kaizen hoy |
+|---|---|
+| Objetivo clientes potenciales, evento "Cliente potencial" del píxel | Tráfico, interacción o alcance |
+| Métrica principal: costo por cliente potencial (Meta) | Costo por clic a descargar (tablero) |
+| Veredicto en cierre + 7, pruebas de 4-6 días | La tool exige 7 días con gasto |
+| `utm_medium=cpc` y parámetros de URL de Meta | `paid_social`, armado en el link |
+| Nombres `EXP_P0N_<Pieza>_<DDMMAA>` | `kaizen-ig-AAAAMMDD-tema` |
+| Moneda social (compartidos + guardados por alcance) | La tool no trae insights por pieza |
+| Audiencia guardada "Prueba 1" y posiciones explícitas | Edad fija, todas las posiciones de Instagram |
+
+Mientras tanto el skill lo dice: si la tarjeta difiere de la configuración
+estándar, Kaizen lo nombra como desvío en la ficha.
+
 ## 🚧 Bloqueado — lo que solo puede aportar FinZen
 
 | Qué | Por qué hace falta |

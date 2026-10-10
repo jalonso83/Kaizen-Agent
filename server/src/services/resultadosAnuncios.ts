@@ -28,7 +28,12 @@ import { todayInRD } from '../util/fecha';
 // que son.
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Días con gasto antes de evaluar: el aprendizaje de Meta (skill adquisicion-pagada §4). */
+/**
+ * Días con gasto antes de que record_meta_ad_evaluation acepte una
+ * recomendación. OJO: el calendario de Junior (skill pautas-meta) es otro —
+ * día 3 solo fallas, veredicto en cierre + 7 — y sus pruebas duran 4-6 días.
+ * Adaptar esto a ese calendario es trabajo pendiente.
+ */
 export const DIAS_MINIMOS_EVALUACION = 7;
 /** Hasta cuándo se sigue leyendo una campaña después de su fecha de fin. */
 const DIAS_DE_GRACIA = 3;

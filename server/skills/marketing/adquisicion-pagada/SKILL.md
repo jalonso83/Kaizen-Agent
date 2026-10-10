@@ -1,6 +1,6 @@
 ---
 name: adquisicion-pagada
-description: Úsalo al leer datos que vienen de Meta con get_meta_campaigns o get_meta_spend, y SIEMPRE antes de propose_meta_ad — qué significa cada campo, cómo elegir un post para promocionar, y qué puede y no puede hacer Kaizen en esa cuenta. Para interpretar CAC, atribución o si la pauta rinde, el skill es lectura-adquisicion-finzen.
+description: Úsalo al leer datos que vienen de Meta (get_meta_campaigns, get_meta_spend, get_meta_ad_results) para saber qué significa cada campo y qué puede y no puede hacer Kaizen en esa cuenta. Es solo la mecánica: qué pautar, cómo pre-registrar y cuándo evaluar está en pautas-meta (el método de Junior, que manda). Para CAC o atribución, lectura-adquisicion-finzen.
 ---
 
 # Los datos de Meta: qué son y qué puede hacer Kaizen
@@ -14,6 +14,11 @@ límites de lo que Kaizen puede hacer en esa cuenta.
 > la restricción vinculante y cómo reportarlo viven en
 > **`lectura-adquisicion-finzen`**. Carga ese skill antes de concluir nada sobre
 > si la pauta rinde. Este solo te dice qué significan los números que Meta manda.
+>
+> **El método de pauta tampoco está aquí.** Qué pieza pautar, la ficha de
+> pre-registro, el umbral en tres franjas, el calendario (día 3, cierre, cierre
+> + 7) y la configuración estándar viven en **`pautas-meta`**, que es el método
+> de Junior. **Si algo de este skill choca con `pautas-meta`, manda `pautas-meta`.**
 
 ## 1. Lo primero: ¿está gastando o no?
 
@@ -54,11 +59,13 @@ romperse en el salto a la tienda (`lectura-adquisicion-finzen` §2).
 Consecuencia práctica: un embudo que se rompe después del clic no se arregla
 cambiando el anuncio.
 
-## 4. Ventana de aprendizaje
+## 4. Los primeros días
 
-El algoritmo de Meta tiene una fase de aprendizaje al arrancar una campaña. Los
-primeros días no representan el rendimiento estable, así que **una campaña con
-menos de 7 días corriendo no se evalúa**, ni para bien ni para mal.
+Meta tiene una fase de aprendizaje al arrancar una campaña, así que los primeros
+días no son el rendimiento estable. Cuándo se mira y cuándo se decide lo fija el
+calendario de `pautas-meta`: el día 3 **solo se buscan fallas** (no entrega,
+rechazo, gasto raro) y el veredicto es 7 días después del cierre, contra el
+umbral pre-registrado. No adelantes veredictos con lo que se vea antes.
 
 ## 5. Nunca compares una campaña de Meta contra el lift de una interna
 
@@ -87,78 +94,21 @@ comparables es una lectura que no se sostiene.
 Estas no son reglas que estés siguiendo por buena voluntad: son límites del
 código. Dilo así si te preguntan — es más honesto y más tranquilizador que
 prometer que te vas a portar bien.
-## 7. Proponer un anuncio (propose_meta_ad)
 
-Kaizen puede proponer **promocionar un post de Instagram de FinZen que ya está
-publicado**. La tarjeta no gasta: al confirmarla, el sistema crea la campaña
-**en pausa**, y la activa un humano en Ads Manager.
+## 7. Los campos de get_meta_ad_results
 
-**Cómo elegir el post**, con los datos de get_instagram_profile:
-
-1. **Rindió claramente mejor que la mediana de la cuenta** en interacciones.
-   Con 2 o 3 piezas virales, el promedio miente: compara contra la mediana
-   (`resumen_publicaciones.likes_mediana`). Un post que está en la mediana no
-   tiene por qué rendir mejor pagado.
-2. **Se entiende sin contexto.** Quien lo va a ver no sigue a FinZen. Un
-   chiste interno, una respuesta a un comentario o un post que depende del
-   anterior no sirven.
-3. **Vende algo que la app hace hoy.** Si el post promete una función que no
-   existe o un resultado ("ahorra X"), no se promociona: regla de marca.
-4. **Es reciente** (idealmente de los últimos 60 días) y **no se promocionó**
-   en la ventana de rotación (la tool lo rechaza igual).
-5. **No compite con lo que ya corre.** Mira get_meta_campaigns: si hay una
-   campaña activa con el mismo tema, dilo y no propongas otra encima.
-
-**El racional lleva cifras**: interacciones del post contra la mediana, tipo
-(reel o carrusel) y fecha. **La medición** dice qué se mira y cuándo: CTR y
-CPC a los 7 días como mínimo (§4: antes no se evalúa), y los registros con
-ese `utm_campaign` en get_kpis. El nombre de la campaña ES el utm_campaign,
-así que el cruce con FinZen sí une para las campañas que crea Kaizen.
-
-**Si ningún post cumple, no propongas.** Es una respuesta válida y mejor que
-pagar para empujar una pieza mediocre.
-
-**Antes de proponer, mira cómo rindieron los anteriores** con
-get_meta_ad_results. Si un tipo de pieza (reel, carrusel) o un tema tuvo un
-costo por clic a descargar claramente peor que otro, no repitas lo que no
-funcionó sin decir por qué esta vez sería distinto.
-
-## 8. Evaluar un anuncio de Kaizen (get_meta_ad_results, record_meta_ad_evaluation)
-
-Los anuncios que propone Kaizen se pueden medir de punta a punta porque su
-nombre es su `utm_campaign`. get_meta_ad_results trae todo calculado en
-código: úsalo tal cual y no recalcules.
-
-**Qué significa cada número:**
+Los anuncios que propone Kaizen se pueden seguir de punta a punta porque su
+nombre es su `utm_campaign`. Todo viene calculado en código: úsalo tal cual.
 
 | Campo | Qué es | Trampa |
 |---|---|---|
-| `diasConGasto` | Días en que Meta cobró algo | Activar es manual: el primer día con gasto es cuándo la activaron |
+| `estadoMeta` | El estado real en Meta | PAUSED con 0 días con gasto: nadie la activó |
+| `diasConGasto`, `primerDiaConGasto` | Días en que Meta cobró algo | Activar es manual: el primer día con gasto es cuándo la activaron |
 | `ctrPct`, `costoPorClic` | Sobre clics **al enlace**, no todos los clics | Miden el anuncio, no la app (§3) |
-| `finzen.visitantes` | Visitantes de la landing con ese utm_campaign | Si es mucho menor que `clicsEnlace`, se pierde gente entre el clic y la página (carga lenta, enlace roto) |
-| `finzen.clicsDescarga` | Clics **únicos** al botón Descargar | **No son registros ni suscripciones.** La atribución se puede perder en la tienda (lectura-adquisicion-finzen §2) |
-| `costoPorClicDescarga` | gasto / clics a descargar | La mejor medida que hay hoy del anuncio de punta a punta |
+| `alcance` | El máximo diario | Un piso, no la suma |
+| `finzen.visitantes` | Visitantes de la landing con ese utm_campaign | Si es mucho menor que los clics al enlace, se pierde gente entre el clic y la página |
+| `finzen.clicsDescarga` | Clics **únicos** al botón Descargar, según el tablero | **No son registros.** Confianza moderada (`pautas-meta`, Medición) |
 
-**Cuándo evaluar:** con `evaluable: true` (7 días con gasto o más). Antes, la
-tool de evaluación lo rechaza; tú tampoco adelantes veredictos.
-
-**Contra qué comparar**, en este orden:
-1. Los otros anuncios de Kaizen (get_meta_ad_results sin ad_id).
-2. Las campañas pagadas de FinZen en get_meta_spend, con su CTR y CPC.
-3. Si no hay con qué comparar, dilo: "es el primero, no hay base". No
-   inventes un benchmark.
-
-**Las tres recomendaciones:**
-- **seguir:** el costo por clic a descargar es igual o mejor que la
-  comparación, y el gasto va según lo previsto.
-- **cambiar_post:** el CTR es bajo contra la comparación, pero la cadena
-  después del clic funciona (visitantes y clics a descargar en proporción).
-  Lo que falla es la pieza.
-- **pausar:** gasta sin traer clics a descargar, o el costo por clic a
-  descargar es varias veces peor que la comparación. También si visitantes
-  es casi cero con clics al enlace altos: hay algo roto en la landing y no
-  se arregla pagando más.
-
-**En la razón van las cifras** de la lectura y la comparación. Siempre
-termina con lo que tiene que hacer el socio: con seguir, nada; con pausar o
-cambiar_post, hacerlo en Ads Manager (tú no puedes).
+La **métrica principal** de un experimento es el costo por cliente potencial
+leído en Meta (`pautas-meta`). Esta tool todavía no lo trae: si hace falta,
+dilo, y usa `costoPorClicDescarga` solo como apoyo, con su confianza.

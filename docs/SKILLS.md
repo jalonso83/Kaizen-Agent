@@ -1,6 +1,6 @@
 # SKILLS.md — Los skills de Kaizen
 
-**Versión 1.4 · 2026-09-19** (v1.3: 2026-09-13 · (v1.2: 2026-09-10 · v1.1: 2026-09-03 · v1.0: 2026-07-12)
+**Versión 1.5 · 2026-10-10** (v1.4: 2026-09-19 · v1.3: 2026-09-13 · (v1.2: 2026-09-10 · v1.1: 2026-09-03 · v1.0: 2026-07-12)
 
 Un **skill** es un playbook procedimental: instrucciones de *cómo hacer bien una
 tarea específica* del oficio de growth/marketing, que Kaizen carga bajo demanda
@@ -141,8 +141,14 @@ alternativas, qué incluye el racional.
 8. Al agregar/quitar un skill: actualizar el catálogo de este doc en el mismo PR.
 9. **Un skill pertenece a un solo ámbito.** Si sirve en los dos, es que cubre
    dos oficios (regla 2): se parte.
+10. **Lo que entrega quien opera el área manda sobre lo que escribimos
+    nosotros** (2026-10-10). Los skills de Junior salen de cómo maneja él la
+    pauta y las redes; los propios de Kaizen se escribieron sin esos criterios.
+    Si chocan, gana el de Junior, y el propio se recorta para remitir a él en
+    vez de repetir o contradecir. Hoy: `pautas-meta` manda sobre
+    `adquisicion-pagada`.
 
-## Catálogo actual (17 skills)
+## Catálogo actual (18 skills)
 
 > Actualizado 2026-09-10 con la partición por ámbito. Se actualiza **en el
 > mismo PR** que agregue, quite o mueva uno.
@@ -173,14 +179,15 @@ partir de un número — esa capa faltaba entera hasta que Junior la entregó el
 | [`verificar-comparabilidad`](../server/skills/finzen/verificar-comparabilidad/SKILL.md) | **Siempre** antes de decir que algo subió o bajó |
 | [`lectura-experimentos`](../server/skills/finzen/lectura-experimentos/SKILL.md) | Al vencer la ventana de un experimento (H9, H13) o una campaña: veredicto con el pre-registro, y cierre del bucle escribiendo el aprendizaje al Cerebro |
 
-## Ámbito Marketing — `server/skills/marketing/` (9)
+## Ámbito Marketing — `server/skills/marketing/` (10)
 
 ### Acción y pauta
 
 | Skill | Cuándo lo usa Kaizen | Origen |
 |---|---|---|
 | [`conceptos-contenido`](../server/skills/marketing/conceptos-contenido/SKILL.md) | Conceptos de contenido externo (reels, carruseles, guiones). Reescrito con el sistema real de marketing: 6 pilares, 3 buyer personas, mezcla mensual | Adaptado de `social` (MIT) + sistema de marca de FinZen |
-| [`adquisicion-pagada`](../server/skills/marketing/adquisicion-pagada/SKILL.md) | Mecánica de la integración con Meta: qué significa cada campo y qué puede y no puede hacer Kaizen en esa cuenta | Propio de Kaizen (Fase 2) |
+| [`pautas-meta`](../server/skills/marketing/pautas-meta/SKILL.md) | **Antes de proponer, leer o evaluar publicidad pagada en Meta.** Cada anuncio es un experimento pre-registrado (una variable, comparador, umbral en tres franjas de ±15 %, predicción con confianza); calendario día 3 / cierre / cierre + 7; pieza por moneda social orgánica; configuración estándar de la cuenta; qué se puede afirmar y con qué confianza. **Manda sobre `adquisicion-pagada`.** No es para las campañas de push | Junior, entrega C (`docs/recibido/2026-10-07-junior-agente-de-pautas/`) |
+| [`adquisicion-pagada`](../server/skills/marketing/adquisicion-pagada/SKILL.md) | Solo la mecánica de Meta: qué significa cada campo (incluidos los de `get_meta_ad_results`) y qué no puede hacer Kaizen en la cuenta. Recortado el 2026-10-10: la elección de la pieza y la evaluación que tenía las reemplaza `pautas-meta` | Propio de Kaizen (Fase 2) |
 | [`lectura-adquisicion-finzen`](../server/skills/marketing/lectura-adquisicion-finzen/SKILL.md) | CAC/ROI y dónde poner presupuesto. La ambigüedad de atribución sin resolver invalida cualquier lectura ingenua de ROI | Junior, entrega A |
 
 > `lectura-adquisicion-finzen` está acá y no en FinZen aunque lea la tabla de

@@ -42,13 +42,14 @@ function buildPrompt(cfg: MetaAdsConfig, usados: string[], historial: string): s
       ? `Cómo rindieron los anuncios anteriores de Kaizen (calculado en código; usalo para elegir y no repitas lo que no funcionó):\n${historial}\n\n`
       : 'Todavía no hay resultados de anuncios anteriores de Kaizen.\n\n') +
     `Hacé esto, en orden:\n` +
-    `1. search_cerebro("decisions log") y search_cerebro("pauta Meta"): ubicate y descartá lo que ya se decidió no hacer.\n` +
-    `2. Cargá los skills adquisicion-pagada y lectura-perfil-instagram.\n` +
-    `3. list_marketing_accounts y get_instagram_profile sobre la cuenta de FinZen (la propia), con publicaciones: 50.\n` +
-    `4. get_meta_campaigns y get_meta_spend de los últimos 30 días: qué está corriendo y qué gastó. Si ya hay campañas de Kaizen (nombre kaizen-ig-…) activas, tenelo en cuenta.\n` +
-    `5. Si hay resultados de anuncios anteriores, get_meta_ad_results sin ad_id para verlos completos. Elegí UN post: con interacciones claramente por encima de la mediana de la cuenta, que explique FinZen sin contexto (alguien que no te sigue lo tiene que entender), no promocionado antes, y preferentemente de los últimos 60 días. ` +
-    `Escribí en el chat 3-5 líneas: qué post (permalink), por qué con cifras, y qué se va a medir. Después llamá a propose_meta_ad con su id exacto.\n` +
-    `6. Si ningún post cumple, o la pauta actual ya cubre lo mismo, NO llames a propose_meta_ad: explicá en 2-3 líneas por qué. Es una respuesta válida.\n\n` +
+    `1. Cargá el skill pautas-meta (el método de Junior: manda sobre cualquier otro) y adquisicion-pagada para los campos.\n` +
+    `2. search_cerebro("registro experimentos pautas") y search_cerebro("decisions log"): qué experimento va (EXP-P0N), cuál fue el último y qué ya se descartó. Si no encontrás el registro, decilo.\n` +
+    `3. get_meta_campaigns: si hay un experimento corriendo en la cuenta, NO propongas otro encima (se pisan y ninguno se puede leer). Explicalo en 2 líneas y terminá.\n` +
+    `4. list_marketing_accounts y get_instagram_profile sobre la cuenta de FinZen (la propia), con publicaciones: 50. Si hay resultados de anuncios anteriores, get_meta_ad_results sin ad_id.\n` +
+    `5. Elegí UNA pieza con el filtro de pautas-meta: moneda social orgánica a 7 días por encima de la mediana de su cuenta y formato, nunca pautada, que retenga los 3 primeros segundos y sin música que Meta pueda silenciar. Si la tool no trae compartidos, guardados o alcance, decilo: no lo reemplaces con likes.\n` +
+    `6. Escribí en el chat la FICHA del experimento (código, hipótesis, la única variable, comparador, presupuesto y fechas, métrica principal, umbral en tres franjas, predicción con confianza, confusores, fecha de lectura). ` +
+    `Si lo que va a crear la tarjeta difiere de la configuración estándar de pautas-meta, nombralo como desvío. Después llamá a propose_meta_ad: hipótesis, variable y predicción en "racional"; comparador, métrica, umbral y fecha de lectura en "medicion".\n` +
+    `7. Si ninguna pieza pasa el filtro, o el cuello de botella no es la pauta, NO llames a propose_meta_ad: explicá en 2-3 líneas por qué. Es una respuesta válida.\n\n` +
     `Recordá: la tarjeta no gasta nada; al confirmar se crea EN PAUSA y la activa un humano en Ads Manager. Nunca digas que la campaña "ya está corriendo".` +
     `</evento_sistema>`
   );

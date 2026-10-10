@@ -30,15 +30,15 @@ export const proposeMetaAdTool: KaizenTool = {
     'Propone PROMOCIONAR en Meta Ads un post de Instagram de FinZen que ya está publicado. Registra una tarjeta; el socio la confirma o rechaza con los botones, ' +
     'y recién al confirmar el sistema crea la campaña EN PAUSA (un humano la activa en Ads Manager — tú nunca puedes activarla). ' +
     'Presupuesto diario, duración, objetivo, URL de destino y segmentación NO los eliges tú: salen de Configuración → Publicidad automática, y la tarjeta los muestra. ' +
-    'Antes de llamarla: get_instagram_profile sobre la cuenta de FinZen (para elegir con datos y tener el id del post), el skill adquisicion-pagada, y search_cerebro. ' +
+    'Antes de llamarla: get_instagram_profile sobre la cuenta de FinZen (para elegir con datos y tener el id del post), el skill pautas-meta (el método de Junior: cada anuncio es un experimento pre-registrado) y search_cerebro. ' +
     'El media_id se verifica contra las publicaciones reales de la cuenta de FinZen, y un post ya promocionado en la ventana de rotación se rechaza.',
   inputSchema: {
     type: 'object',
     properties: {
       media_id: { type: 'string', description: 'El `id` EXACTO de un elemento de `publicaciones` de get_instagram_profile sobre la cuenta de FinZen' },
       nombre_corto: { type: 'string', description: '2-5 palabras sobre el tema del post (ej. "gastos hormiga"). Se usa en el nombre de la campaña y en el utm_campaign' },
-      racional: { type: 'string', description: 'Por qué ESTE post y por qué ahora, con cifras de get_instagram_profile (interacciones vs la mediana de la cuenta, tipo, fecha). ≥ 30 caracteres' },
-      medicion: { type: 'string', description: 'Qué se va a mirar y cuándo (ej. CTR y CPC a los 7 días, registros con este utm_campaign en get_kpis). Recuerda: <7 días no se evalúa' },
+      racional: { type: 'string', description: 'De la ficha del experimento (skill pautas-meta): código EXP-P0N, hipótesis refutable, la ÚNICA variable que cambia y tu predicción con confianza, con las cifras de la pieza (moneda social contra la mediana de su cuenta y formato). ≥ 30 caracteres' },
+      medicion: { type: 'string', description: 'De la ficha: comparador, métrica principal (costo por cliente potencial), umbral en tres franjas (gana si mejora ≥15 %, empate dentro de ±15 %, pierde si empeora ≥15 %, con la acción de cada una) y fecha de lectura (cierre + 7 días). Queda fijo en la tarjeta: no se mueve después' },
     },
     required: ['media_id', 'nombre_corto', 'racional', 'medicion'],
   },
@@ -102,7 +102,7 @@ export const proposeMetaAdTool: KaizenTool = {
 // ─────────────────────────────────────────────────────────────────────────
 
 const RESULTADOS_NOTE =
-  'CÓMO LEER ESTO (método en el skill adquisicion-pagada §8): todo viene calculado en código; úsalo tal cual, no recalcules. ' +
+  'CÓMO LEER ESTO (método en el skill pautas-meta; campos en adquisicion-pagada §7): todo viene calculado en código; úsalo tal cual, no recalcules. ' +
   'Con menos de 7 días con gasto (`evaluable: false`) NO se evalúa, ni para bien ni para mal: dilo así. ' +
   '`finzen.clicsDescarga` son clics ÚNICOS al botón "Descargar" de visitantes con este utm_campaign, NO registros ni suscripciones; nunca los llames registros. ' +
   '`alcance` es el máximo diario (un piso), no la suma. `estadoMeta` es el estado real en Meta: si dice PAUSED y `diasConGasto` es 0, nadie la activó todavía.';
@@ -198,7 +198,7 @@ export const recordMetaAdEvaluationTool: KaizenTool = {
   description:
     'Registra TU recomendación sobre un anuncio de Kaizen con al menos 7 días con gasto: "seguir" (rinde, que siga hasta su fin), "pausar" (no rinde, frenarlo) ' +
     'o "cambiar_post" (el formato sirve pero esta pieza no: probar con otra). La tarjeta del anuncio la muestra. NO pausa ni cambia nada en Meta: eso lo hace un humano en Ads Manager. ' +
-    'Antes: get_meta_ad_results con ad_id y refrescar=true, y el skill adquisicion-pagada §8. La razón lleva las cifras de esa lectura.',
+    'Antes: get_meta_ad_results con ad_id y refrescar=true, y el skill pautas-meta: la recomendación es la acción que la ficha pre-registrada (el medicion de la tarjeta) fijó para la franja en que cayó. La razón lleva las cifras y la franja.',
   inputSchema: {
     type: 'object',
     properties: {

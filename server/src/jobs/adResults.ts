@@ -37,11 +37,11 @@ function buildPrompt(adId: string, nombre: string, r: ResultadoAnuncio): string 
     `<evento_sistema>Seguimiento automático (${todayInRD()}): el anuncio "${nombre}" (id ${adId}) que propusiste en esta conversación ya lleva ${r.diasConGasto} días con gasto. ` +
     `Es momento de evaluarlo.\n\n` +
     `1. get_meta_ad_results con ad_id=${adId} y refrescar=true.\n` +
-    `2. Cargá el skill adquisicion-pagada y seguí su §8.\n` +
-    `3. get_meta_ad_results sin ad_id, para comparar contra los otros anuncios de Kaizen si los hay.\n` +
-    `4. Escribí en el chat 4-6 líneas: qué gastó y qué trajo (con las cifras tal cual vienen), contra qué lo comparás, y tu recomendación. ` +
-    `Nunca llames "registros" a los clics a descargar.\n` +
-    `5. record_meta_ad_evaluation con seguir, pausar o cambiar_post y la razón con esas cifras.\n\n` +
+    `2. Cargá el skill pautas-meta (el método de Junior: manda) y adquisicion-pagada §7 para los campos.\n` +
+    `3. El umbral y el comparador están en el "medicion" de la tarjeta, fijados antes de gastar: NO los muevas. Si la tarjeta no los tiene, decilo y leé el resultado sin inventar un umbral.\n` +
+    `4. Escribí en el chat 4-6 líneas: qué gastó y qué trajo (cifras tal cual, cada una con su confianza), en qué franja cae (gana, empate, pierde o "no se puede concluir"), la lección y la siguiente hipótesis. ` +
+    `Nunca llames "registros" a los clics a descargar ni des un CAC por campaña.\n` +
+    `5. record_meta_ad_evaluation con la acción que la ficha fijó para esa franja (seguir si gana, pausar si pierde, cambiar_post si el formato sirve y la pieza no) y la razón con esas cifras. Después, save_cerebro_note con resultado, veredicto, lección y siguiente hipótesis para el registro.\n\n` +
     `Recordá: no podés pausar ni editar la campaña. Si recomendás pausar o cambiar, el socio lo hace en Ads Manager.</evento_sistema>`
   );
 }

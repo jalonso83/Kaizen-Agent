@@ -100,7 +100,8 @@ test('quién puede leer resultados y quién registrar la recomendación', () => 
   assert.ok(!n(META_ADS_TOOL_LIST).includes('record_meta_ad_evaluation'));
   const ev = n(AD_EVALUATION_TOOL_LIST);
   assert.ok(ev.includes('record_meta_ad_evaluation') && ev.includes('get_meta_ad_results'));
-  for (const prohibida of ['propose_meta_ad', 'propose_campaign', 'create_campaign_draft', 'propose_goal', 'save_cerebro_note']) {
+  assert.ok(ev.includes('save_cerebro_note'), 'el método de Junior cierra el experimento escribiendo en el registro (50-kaizen/)');
+  for (const prohibida of ['propose_meta_ad', 'propose_campaign', 'create_campaign_draft', 'propose_goal', 'save_content_draft']) {
     assert.ok(!ev.includes(prohibida), `${prohibida} no puede estar en la evaluación`);
   }
 });

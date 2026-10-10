@@ -101,11 +101,14 @@ export const META_ADS_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter((t) => PUBLICID
 /**
  * La evaluación de un anuncio a los 7 días con gasto (2026-10-05): leer sus
  * resultados, el Cerebro y el Instagram, y dejar la recomendación. No puede
- * proponer otro anuncio ni tocar nada de FinZen.
+ * proponer otro anuncio ni tocar nada de FinZen. Desde 2026-10-10 también
+ * save_cerebro_note: el método de Junior (skill pautas-meta) cierra cada
+ * experimento escribiendo veredicto, lección y siguiente hipótesis en el
+ * registro, y esa tool solo escribe en 50-kaizen/.
  */
 const EVALUACION = [
   'search_cerebro', 'load_skill', 'get_kpis', 'list_marketing_accounts', 'get_instagram_profile',
-  'get_meta_campaigns', 'get_meta_ad_results', 'record_meta_ad_evaluation',
+  'get_meta_campaigns', 'get_meta_ad_results', 'record_meta_ad_evaluation', 'save_cerebro_note',
 ];
 export const AD_EVALUATION_TOOL_LIST: KaizenTool[] = TOOL_LIST.filter((t) => EVALUACION.includes(t.name));
 
