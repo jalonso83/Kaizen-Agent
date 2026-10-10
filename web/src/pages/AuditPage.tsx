@@ -330,6 +330,19 @@ export function AuditPage() {
                 {overview.health.errores24h}
               </span>
             </div>
+            <div className="audit-health-card">
+              <span className="audit-health-label">Caché del modelo (24 h)</span>
+              {overview.health.cache24h?.pctLeido != null ? (
+                <span
+                  className={overview.health.cache24h.pctLeido >= 50 ? 'audit-ok' : 'audit-bad'}
+                  title={`${overview.health.cache24h.respuestas} respuestas · ${overview.health.cache24h.leidos.toLocaleString('es-DO')} tokens leídos del caché, ${overview.health.cache24h.escritos.toLocaleString('es-DO')} escritos, ${overview.health.cache24h.sinCache.toLocaleString('es-DO')} sin caché`}
+                >
+                  {overview.health.cache24h.pctLeido}% de la entrada desde el caché · se pagó el {overview.health.cache24h.pctCosto}%
+                </span>
+              ) : (
+                <span className="audit-muted">Sin datos todavía</span>
+              )}
+            </div>
           </section>
 
           {overview.gate.pendientes.length > 0 && (

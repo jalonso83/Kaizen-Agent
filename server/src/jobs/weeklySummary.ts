@@ -7,7 +7,7 @@ import { config } from '../config';
 import { audit } from '../services/audit';
 import { getClient, MODEL } from '../agent/runner';
 import { buildBetaTools } from '../agent/adapter';
-import { buildSystemPrompt } from '../agent/systemPrompt';
+import { buildSystemPrompt, CACHE_AUTOMATICO } from '../agent/systemPrompt';
 import { injectDateContext } from '../agent/contexto';
 import { activeGoal, resumenMeta } from '../agent/tools/goals';
 import { TZ_RD, todayInRD } from '../util/fecha';
@@ -189,6 +189,7 @@ export async function runWeeklySummary(): Promise<WeeklySummaryResult> {
       model: MODEL,
       max_tokens: 16_000,
       system: buildSystemPrompt(tonoDeMarca),
+      cache_control: CACHE_AUTOMATICO,
       tools: buildBetaTools(ctx, CRON_TOOL_LIST),
       messages,
       stream: false,

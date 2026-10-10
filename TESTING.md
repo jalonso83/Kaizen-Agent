@@ -345,6 +345,22 @@ Necesita la migración `daily_campaign` aplicada y `ANTHROPIC_API_KEY`.
    contador de "sin confirmación" NO sube. En FinZen, el borrador está
    PENDING_APPROVAL. Volver a modo tarjeta al terminar la prueba.
 
+## 11c-bis. Prompt caching (2026-10-10)
+
+Necesita la migración `message_cache_tokens`. Después de unas cuantas
+conversaciones (o un "Generar campaña ahora"), Auditoría → tarjeta **Caché del
+modelo (24 h)**: "N % de la entrada desde el caché · se pagó el M %". Pasando
+el mouse se ven los tokens.
+
+- En una conversación de varias vueltas (Kaizen llamando a 4-5 tools), lo
+  esperable es **más de 70 %** leído del caché: cada vuelta lee lo que mandó
+  la anterior.
+- Si da **cerca de 0 %** después de varios turnos, algo cambia el prefijo en
+  cada pedido (una fecha en el system prompt, tools en otro orden). Mirar
+  `Message.cacheReadTokens` por mensaje para ubicar desde cuándo.
+- `npm test` incluye `tests/cache.test.ts`: nunca más de 4 cortes, mismo TTL,
+  y ninguna fecha en el system prompt.
+
 ## 11d. La publicidad automática en Meta (2026-10-04)
 
 **Sin credenciales, contra el simulador** (no gasta nada, no toca Meta):

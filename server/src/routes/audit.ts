@@ -5,6 +5,7 @@ import { requireAuth, requirePermission } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { resumenMeta } from '../agent/tools/goals';
 import { urlAdsManager } from '../clients/metaApi';
+import { usoCacheDesde } from '../services/usoCache';
 
 // ─────────────────────────────────────────────────────────────────────────
 // /api/audit — la pantalla de Auditoría (criterio 6 del PRD: "audit log
@@ -129,6 +130,8 @@ router.get('/overview', asyncRoute(async (req, res) => {
       resumenSemanal,
       indexado,
       errores24h,
+      // Prompt caching: cuánto de la entrada salió del caché en 24 h.
+      cache24h: await usoCacheDesde(hace24h),
     },
     meta,
     gate: {

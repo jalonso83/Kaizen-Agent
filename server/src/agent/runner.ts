@@ -3,7 +3,7 @@ import { config } from '../config';
 import { audit } from '../services/audit';
 import type { KaizenTool, SseWriter, ToolContext } from './tools/guard';
 import { buildBetaTools } from './adapter';
-import { buildSystemPrompt } from './systemPrompt';
+import { buildSystemPrompt, CACHE_AUTOMATICO } from './systemPrompt';
 import { injectDateContext } from './contexto';
 import { activeGoal, resumenMeta } from './tools/goals';
 import { getTonoDeMarca } from './tono';
@@ -134,6 +134,8 @@ export async function runAgentTurn(
       thinking: { type: 'adaptive' }, // EXPLÍCITO — omitirlo = correr SIN thinking.
       // NO enviar temperature/top_p/top_k (dan 400 en Opus 4.8).
       system: buildSystemPrompt(tonoDeMarca),
+      // El historial también se cachea (ver CACHE_AUTOMATICO en systemPrompt.ts).
+      cache_control: CACHE_AUTOMATICO,
       tools: buildBetaTools(ctx, opciones?.toolList),
       messages,
       stream: true,

@@ -49,16 +49,21 @@ model Conversation {
 }
 
 model Message {
-  id             String       @id @default(cuid())
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  seq            Int // orden estricto dentro de la conversación
-  role           String // 'user' | 'assistant'
-  content        Json // array de content blocks de la API de Anthropic TAL CUAL
-  inputTokens    Int? // usage de la corrida (solo en assistant)
-  outputTokens   Int?
-  stopReason     String? // end_turn | max_tokens | refusal | ...
-  createdAt      DateTime     @default(now())
+  id               String       @id @default(cuid())
+  conversationId   String
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  seq              Int // orden estricto dentro de la conversación
+  role             String // 'user' | 'assistant'
+  content          Json // array de content blocks de la API de Anthropic TAL CUAL
+  inputTokens      Int? // usage de la corrida (solo en assistant)
+  outputTokens     Int?
+  // Prompt caching (2026-10-10): cuánto de la entrada salió del caché (se
+  // paga 0,1×) y cuánto se escribió en él (1,25×). inputTokens es solo lo que
+  // quedó fuera del caché; la entrada total es la suma de los tres.
+  cacheReadTokens  Int?
+  cacheWriteTokens Int?
+  stopReason       String? // end_turn | max_tokens | refusal | ...
+  createdAt        DateTime     @default(now())
 
   @@unique([conversationId, seq])
 }

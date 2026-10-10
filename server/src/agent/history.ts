@@ -185,6 +185,8 @@ export async function persistAssistantMessage(
       content: message.content as object,
       inputTokens: message.usage?.input_tokens ?? null,
       outputTokens: message.usage?.output_tokens ?? null,
+      cacheReadTokens: message.usage?.cache_read_input_tokens ?? null,
+      cacheWriteTokens: message.usage?.cache_creation_input_tokens ?? null,
       stopReason: message.stop_reason ?? null,
     },
   });

@@ -127,6 +127,23 @@ function toolsComunes(): string {
   return TOOL_LIST.filter((t) => t.ambito === 'comun').map((t) => t.name).join(', ');
 }
 
+/**
+ * Caché automático del HISTORIAL (2026-10-10). Va en la raíz del pedido, no en
+ * un bloque: la API pone el punto de corte en el último bloque y lo va
+ * corriendo a medida que crece la conversación.
+ *
+ * Por qué hace falta además de los dos cortes del system prompt: esos solo
+ * cubren tools + system. Kaizen hace hasta 12-18 vueltas por turno (cada tool
+ * es una vuelta) y en cada una reenviaba la conversación entera a precio
+ * completo. Con esto, cada vuelta lee del caché lo que mandó la anterior y
+ * solo paga lo nuevo.
+ *
+ * Cuenta como uno de los 4 cortes permitidos: system usa 2, este es el 3.º.
+ * Mismo TTL que los del system (5 min): un corte de 1 h después de uno de
+ * 5 min da 400 (los más largos van primero).
+ */
+export const CACHE_AUTOMATICO = { type: 'ephemeral' } as const;
+
 /** Bloque de system prompt (text + cache_control opcional). */
 export interface SystemBlock {
   type: 'text';

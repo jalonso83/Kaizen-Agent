@@ -1502,6 +1502,31 @@ lectura-adquisicion-finzen §1): los campos se llaman como lo que son.
 
 Migración: `20261005100000_ad_results` (seis columnas en `AdProposal`).
 
+## Prompt caching del historial (2026-10-10)
+
+Hasta acá solo se cacheaban tools + system (dos cortes, BASE y TONO). El
+historial se mandaba a precio completo en **cada vuelta** del toolRunner (hasta
+12-18 por turno). Ahora:
+
+- **Caché automático** (`cache_control` en la raíz del pedido,
+  `CACHE_AUTOMATICO` en `systemPrompt.ts`) en `runner.ts` y en el resumen
+  semanal: cada vuelta lee del caché lo que mandó la anterior. Es el 3.er corte
+  de 4; mismo TTL de 5 minutos que los del system.
+- **Medición:** `Message.cacheReadTokens` y `cacheWriteTokens` (migración
+  `20261010100000_message_cache_tokens`) y la tarjeta "Caché del modelo (24 h)"
+  en Auditoría (`services/usoCache.ts`).
+
+**Pendiente, a decidir con los números:** el bloque `<contexto>` (fecha y meta)
+se inyecta solo en el último mensaje y no se guarda, así que entre turnos el
+prefijo cambia en el mensaje anterior y el historial se relee sin caché una vez
+por turno. Dentro de un turno no afecta. Moverlo a un bloque al final del
+system prompt (cambia una vez por día) lo resolvería; se decide midiendo
+`cacheReadTokens` en el primer pedido de cada turno.
+
+**Hallazgo al revisar:** el resumen semanal llama al modelo **sin** `thinking`.
+En Opus 4.8, omitirlo significa correr sin razonamiento, a diferencia del chat
+(`thinking: adaptive` en `runner.ts`). No se cambió en este paso.
+
 ## 🚧 Bloqueado — lo que solo puede aportar FinZen
 
 | Qué | Por qué hace falta |
