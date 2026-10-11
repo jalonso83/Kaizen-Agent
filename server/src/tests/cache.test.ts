@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildSystemPrompt, CACHE_AUTOMATICO } from '../agent/systemPrompt';
 import { resumirCache } from '../services/usoCache';
+import { catalogForPrompt } from '../agent/skills';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Prompt caching (2026-10-10).
@@ -24,6 +25,20 @@ test('el corte automático usa el mismo TTL que los del system (los de 1 h van p
   assert.equal(CACHE_AUTOMATICO.type, 'ephemeral');
   // Un corte automático de 1 h detrás de cortes de 5 min rompe el orden.
   assert.ok(!(ttlAuto === '1h' && ttlSystem.has('5m')));
+});
+
+test('el system prompt sale idéntico en cada armado (cualquier diferencia es un caché perdido)', () => {
+  assert.equal(JSON.stringify(buildSystemPrompt(undefined)), JSON.stringify(buildSystemPrompt(undefined)));
+});
+
+test('el catálogo de skills del system prompt va en orden alfabético, no en el del sistema de archivos', () => {
+  const texto = JSON.stringify(buildSystemPrompt(undefined));
+  for (const ambito of ['finzen', 'marketing'] as const) {
+    const slugs = catalogForPrompt(ambito).split('\n').map((l) => l.replace(/^- /, '').split(' — ')[0]);
+    assert.ok(slugs.length > 0, `hay skills de ${ambito}`);
+    assert.deepEqual(slugs, [...slugs].sort(), `${ambito}: ${slugs.join(', ')}`);
+    for (const s of slugs) assert.ok(texto.includes(s), `${s} está en el system prompt`);
+  }
 });
 
 test('el system prompt no lleva la fecha: invalidaría el caché en cada turno', () => {

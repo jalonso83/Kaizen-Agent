@@ -2,6 +2,7 @@ import { TiktokApiError } from '../../clients/tiktokApi';
 import { perfilDeTiktok, UrlTiktokInvalida } from '../../util/tiktok';
 import { analizarTiktok, cuentasTiktokGuardadas, faltaConfiguracionTiktok, VIDEOS_MAXIMO, VIDEOS_POR_DEFECTO } from '../../services/tiktokAnalisis';
 import type { KaizenTool } from './guard';
+import { recortarHistorico, recortarTexto } from './recorte';
 
 // ─────────────────────────────────────────────────────────────────────────
 // get_tiktok_profile — ámbito marketing, SOLO LECTURA (2026-09-18).
@@ -69,6 +70,12 @@ export const getTiktokProfileTool: KaizenTool = {
       if (e instanceof TiktokApiError) throw new Error(e.message);
       throw e;
     }
-    return [LECTURA_NOTE, INSTANTE_NOTE, JSON.stringify(analisis)].join('\n');
+    // Lo que va al modelo, más liviano (ver recorte.ts). El Dashboard no pasa por acá.
+    const paraModelo = {
+      ...analisis,
+      videos: analisis.videos.map((v) => ({ ...v, titulo: recortarTexto(v.titulo), descripcion: recortarTexto(v.descripcion) })),
+      historico: recortarHistorico(analisis.historico),
+    };
+    return [LECTURA_NOTE, INSTANTE_NOTE, JSON.stringify(paraModelo)].join('\n');
   },
 };

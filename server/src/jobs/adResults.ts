@@ -25,6 +25,9 @@ import { actualizarResultado, anunciosEnSeguimiento, DIAS_MINIMOS_EVALUACION, ty
 
 let isRunning = false;
 
+/** Cuántas veces se intenta la evaluación de un mismo anuncio antes de dejarlo para evaluar a mano. */
+export const MAX_INTENTOS_EVALUACION = 3;
+
 export interface AdResultsResult {
   leidos: number;
   fallidos: string[];
@@ -85,6 +88,18 @@ export async function runAdResults(): Promise<AdResultsResult> {
           out.omitidos.push(`${a.nombre}: la conversación estaba ocupada; se reintenta mañana`);
           continue;
         }
+        // Tope de intentos (2026-10-10): si Kaizen corre y no registra la
+        // recomendación, antes se reintentaba TODOS los días para siempre, y
+        // cada intento es un turno completo del modelo. Se cuentan en el
+        // audit log para no necesitar otra columna.
+        const intentos = await db.auditLog.count({
+          where: { action: 'ad-evaluation:attempt', input: { path: ['ad_proposal_id'], equals: a.id } },
+        });
+        if (intentos >= MAX_INTENTOS_EVALUACION) {
+          out.omitidos.push(`${a.nombre}: ${intentos} intentos sin recomendación registrada; no se reintenta (evaluar a mano en el chat)`);
+          continue;
+        }
+        await audit.log({ conversationId: a.conversationId, actor: 'cron', action: 'ad-evaluation:attempt', input: { ad_proposal_id: a.id, intento: intentos + 1 } });
         const abort = new AbortController();
         runningConversations.add(a.conversationId, abort);
         try {
@@ -95,7 +110,7 @@ export async function runAdResults(): Promise<AdResultsResult> {
           });
           const ya = await db.adProposal.findUnique({ where: { id: a.id }, select: { evaluadaEn: true } });
           if (ya?.evaluadaEn) out.evaluados.push(a.nombre);
-          else out.omitidos.push(`${a.nombre}: Kaizen corrió pero no registró la recomendación; se reintenta mañana`);
+          else out.omitidos.push(`${a.nombre}: Kaizen corrió pero no registró la recomendación; se reintenta mañana (hasta ${MAX_INTENTOS_EVALUACION} intentos)`);
         } catch (e) {
           out.fallidos.push(`${a.nombre} (evaluación): ${e instanceof Error ? e.message : e}`);
         } finally {

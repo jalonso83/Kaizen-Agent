@@ -55,10 +55,17 @@ function parseFrontmatter(raw: string): { name?: string; description?: string } 
   return out;
 }
 
+/**
+ * Ordenado a propósito (2026-10-10): el catálogo va dentro del system prompt,
+ * que está cacheado, y readdirSync devuelve el orden del sistema de archivos
+ * (en Linux no es alfabético y no está garantizado entre deploys o réplicas).
+ * Un orden distinto cambia el prefijo y pierde el caché de BASE entero.
+ */
 function subdirectorios(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true })
     .filter((d) => d.isDirectory())
-    .map((d) => d.name);
+    .map((d) => d.name)
+    .sort();
 }
 
 function load(): Map<string, SkillEntry> {

@@ -10,6 +10,7 @@ import {
 } from '../../services/instagramAnalisis';
 import { cuentasTiktokGuardadas } from '../../services/tiktokAnalisis';
 import type { KaizenTool } from './guard';
+import { recortarHistorico, recortarTexto, MAX_TEXTO_PIEZA, PUNTOS_PARA_MODELO } from './recorte';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Tools de Instagram — ámbito marketing, SOLO LECTURA (2026-09-11).
@@ -47,7 +48,7 @@ const INSIGHTS_NOTE =
   'Si `insights.no_disponible` trae algo, esas métricas no llegaron por el motivo que dice (casi siempre falta el permiso instagram_manage_insights): dilo, no las estimes.';
 
 const INSTANTE_NOTE =
-  'OJO con el tiempo: `perfil` y `publicaciones` son de ESTE instante (leido_en). Para decir cuánto creció o cayó algo usa `historico`: `delta_7d` y `delta_30d` ya vienen calculados contra la lectura guardada más cercana a 7 y 30 días atrás (el campo `dias` dice la distancia real; cítala si no es exacta), y `puntos` es la serie diaria. ' +
+  'OJO con el tiempo: `perfil` y `publicaciones` son de ESTE instante (leido_en). Para decir cuánto creció o cayó algo usa `historico`: `delta_7d` y `delta_30d` ya vienen calculados contra la lectura guardada más cercana a 7 y 30 días atrás (el campo `dias` dice la distancia real; cítala si no es exacta), y `puntos` es la serie diaria de los últimos ' + PUNTOS_PARA_MODELO + ' días. Los `caption` vienen recortados a ' + MAX_TEXTO_PIEZA + ' caracteres: el permalink lleva a la pieza entera. ' +
   'Si un delta es null, NO hay lectura tan vieja guardada: dilo (`primera_lectura` dice desde cuándo hay datos), no lo estimes. ' +
   'Y los likes de una pieza de hace 2 días no son comparables con los de una de hace 2 meses: la nueva sigue sumando.';
 
@@ -146,6 +147,12 @@ export const getInstagramProfileTool: KaizenTool = {
     }
 
     const notas = [PULSO_NOTE, INSTANTE_NOTE, cuenta.esPropia ? INSIGHTS_NOTE : AJENA_NOTE];
-    return [...notas, JSON.stringify(analisis)].join('\n');
+    // Lo que va al modelo, más liviano (ver recorte.ts). El Dashboard no pasa por acá.
+    const paraModelo = {
+      ...analisis,
+      publicaciones: analisis.publicaciones.map((p) => ({ ...p, caption: recortarTexto(p.caption) })),
+      historico: recortarHistorico(analisis.historico),
+    };
+    return [...notas, JSON.stringify(paraModelo)].join('\n');
   },
 };

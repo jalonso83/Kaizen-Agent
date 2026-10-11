@@ -65,7 +65,7 @@ export async function buildHistory(conversationId: string): Promise<BetaMessageP
     content: r.content as ContentBlocks,
   }));
 
-  return repararHuerfanos(messages);
+  return podarResultadosViejos(repararHuerfanos(messages));
 }
 
 /** Los `tool_use` de un mensaje del assistant. Vacío si no es un assistant. */
@@ -170,6 +170,91 @@ export function repararHuerfanos(messages: BetaMessageParam[]): BetaMessageParam
   }
 
   return salida;
+}
+
+/** Turnos humanos recientes cuyos resultados de tools viajan completos. */
+export const TURNOS_COMPLETOS = 2;
+/** Un resultado más corto que esto viaja siempre: recortarlo no ahorra nada. */
+export const MIN_CHARS_PODA = 1500;
+
+function textoDeResultado(tr: Anthropic.Beta.BetaToolResultBlockParam): string {
+  if (typeof tr.content === 'string') return tr.content;
+  if (!Array.isArray(tr.content)) return '';
+  return tr.content.map((b) => ((b as { type?: string }).type === 'text' ? (b as { text: string }).text : '')).join('');
+}
+
+/** ¿Es un mensaje que escribió una persona (o un evento del sistema), y no solo tool_results? */
+function esTurnoHumano(m: BetaMessageParam): boolean {
+  if (m.role !== 'user') return false;
+  if (typeof m.content === 'string') return true;
+  return m.content.some((b) => (b as { type?: string }).type !== 'tool_result');
+}
+
+/**
+ * Recorta los resultados de tools GRANDES de los turnos viejos (2026-10-10).
+ *
+ * Sin esto, cada pedido reenviaba la conversación entera, con todos los
+ * resultados de tools desde el primer mensaje. Una lectura de Instagram pesa
+ * ~11-18k tokens; la conversación de la campaña diaria suma una corrida por
+ * día y el resumen semanal reutilizaba la misma conversación cada semana, así
+ * que el costo crecía sin techo (y con el tiempo, el límite de contexto).
+ *
+ * Qué queda: los resultados completos de los últimos TURNOS_COMPLETOS turnos
+ * humanos (donde Kaizen todavía los está usando) y los cortos de cualquier
+ * turno. El texto y el razonamiento de Kaizen se conservan enteros: ahí están
+ * las cifras que ya citó. Lo recortado se reemplaza por una línea que dice qué
+ * tool era y que se puede volver a pedir.
+ *
+ * Es EN MEMORIA, como repararHuerfanos: la BD guarda todo, y los candados del
+ * gate (segment_count, lectura del Cerebro) leen el audit log, no esto.
+ *
+ * Caché: el recorte es determinista, así que un turno ya recortado se manda
+ * igual en cada pedido. El prefijo solo cambia una vez por turno nuevo, en el
+ * turno que pasa a ser viejo.
+ *
+ * OJO si se migra a un modelo con "preserved thinking" (Opus 5.5, Fable 5.1):
+ * esos modelos rechazan o descartan el razonamiento si se edita la historia
+ * anterior. Con Opus 4.8 no aplica. Revisar esto antes de cambiar de modelo.
+ */
+export function podarResultadosViejos(messages: BetaMessageParam[], turnosCompletos = TURNOS_COMPLETOS): BetaMessageParam[] {
+  // Desde qué índice empiezan los turnos que viajan completos.
+  const humanos = messages.map((m, i) => (esTurnoHumano(m) ? i : -1)).filter((i) => i >= 0);
+  if (humanos.length <= turnosCompletos) return messages;
+  const corte = humanos[humanos.length - turnosCompletos];
+
+  // Nombre de la tool por id, para que la línea que queda diga qué era.
+  const nombres = new Map<string, string>();
+  for (const m of messages) {
+    if (m.role !== 'assistant' || !Array.isArray(m.content)) continue;
+    for (const b of m.content) {
+      if ((b as { type?: string }).type === 'tool_use') {
+        const tu = b as Anthropic.Beta.BetaToolUseBlockParam;
+        nombres.set(tu.id, tu.name);
+      }
+    }
+  }
+
+  return messages.map((m, i) => {
+    if (i >= corte || m.role !== 'user' || !Array.isArray(m.content)) return m;
+    let cambio = false;
+    const content = m.content.map((b) => {
+      if ((b as { type?: string }).type !== 'tool_result') return b;
+      const tr = b as Anthropic.Beta.BetaToolResultBlockParam;
+      const texto = textoDeResultado(tr);
+      if (texto.length < MIN_CHARS_PODA) return b;
+      cambio = true;
+      const tool = nombres.get(tr.tool_use_id) ?? 'la tool';
+      return {
+        type: 'tool_result',
+        tool_use_id: tr.tool_use_id,
+        ...(tr.is_error ? { is_error: true } : {}),
+        content:
+          `[Resultado de ${tool} de un turno anterior, omitido para no reenviarlo (${texto.length} caracteres). ` +
+          'Lo que importaba ya está en tu respuesta de ese turno. Si necesitas el dato de nuevo o actualizado, vuelve a llamar a la tool.]',
+      } as Anthropic.Beta.BetaToolResultBlockParam;
+    });
+    return cambio ? { ...m, content } : m;
+  });
 }
 
 /** Persiste un mensaje del assistant (bloques crudos + usage + stop_reason). */

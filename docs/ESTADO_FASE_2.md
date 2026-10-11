@@ -1557,6 +1557,20 @@ tool a la corrida de evaluación; solo escribe en `50-kaizen/`).
 Mientras tanto el skill lo dice: si la tarjeta difiere de la configuración
 estándar, Kaizen lo nombra como desvío en la ficha.
 
+## Revisión de consumo de tokens (2026-10-10)
+
+| Hallazgo | Impacto | Arreglo |
+|---|---|---|
+| El historial se mandaba **entero**, con todos los resultados de tools desde el primer mensaje (los campos `summary` del esquema nunca se usaron) | Las conversaciones de la campaña diaria y de la publicidad suman una corrida por día: el costo crecía sin techo, y con el tiempo se llegaba al límite de contexto | `podarResultadosViejos` (`agent/history.ts`): los resultados de más de 1.500 caracteres de turnos anteriores a los 2 últimos se reemplazan por una línea. En memoria; la BD y el audit log no cambian |
+| El **resumen semanal reutilizaba la misma conversación** cada semana | Cada lunes reenviaba todas las semanas anteriores | Una conversación nueva por corrida |
+| `get_instagram_profile` devolvía el análisis entero | ~11.500 tokens con 25 piezas, ~18.000 con 50 | Captions a 200 caracteres y la serie a 30 días (`agent/tools/recorte.ts`). Igual en TikTok. El Dashboard no cambia |
+| La evaluación de un anuncio se **reintentaba todos los días** si Kaizen no registraba la recomendación | Un turno completo del modelo por día, para siempre | Tope de 3 intentos, contados en el audit log |
+| El catálogo de skills salía en el orden del sistema de archivos | Podía cambiar el system prompt entre deploys y perder su caché | Ordenado alfabéticamente |
+
+Decisiones de costo que no son bugs y quedan para decidir: la visión del
+Cerebro usa Opus 4.8 (`CEREBRO_VISION_MODEL` permite uno más barato), y el
+resumen semanal corre sin `thinking`.
+
 ## 🚧 Bloqueado — lo que solo puede aportar FinZen
 
 | Qué | Por qué hace falta |

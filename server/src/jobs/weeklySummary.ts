@@ -120,10 +120,15 @@ async function ensureCronPartner(): Promise<string> {
   return created.id;
 }
 
-async function ensureCronConversation(partnerId: string): Promise<string> {
-  const existing = await db.conversation.findFirst({ where: { partnerId }, orderBy: { createdAt: 'asc' } });
-  if (existing) return existing.id;
-  const created = await db.conversation.create({ data: { partnerId, title: 'Resumen semanal (cron)' } });
+/**
+ * Una conversación NUEVA por corrida (2026-10-10). Antes se reutilizaba siempre
+ * la primera, así que cada resumen reenviaba al modelo todas las semanas
+ * anteriores con sus resultados de tools (decenas de miles de tokens por
+ * semana, acumulando). Cada semana se lee de cero con datos frescos, y los
+ * resúmenes anteriores ya están en el Cerebro (50-kaizen/) si hicieran falta.
+ */
+async function crearConversacionDelResumen(partnerId: string, semana: WeekRange): Promise<string> {
+  const created = await db.conversation.create({ data: { partnerId, title: `Resumen semanal ${semana.from} a ${semana.to} (cron)` } });
   return created.id;
 }
 
@@ -146,10 +151,9 @@ export type WeeklySummaryResult =
   | { ok: true; from: string; to: string }
   | { ok: false; error: string };
 
-// Guard simple anti-concurrencia: solo existe UNA conversación de cron (ver
-// ensureCronConversation), así que dos corridas superpuestas — el cron
-// disparando justo cuando alguien pulsa "forzar ahora" — escribirían sobre el
-// mismo hilo de mensajes a la vez. Un booleano en memoria alcanza: un solo
+// Guard simple anti-concurrencia: dos corridas superpuestas — el cron
+// disparando justo cuando alguien pulsa "forzar ahora" — harían el mismo
+// resumen dos veces y pagarían dos veces. Un booleano en memoria alcanza: un solo
 // proceso, sin necesidad de un lock en BD.
 let isRunning = false;
 
@@ -174,7 +178,7 @@ export async function runWeeklySummary(): Promise<WeeklySummaryResult> {
     const { reportWeek, priorWeek } = computeWeekRanges(weekMode, weekStartDay, new Date());
 
     const partnerId = await ensureCronPartner();
-    conversationId = await ensureCronConversation(partnerId);
+    conversationId = await crearConversacionDelResumen(partnerId, reportWeek);
 
     await persistUserText(conversationId, buildCronPrompt(reportWeek, priorWeek));
 
