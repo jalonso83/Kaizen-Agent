@@ -8,5 +8,5 @@
     "strict": true,
     "outDir": "./node_modules/.tsbuild-node"
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "hashFuente.d.mts"]
 }

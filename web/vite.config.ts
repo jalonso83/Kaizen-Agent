@@ -1,5 +1,6 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { hashFuenteWeb } from './hashFuente.mjs';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Dev local: el proxy hace que /api/* se vea same-origin desde el navegador
@@ -8,8 +9,14 @@ import react from '@vitejs/plugin-react';
 // sirviendo web/dist), solo que acá lo resuelve Vite en desarrollo.
 // ─────────────────────────────────────────────────────────────────────────
 
+// Estampa la huella de web/src en el index.html compilado (ver hashFuente.mjs).
+const huellaFuente = (): Plugin => ({
+  name: 'kaizen-huella-fuente',
+  transformIndexHtml: () => [{ tag: 'meta', attrs: { name: 'kaizen-web-src', content: hashFuenteWeb() }, injectTo: 'head' }],
+});
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), huellaFuente()],
   server: {
     port: 5173,
     proxy: {
