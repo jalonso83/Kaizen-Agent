@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config';
 import { SinTextoError, type Extraccion } from './documentos';
+import { esSinSaldo, marcarConSaldo, marcarSinSaldo, motivoParaNoLlamar } from '../services/saldoAnthropic';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Lectura de imágenes del Cerebro (2026-09-03).
@@ -134,6 +135,11 @@ export async function describirImagen(datos: Buffer, mimeType: string, nombre: s
     );
   }
 
+  // Sin saldo, cada imagen sería un pedido fallido: se corta antes. El archivo
+  // queda sin indexar y se reintenta en la próxima reindexación.
+  const sinSaldo = motivoParaNoLlamar();
+  if (sinSaldo) throw new SinTextoError('imagen', `No se describió "${nombre}": ${sinSaldo}.`);
+
   let respuesta;
   try {
     respuesta = await anthropic().messages.create({
@@ -151,9 +157,10 @@ export async function describirImagen(datos: Buffer, mimeType: string, nombre: s
       ],
     });
   } catch (err) {
-    const motivo = err instanceof Error ? err.message : String(err);
+    const motivo = esSinSaldo(err) ? await marcarSinSaldo('visión del Cerebro') : err instanceof Error ? err.message : String(err);
     throw new SinTextoError('imagen', `No se pudo describir "${nombre}": ${motivo}`);
   }
+  await marcarConSaldo();
 
   if (respuesta.stop_reason === 'refusal') {
     throw new SinTextoError('imagen', `El modelo se negó a describir "${nombre}". Revísala a mano antes de dejarla en el Cerebro.`);

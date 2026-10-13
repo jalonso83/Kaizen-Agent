@@ -3,6 +3,7 @@ import { db } from '../db';
 import { config } from '../config';
 import { audit } from '../services/audit';
 import { runAgentTurn } from '../agent/runner';
+import { motivoParaNoLlamar } from '../services/saldoAnthropic';
 import { AD_EVALUATION_TOOL_LIST } from '../agent/tools';
 import { runningConversations } from '../services/runningConversations';
 import { TZ_RD, todayInRD } from '../util/fecha';
@@ -80,8 +81,13 @@ export async function runAdResults(): Promise<AdResultsResult> {
     }
 
     // 2. Evaluar, de a uno y solo si la conversación está libre.
+    const sinSaldo = motivoParaNoLlamar();
     if (paraEvaluar.length && !config.anthropicApiKey) {
       out.omitidos.push('hay anuncios para evaluar pero falta ANTHROPIC_API_KEY');
+    } else if (paraEvaluar.length && sinSaldo) {
+      // La lectura de resultados (arriba) no usa el modelo y ya se hizo; solo
+      // se posterga la evaluación, sin gastar un intento.
+      out.omitidos.push(`evaluación postergada: ${sinSaldo}`);
     } else {
       for (const a of paraEvaluar) {
         if (runningConversations.has(a.conversationId)) {
@@ -103,11 +109,15 @@ export async function runAdResults(): Promise<AdResultsResult> {
         const abort = new AbortController();
         runningConversations.add(a.conversationId, abort);
         try {
-          await runAgentTurn(a.conversationId, buildPrompt(a.id, a.nombre, a.r), undefined, abort.signal, {
+          const turno = await runAgentTurn(a.conversationId, buildPrompt(a.id, a.nombre, a.r), undefined, abort.signal, {
             toolList: AD_EVALUATION_TOOL_LIST,
             // results ×3 + skill + Cerebro + record ≈ 6.
             maxIterations: 10,
           });
+          if (!turno.ok) {
+            out.fallidos.push(`${a.nombre} (evaluación): ${turno.error ?? 'el turno del modelo falló'}`);
+            continue;
+          }
           const ya = await db.adProposal.findUnique({ where: { id: a.id }, select: { evaluadaEn: true } });
           if (ya?.evaluadaEn) out.evaluados.push(a.nombre);
           else out.omitidos.push(`${a.nombre}: Kaizen corrió pero no registró la recomendación; se reintenta mañana (hasta ${MAX_INTENTOS_EVALUACION} intentos)`);

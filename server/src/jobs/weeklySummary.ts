@@ -8,6 +8,7 @@ import { audit } from '../services/audit';
 import { getClient, MODEL } from '../agent/runner';
 import { buildBetaTools } from '../agent/adapter';
 import { buildSystemPrompt, CACHE_AUTOMATICO } from '../agent/systemPrompt';
+import { esSinSaldo, marcarConSaldo, marcarSinSaldo } from '../services/saldoAnthropic';
 import { injectDateContext } from '../agent/contexto';
 import { activeGoal, resumenMeta } from '../agent/tools/goals';
 import { TZ_RD, todayInRD } from '../util/fecha';
@@ -212,6 +213,7 @@ export async function runWeeklySummary(): Promise<WeeklySummaryResult> {
     for await (const message of runner) {
       await persistAssistantMessage(conversationId, message);
     }
+    await marcarConSaldo();
 
     // Los tool_result ('user') que el runner generó entre rondas.
     const newMessages = runner.params.messages.slice(baseLen);
@@ -256,7 +258,7 @@ export async function runWeeklySummary(): Promise<WeeklySummaryResult> {
     console.log(`[weekly-summary] listo en ${Date.now() - startedAt}ms — semana ${reportWeek.from} a ${reportWeek.to}.`);
     return { ok: true, from: reportWeek.from, to: reportWeek.to };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = esSinSaldo(err) ? await marcarSinSaldo('resumen semanal', conversationId ?? null) : err instanceof Error ? err.message : String(err);
     console.error('[weekly-summary] Falló la corrida:', message);
     await audit
       .log({

@@ -6,6 +6,7 @@ import { asyncRoute } from '../middleware/asyncRoute';
 import { resumenMeta } from '../agent/tools/goals';
 import { urlAdsManager } from '../clients/metaApi';
 import { usoCacheDesde } from '../services/usoCache';
+import { MENSAJE_SIN_SALDO } from '../services/saldoAnthropic';
 
 // ─────────────────────────────────────────────────────────────────────────
 // /api/audit — la pantalla de Auditoría (criterio 6 del PRD: "audit log
@@ -132,6 +133,18 @@ router.get('/overview', asyncRoute(async (req, res) => {
       errores24h,
       // Prompt caching: cuánto de la entrada salió del caché en 24 h.
       cache24h: await usoCacheDesde(hace24h),
+      // Saldo de Anthropic (2026-10-13): el último cambio de estado registrado.
+      // Del audit log y no de memoria: sobrevive a un reinicio del servidor.
+      saldo: await (async () => {
+        const ultimo = await db.auditLog.findFirst({
+          where: { action: { in: ['anthropic:sin-saldo', 'anthropic:saldo-ok'] } },
+          orderBy: { createdAt: 'desc' },
+          select: { action: true, createdAt: true },
+        });
+        return ultimo?.action === 'anthropic:sin-saldo'
+          ? { ok: false, desde: ultimo.createdAt, mensaje: MENSAJE_SIN_SALDO }
+          : { ok: true, desde: ultimo?.createdAt ?? null, mensaje: null };
+      })(),
     },
     meta,
     gate: {

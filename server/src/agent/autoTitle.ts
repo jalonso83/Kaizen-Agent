@@ -1,4 +1,5 @@
 import { getClient } from './runner';
+import { esSinSaldo, marcarSinSaldo } from '../services/saldoAnthropic';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Título automático de conversación, generado tras el primer intercambio —
@@ -37,7 +38,8 @@ export async function generateConversationTitle(
     const title = block && block.type === 'text' ? block.text.trim().replace(/^["']|["']$/g, '') : '';
     if (!title || title.length > 200) return null;
     return title;
-  } catch {
+  } catch (err) {
+    if (esSinSaldo(err)) await marcarSinSaldo('título automático');
     return null; // degradación silenciosa — el título por defecto queda tal cual
   }
 }

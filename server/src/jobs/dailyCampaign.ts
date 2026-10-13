@@ -4,6 +4,7 @@ import { db } from '../db';
 import { config } from '../config';
 import { audit } from '../services/audit';
 import { runAgentTurn } from '../agent/runner';
+import { motivoParaNoLlamar } from '../services/saldoAnthropic';
 import { DAILY_CAMPAIGN_TOOL_LIST } from '../agent/tools';
 import { listSegments } from '../clients/finzenApi';
 import { runningConversations } from '../services/runningConversations';
@@ -118,6 +119,9 @@ export async function runDailyCampaign(opts: { forzar?: boolean } = {}): Promise
 
   try {
     if (!config.anthropicApiKey) return await omitir('sin ANTHROPIC_API_KEY');
+    // Sin saldo, el turno falla seguro: el cron no lo intenta (la corrida manual sí).
+    const sinSaldo = motivoParaNoLlamar();
+    if (sinSaldo && !opts.forzar) return await omitir(sinSaldo);
 
     const cfg = await db.dailyCampaignConfig.findUnique({ where: { id: 1 } });
     if (!cfg) return await omitir('la campaña diaria no está configurada');
@@ -153,8 +157,9 @@ export async function runDailyCampaign(opts: { forzar?: boolean } = {}): Promise
     const inicioCorrida = new Date();
     const abort = new AbortController();
     runningConversations.add(cfg.conversationId, abort);
+    let turno;
     try {
-      await runAgentTurn(cfg.conversationId, buildPrompt(permitidos, usados, cfg.rotacionDias, cfg.modo), undefined, abort.signal, {
+      turno = await runAgentTurn(cfg.conversationId, buildPrompt(permitidos, usados, cfg.rotacionDias, cfg.modo), undefined, abort.signal, {
         toolList: DAILY_CAMPAIGN_TOOL_LIST,
         restricciones: { origen: 'diaria', segmentosPermitidos: permitidos },
         // Cerebro ×2 + list + evaluate ×3 + kpis + results + performance + skills ×3 + propose ≈ 13.
@@ -162,6 +167,12 @@ export async function runDailyCampaign(opts: { forzar?: boolean } = {}): Promise
       });
     } finally {
       runningConversations.delete(cfg.conversationId);
+    }
+    // El turno falló (saldo, API caída…): no se confirma nada y se registra
+    // como error, no como "corrió".
+    if (!turno.ok) {
+      await audit.log({ conversationId: cfg.conversationId, actor: 'cron', action: 'cron:daily-campaign', resultSummary: `falló: ${turno.error ?? 'error desconocido'}`.slice(0, 2000), isError: true, durationMs: Date.now() - startedAt });
+      return { ok: false, omitido: turno.error ?? 'el turno del modelo falló' };
     }
 
     // Modo directo: la tarjeta de ESTA corrida se confirma en código y se crea

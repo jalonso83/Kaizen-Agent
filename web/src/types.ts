@@ -457,6 +457,8 @@ export interface AuditOverview {
     errores24h: number;
     /** Prompt caching en las últimas 24 h (2026-10-10). Calca services/usoCache.ts. */
     cache24h?: { respuestas: number; leidos: number; escritos: number; sinCache: number; pctLeido: number | null; pctCosto: number | null };
+    /** Saldo de la cuenta de Anthropic (2026-10-13): el último cambio de estado. */
+    saldo?: { ok: boolean; desde: string | null; mensaje: string | null };
   };
   /** La meta vigente, como contexto. El historial completo vive en la pantalla de Metas. */
   meta: { resumen: string; confirmedAt: string | null; confirmadaPor: string | null } | null;

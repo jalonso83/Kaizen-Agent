@@ -4,6 +4,7 @@ import { db } from '../db';
 import { config } from '../config';
 import { audit } from '../services/audit';
 import { runAgentTurn } from '../agent/runner';
+import { motivoParaNoLlamar } from '../services/saldoAnthropic';
 import { META_ADS_TOOL_LIST } from '../agent/tools';
 import { runningConversations } from '../services/runningConversations';
 import { TZ_RD, todayInRD } from '../util/fecha';
@@ -68,6 +69,8 @@ export async function runMetaAds(opts: { forzar?: boolean } = {}): Promise<MetaA
 
   try {
     if (!config.anthropicApiKey) return await omitir('sin ANTHROPIC_API_KEY');
+    const sinSaldo = motivoParaNoLlamar();
+    if (sinSaldo && !opts.forzar) return await omitir(sinSaldo);
     const cfg = await db.metaAdsConfig.findUnique({ where: { id: 1 } });
     if (!cfg) return await omitir('la publicidad automática no está configurada');
     if (!cfg.enabled && !opts.forzar) return await omitir('la publicidad automática está apagada');
@@ -82,9 +85,10 @@ export async function runMetaAds(opts: { forzar?: boolean } = {}): Promise<MetaA
     const inicio = new Date();
     const abort = new AbortController();
     runningConversations.add(cfg.conversationId, abort);
+    let turno;
     try {
       const historial = await historialParaAprender().catch(() => '');
-      await runAgentTurn(cfg.conversationId, buildPrompt(cfg, usados, historial), undefined, abort.signal, {
+      turno = await runAgentTurn(cfg.conversationId, buildPrompt(cfg, usados, historial), undefined, abort.signal, {
         toolList: META_ADS_TOOL_LIST,
         restricciones: { origen: 'publicidad' },
         // Cerebro ×2 + skills ×2 + cuentas + perfil + Meta ×2 + propose ≈ 9.
@@ -92,6 +96,10 @@ export async function runMetaAds(opts: { forzar?: boolean } = {}): Promise<MetaA
       });
     } finally {
       runningConversations.delete(cfg.conversationId);
+    }
+    if (!turno.ok) {
+      await audit.log({ conversationId: cfg.conversationId, actor: 'cron', action: 'cron:meta-ads', resultSummary: `falló: ${turno.error ?? 'error desconocido'}`.slice(0, 2000), isError: true, durationMs: Date.now() - startedAt });
+      return { ok: false, omitido: turno.error ?? 'el turno del modelo falló' };
     }
 
     const tarjeta = await db.adProposal.findFirst({

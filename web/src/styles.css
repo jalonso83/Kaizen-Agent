@@ -1500,3 +1500,6 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .ad-recomendacion.is-cambiar_post { background: var(--amber-bg); }
 .ad-recomendacion.is-cambiar_post .ad-recomendacion-pill { color: var(--amber-fuerte); }
 .proposal-card a { color: var(--navy); }
+
+/* Auditoría · saldo de Anthropic agotado (2026-10-13): la tarjeta que hay que ver primero. */
+.audit-health-card.is-alerta { border-color: var(--danger); background: var(--danger-bg); }

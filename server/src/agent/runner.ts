@@ -4,6 +4,7 @@ import { audit } from '../services/audit';
 import type { KaizenTool, SseWriter, ToolContext } from './tools/guard';
 import { buildBetaTools } from './adapter';
 import { buildSystemPrompt, CACHE_AUTOMATICO } from './systemPrompt';
+import { esSinSaldo, marcarConSaldo, marcarSinSaldo } from '../services/saldoAnthropic';
 import { injectDateContext } from './contexto';
 import { activeGoal, resumenMeta } from './tools/goals';
 import { getTonoDeMarca } from './tono';
@@ -68,6 +69,19 @@ function handleStopReason(message: Anthropic.Beta.BetaMessage, sse?: SseWriter):
  * el SSE, y persiste los mensajes nuevos. Nunca lanza: ante error emite
  * `run_error` (en español) y audita; el mensaje del socio ya quedó guardado.
  */
+/**
+ * Cómo terminó el turno (2026-10-13). Antes no devolvía nada y se tragaba el
+ * error: los jobs (campaña diaria, publicidad, evaluación) registraban "corrió"
+ * aunque el modelo no hubiera respondido.
+ */
+export interface ResultadoTurno {
+  ok: boolean;
+  error?: string;
+  /** El error fue el saldo agotado de Anthropic (services/saldoAnthropic.ts). */
+  sinSaldo?: boolean;
+  interrumpida?: boolean;
+}
+
 export async function runAgentTurn(
   conversationId: string,
   userText: string | null,
@@ -86,7 +100,7 @@ export async function runAgentTurn(
    * Una conversación normal no pasa nada acá.
    */
   opciones?: { toolList?: KaizenTool[]; restricciones?: ToolContext['restricciones']; maxIterations?: number },
-): Promise<void> {
+): Promise<ResultadoTurno> {
   // (1) commit del mensaje del socio SIEMPRE, incluso si Kaizen no puede
   // responder (kill switch / sin key) — antes esto pasaba después de los
   // guards de abajo, y el mensaje del socio se perdía sin dejar rastro
@@ -99,7 +113,7 @@ export async function runAgentTurn(
   if (!config.agentEnabled) {
     sse?.send('run_error', { message: 'Kaizen está en mantenimiento. Intenta más tarde.' });
     sse?.send('done', {});
-    return;
+    return { ok: false, error: 'Kaizen está en mantenimiento (AGENT_ENABLED)' };
   }
 
   // Sin ANTHROPIC_API_KEY (modo dev sin keys — ver config.ts): no intentamos
@@ -110,7 +124,7 @@ export async function runAgentTurn(
       message: 'Kaizen todavía no tiene configurada la key de Anthropic — el resto de la app funciona, pero no puede conversar todavía.',
     });
     sse?.send('done', {});
-    return;
+    return { ok: false, error: 'sin ANTHROPIC_API_KEY' };
   }
 
   // Fuera del try a propósito: el catch de la interrupción lo necesita para
@@ -196,7 +210,9 @@ export async function runAgentTurn(
     // más va a pasar por persistirPendientes().
     await persistirPendientes();
 
+    await marcarConSaldo();
     sse?.send('done', {});
+    return { ok: true };
   } catch (err) {
     // INTERRUMPIDO por el socio: no es un error del sistema. Se guarda lo que
     // Kaizen alcanzó a escribir —si cortaste porque ya viste lo que
@@ -217,7 +233,15 @@ export async function runAgentTurn(
         resultSummary: fragmento.trim() ? `interrumpida con ${fragmento.length} caracteres escritos` : 'interrumpida antes de escribir nada',
       });
       sse?.send('done', {});
-      return;
+      return { ok: false, error: 'interrumpida', interrumpida: true };
+    }
+
+    // Saldo agotado: un aviso que dice qué hacer, en vez del error genérico.
+    if (esSinSaldo(err)) {
+      const aviso = await marcarSinSaldo('chat o tarea automática', conversationId);
+      sse?.send('run_error', { message: aviso });
+      sse?.send('done', {});
+      return { ok: false, error: aviso, sinSaldo: true };
     }
 
     const message = err instanceof Error ? err.message : String(err);
@@ -232,5 +256,6 @@ export async function runAgentTurn(
       message: 'Ocurrió un problema procesando tu mensaje. Ya quedó registrado; intenta de nuevo.',
     });
     sse?.send('done', {});
+    return { ok: false, error: message };
   }
 }

@@ -1571,6 +1571,23 @@ Decisiones de costo que no son bugs y quedan para decidir: la visión del
 Cerebro usa Opus 4.8 (`CEREBRO_VISION_MODEL` permite uno más barato), y el
 resumen semanal corre sin `thinking`.
 
+## Saldo agotado de Anthropic (2026-10-13)
+
+El 12-oct la API respondió *"Your credit balance is too low"* y Kaizen lo
+mostró como "petición inválida", en inglés. Además, `runAgentTurn` se tragaba
+los errores y no devolvía nada, así que la campaña diaria, la publicidad y la
+evaluación registraban "corrió" aunque el modelo no hubiera respondido.
+
+- `services/saldoAnthropic.ts` reconoce el error (chat, jobs, visión, títulos),
+  lo explica en castellano con qué hacer, y deja **una** fila en Auditoría por
+  cambio de estado (`anthropic:sin-saldo` / `anthropic:saldo-ok`).
+- Auditoría muestra la tarjeta **Saldo de Anthropic** en rojo mientras dure.
+- Los jobs no intentan durante una hora desde el último fallo (la corrida
+  manual sí); la visión del Cerebro corta antes de mandar cada imagen.
+- `runAgentTurn` devuelve `{ ok, error, sinSaldo }`: los jobs registran el
+  fallo real en vez de "corrió", y el modo directo no confirma nada si el
+  turno falló.
+
 ## 🚧 Bloqueado — lo que solo puede aportar FinZen
 
 | Qué | Por qué hace falta |

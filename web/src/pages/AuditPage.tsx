@@ -55,6 +55,9 @@ const ACTION_LABELS: Record<string, string> = {
   'config:meta-ads-run-now': 'Pidió un anuncio a mano',
   'cron:ad-results': 'Seguimiento diario de los anuncios',
   'config:ad-results-run-now': 'Leyó los resultados de los anuncios a mano',
+  'anthropic:sin-saldo': 'Se acabó el saldo de Anthropic',
+  'anthropic:saldo-ok': 'El modelo vuelve a responder',
+  'ad-evaluation:attempt': 'Intento de evaluar un anuncio',
 };
 
 function etiqueta(action: string): string {
@@ -97,7 +100,12 @@ const HTTP_SENTIDO: Record<string, string> = {
  * Esta traducción es solo de presentación, y el texto crudo sigue disponible en
  * el `title` de la fila.
  */
+/** El saldo agotado de Anthropic, dicho de forma que se sepa qué hacer. */
+const SIN_SALDO_RE = /credit balance is too low|purchase credits/i;
+const SIN_SALDO_TEXTO = 'Se acabó el saldo de la cuenta de Anthropic: hay que recargar en la consola de Anthropic → Plans & Billing. Hasta entonces Kaizen no responde.';
+
 export function mensajeLegible(raw: string): string {
+  if (SIN_SALDO_RE.test(raw)) return SIN_SALDO_TEXTO;
   const conStatus = raw.match(/^(\d{3})\s+([\s\S]+)$/);
   const status = conStatus ? conStatus[1] : null;
   const cuerpo = (conStatus ? conStatus[2] : raw).trim();
@@ -330,6 +338,14 @@ export function AuditPage() {
                 {overview.health.errores24h}
               </span>
             </div>
+            {overview.health.saldo && !overview.health.saldo.ok && (
+              <div className="audit-health-card is-alerta">
+                <span className="audit-health-label">Saldo de Anthropic</span>
+                <span className="audit-bad" title={overview.health.saldo.mensaje ?? undefined}>
+                  Sin saldo{overview.health.saldo.desde ? ` desde ${fechaHora(overview.health.saldo.desde)}` : ''} · recargar en Plans & Billing
+                </span>
+              </div>
+            )}
             <div className="audit-health-card">
               <span className="audit-health-label">Caché del modelo (24 h)</span>
               {overview.health.cache24h?.pctLeido != null ? (
