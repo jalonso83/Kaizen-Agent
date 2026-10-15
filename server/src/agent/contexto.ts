@@ -1,15 +1,16 @@
-import type Anthropic from '@anthropic-ai/sdk';
 import { todayInRD, todayInRDLegible } from '../util/fecha';
 
 // ─────────────────────────────────────────────────────────────────────────
 // El bloque <contexto> — dato volátil que el modelo necesita en CADA turno.
 //
-// Va dentro del turno de usuario, NUNCA en el system prompt (systemPrompt.ts
-// §cabecera): el system prompt es el prefijo cacheado, y meterle la fecha lo
-// invalidaría en cada turno, pagando el prefijo entero de nuevo.
+// Va como ÚLTIMO bloque del system prompt, después de los dos cortes de caché
+// (systemPrompt.ts). Hasta 2026-10-15 iba dentro del último mensaje del socio,
+// y eso costaba caro: en el turno siguiente ese mensaje ya no lo tenía, el
+// prefijo cambiaba ahí y todo el turno anterior (con sus resultados de tools)
+// se volvía a escribir en el caché en cada turno. En el system, y con la fecha
+// SIN hora, cambia una vez por día.
 //
-// Tampoco se PERSISTE: se inyecta en la copia en memoria que va a la API,
-// justo antes de llamar. Si se guardara en BD, cada mensaje viejo quedaría
+// No se PERSISTE: se arma en cada pedido, justo antes de llamar. Si se guardara en BD, cada mensaje viejo quedaría
 // con la fecha del día en que se escribió y el modelo leería en el historial
 // una decena de "hoy es..." contradictorios.
 //
@@ -44,33 +45,4 @@ export function buildContextBlock(now: Date = new Date(), meta?: MetaVigente | n
     : ' NO hay meta vigente. Si propones una campaña, propón también la meta con propose_goal.';
 
   return `<contexto>${fecha}${metaTexto}</contexto>`;
-}
-
-/**
- * Inyecta el <contexto> en el ÚLTIMO mensaje del socio, en la copia que va a
- * la API. Muta el array recibido (que ya es una copia recién armada por
- * buildHistory, no una referencia compartida).
- *
- * Solo actúa si el último mensaje es 'user'. Si fuera un 'assistant' —caso que
- * buildHistory ya evita con su recovery de tool_use huérfanos— agregar un
- * turno de usuario nuevo solo para la fecha haría que el modelo lo tomara como
- * un mensaje al que responder; mejor no tocar nada.
- */
-export function injectDateContext(
-  messages: Anthropic.Beta.BetaMessageParam[],
-  now: Date = new Date(),
-  meta?: MetaVigente | null,
-): void {
-  const last = messages[messages.length - 1];
-  if (!last || last.role !== 'user') return;
-
-  const bloque = { type: 'text' as const, text: buildContextBlock(now, meta) };
-
-  if (typeof last.content === 'string') {
-    last.content = [{ type: 'text', text: last.content }, bloque];
-    return;
-  }
-  if (Array.isArray(last.content)) {
-    last.content = [...last.content, bloque];
-  }
 }

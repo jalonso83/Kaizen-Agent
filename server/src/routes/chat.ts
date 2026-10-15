@@ -293,8 +293,33 @@ async function truncateFrom(conversationId: string, fromSeq: number): Promise<{ 
       message: 'No se puede: después de este punto hay una campaña ya confirmada o creada en FinZen — borrar el historial no deshace esa acción.',
     };
   }
+  // Lo mismo para los anuncios de Meta (2026-10-15): uno confirmado ya creó
+  // objetos en Meta (en pausa, o a medias si falló), y borrar el historial no
+  // los borra de allá.
+  const anuncioCreado = await db.adProposal.findFirst({
+    where: { conversationId, createdAt: { gte: firstToDelete.createdAt }, status: { in: ['CONFIRMED', 'CREATING', 'CREATED_PAUSED', 'ERROR'] } },
+  });
+  if (anuncioCreado) {
+    return {
+      ok: false,
+      status: 409,
+      message: 'No se puede: después de este punto hay un anuncio ya creado en Meta — borrar el historial no lo borra de Meta.',
+    };
+  }
 
   await db.proposal.updateMany({
+    where: { conversationId, createdAt: { gte: firstToDelete.createdAt }, status: 'PROPOSED' },
+    data: { status: 'SUPERSEDED' },
+  });
+  // Las tarjetas pendientes de anuncios y de metas del tramo que se borra
+  // tampoco pueden quedar confirmables: su contexto desaparece. Antes solo se
+  // cubrían las de push, y una tarjeta de anuncio huérfana se podía confirmar
+  // y crear una campaña en Meta desde una conversación que ya no existía.
+  await db.adProposal.updateMany({
+    where: { conversationId, createdAt: { gte: firstToDelete.createdAt }, status: 'PROPOSED' },
+    data: { status: 'SUPERSEDED' },
+  });
+  await db.goal.updateMany({
     where: { conversationId, createdAt: { gte: firstToDelete.createdAt }, status: 'PROPOSED' },
     data: { status: 'SUPERSEDED' },
   });

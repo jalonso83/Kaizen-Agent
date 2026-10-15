@@ -124,8 +124,10 @@ export async function runDailyCampaign(opts: { forzar?: boolean } = {}): Promise
     if (sinSaldo && !opts.forzar) return await omitir(sinSaldo);
 
     const cfg = await db.dailyCampaignConfig.findUnique({ where: { id: 1 } });
-    if (!cfg) return await omitir('la campaña diaria no está configurada');
-    if (!cfg.enabled && !opts.forzar) return await omitir('la campaña diaria está apagada');
+    if (!cfg) return { ok: false, omitido: 'la campaña diaria no está configurada' };
+    // Apagada a propósito: no es un evento. Antes dejaba una fila en Auditoría
+    // cada día, tapando las que importan.
+    if (!cfg.enabled && !opts.forzar) return { ok: false, omitido: 'la campaña diaria está apagada' };
     // En modo directo no hace falta que el socio elija conversación: el job
     // crea (o recrea) una a nombre de quien configuró. En modo tarjeta la
     // conversación es la decisión del socio y sin ella no se corre.
@@ -186,12 +188,24 @@ export async function runDailyCampaign(opts: { forzar?: boolean } = {}): Promise
         select: { id: true, conversationId: true },
       });
       if (tarjeta) {
-        await confirmarYCrearBorrador(tarjeta, {
+        const turnoBorrador = await confirmarYCrearBorrador(tarjeta, {
           confirmedBy: CONFIRMADO_AUTO,
           actor: 'cron',
           motivo: `campaña diaria en modo directo, configurado por ${cfg.updatedBy ?? '?'}`,
         });
-        borradorAutomatico = true;
+        // No alcanza con haber confirmado: el borrador lo crea un turno del modelo,
+        // que puede fallar. Se mira el estado real de la propuesta.
+        const final = await db.proposal.findUnique({ where: { id: tarjeta.id }, select: { status: true } });
+        borradorAutomatico = final?.status === 'EXECUTED';
+        if (!borradorAutomatico) {
+          await audit.log({
+            conversationId: cfg.conversationId,
+            actor: 'cron',
+            action: 'cron:daily-campaign',
+            resultSummary: `modo directo: la propuesta ${tarjeta.id} quedó confirmada pero el borrador NO se creó en FinZen (estado ${final?.status ?? '?'}${turnoBorrador.ok ? '' : `, ${turnoBorrador.error}`}). Revisar en la conversación.`.slice(0, 2000),
+            isError: true,
+          });
+        }
       }
     }
 

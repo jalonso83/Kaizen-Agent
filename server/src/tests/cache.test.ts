@@ -41,6 +41,23 @@ test('el catálogo de skills del system prompt va en orden alfabético, no en el
   }
 });
 
+test('el <contexto> va último en el system, sin corte propio, y no toca los bloques cacheados', () => {
+  const sin = buildSystemPrompt(undefined) as Array<{ text: string; cache_control?: unknown }>;
+  const con = buildSystemPrompt(undefined, '<contexto>Hoy es lunes 13 de octubre de 2026 (2026-10-13).</contexto>') as typeof sin;
+  assert.equal(con.length, sin.length + 1);
+  assert.deepEqual(con.slice(0, sin.length), sin, 'BASE y TONO idénticos: se siguen leyendo del caché aunque cambie la fecha');
+  assert.match(con.at(-1)!.text, /<contexto>/);
+  assert.equal(con.at(-1)!.cache_control, undefined, 'el contexto no gasta un corte');
+});
+
+test('el contexto lleva la fecha sin hora: con hora cambiaría en cada pedido', async () => {
+  const { buildContextBlock } = await import('../agent/contexto');
+  const a = buildContextBlock(new Date('2026-10-13T13:00:00Z'));
+  const b = buildContextBlock(new Date('2026-10-13T20:59:00Z'));
+  assert.equal(a, b, 'dos pedidos del mismo día (hora RD) arman el mismo contexto');
+  assert.ok(!/\d{1,2}:\d{2}/.test(a), 'sin hora');
+});
+
 test('el system prompt no lleva la fecha: invalidaría el caché en cada turno', () => {
   const texto = JSON.stringify(buildSystemPrompt(undefined));
   assert.ok(!/\b20\d\d-\d\d-\d\d\b/.test(texto), 'una fecha AAAA-MM-DD en el system prompt rompe el prefijo cacheado');

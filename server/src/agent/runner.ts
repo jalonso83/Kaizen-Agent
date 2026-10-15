@@ -5,7 +5,7 @@ import type { KaizenTool, SseWriter, ToolContext } from './tools/guard';
 import { buildBetaTools } from './adapter';
 import { buildSystemPrompt, CACHE_AUTOMATICO } from './systemPrompt';
 import { esSinSaldo, marcarConSaldo, marcarSinSaldo } from '../services/saldoAnthropic';
-import { injectDateContext } from './contexto';
+import { buildContextBlock } from './contexto';
 import { activeGoal, resumenMeta } from './tools/goals';
 import { getTonoDeMarca } from './tono';
 import {
@@ -134,11 +134,10 @@ export async function runAgentTurn(
   try {
     const messages = await buildHistory(conversationId);
     const baseLen = messages.length;
-    // La fecha y la META VIGENTE van acá y no en el system prompt, y no se
-    // persisten — ver contexto.ts. La meta se inyecta en cada turno para que el
-    // modelo no pueda perderla de vista entre mensajes.
+    // La fecha y la META VIGENTE: último bloque del system, sin persistir (ver
+    // contexto.ts). La meta va en cada turno para que el modelo no la pierda.
     const meta = await activeGoal();
-    injectDateContext(messages, new Date(), meta && { id: meta.id, resumen: resumenMeta(meta), desde: meta.confirmedAt });
+    const contexto = buildContextBlock(new Date(), meta && { id: meta.id, resumen: resumenMeta(meta), desde: meta.confirmedAt });
     const ctx: ToolContext = { conversationId, sse, ...(opciones?.restricciones ? { restricciones: opciones.restricciones } : {}) };
     const tonoDeMarca = await getTonoDeMarca().catch(() => undefined); // nunca tumba el turno por esto
 
@@ -147,7 +146,7 @@ export async function runAgentTurn(
       max_tokens: 16_000,
       thinking: { type: 'adaptive' }, // EXPLÍCITO — omitirlo = correr SIN thinking.
       // NO enviar temperature/top_p/top_k (dan 400 en Opus 4.8).
-      system: buildSystemPrompt(tonoDeMarca),
+      system: buildSystemPrompt(tonoDeMarca, contexto),
       // El historial también se cachea (ver CACHE_AUTOMATICO en systemPrompt.ts).
       cache_control: CACHE_AUTOMATICO,
       tools: buildBetaTools(ctx, opciones?.toolList),

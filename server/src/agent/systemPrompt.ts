@@ -11,8 +11,10 @@ import type { TonoDeMarca } from './tono';
 // un cambio de tono no invalide también la caché de BASE (auditoría
 // 2026-07-26, hallazgo P2 #10: un solo cache_control al final hace que
 // cualquier cambio en TONO recompute el prefijo entero, BASE incluido). La
-// fecha del día y todo dato volátil van en un bloque <contexto> DENTRO del
-// turno de usuario, nunca aquí (o se invalida la caché en cada turno).
+// fecha del día y la meta van en un TERCER bloque <contexto>, al final y sin
+// corte propio (2026-10-15): cambia una vez por día, y al estar después de
+// los dos cortes no toca la caché de BASE ni de TONO. Nada con HORA puede ir
+// acá: cambiaría en cada pedido.
 //
 // v1.1 — diverge del borrador literal de §8 en 5 puntos, cada uno cruzado
 // contra otro documento del repo (no son gustos de redacción):
@@ -159,7 +161,7 @@ export interface SystemBlock {
  * no fuerza recomputar también el prefijo BASE, que es mucho más grande y
  * estable (auditoría 2026-07-26, hallazgo P2 #10).
  */
-export function buildSystemPrompt(tonoDeMarca?: TonoDeMarca): SystemBlock[] {
+export function buildSystemPrompt(tonoDeMarca?: TonoDeMarca, contexto?: string): SystemBlock[] {
   const base = BASE.replace('{AMBITOS}', seccionAmbitos()).replace('{TOOLS_COMUN}', toolsComunes());
   const tono = tonoDeMarca
     ? tonoDeMarca.fuente === 'cerebro'
@@ -167,8 +169,15 @@ export function buildSystemPrompt(tonoDeMarca?: TonoDeMarca): SystemBlock[] {
       : `# Guía de tono de marca de FinZen (respaldo del repo)\nEste bloque es lo esencial del Manual de Marca oficial (v1.0, julio 2026), guardado en el repo porque el manual todavía no está en el Cerebro. **Alcanza para redactar**: no digas que te falta el tono ni te niegues a escribir por eso. Si necesitas un detalle que no está acá, dilo en vez de inventarlo.\n\n${tonoDeMarca.texto.trim()}`
     : `# Guía de tono de marca de FinZen\n(No disponible en esta corrida. Usa search_cerebro("tono de voz") antes de redactar mensajes de campaña o contenido.)`;
 
-  return [
+  const bloques: SystemBlock[] = [
     { type: 'text', text: base, cache_control: { type: 'ephemeral' } },
     { type: 'text', text: tono, cache_control: { type: 'ephemeral' } },
   ];
+  // El <contexto> (fecha y meta, ver contexto.ts) va ÚLTIMO y SIN corte propio:
+  // cambia una vez por día, y así BASE y TONO se siguen leyendo del caché
+  // aunque cambie la fecha. Antes iba dentro del último mensaje del socio, y
+  // en el turno siguiente ese mensaje ya no lo tenía: el prefijo cambiaba ahí
+  // y el turno anterior entero se reescribía en el caché en cada turno.
+  if (contexto) bloques.push({ type: 'text', text: contexto });
+  return bloques;
 }

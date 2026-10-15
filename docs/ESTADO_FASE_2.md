@@ -1588,6 +1588,23 @@ evaluación registraban "corrió" aunque el modelo no hubiera respondido.
   fallo real en vez de "corrió", y el modo directo no confirma nada si el
   turno falló.
 
+## Revisión completa: caché y bugs (2026-10-15)
+
+**Caché — el turno anterior se reescribía en cada turno.** Dos causas:
+
+| Causa | Arreglo |
+|---|---|
+| El `<contexto>` (fecha y meta) se inyectaba en el último mensaje del socio; en el turno siguiente ese mensaje ya no lo tenía y el prefijo cambiaba ahí | Pasa a ser el **último bloque del system**, después de los dos cortes y sin corte propio. Lleva la fecha sin hora: cambia una vez por día y no toca la caché de BASE ni de TONO |
+| El recorte de resultados viejos movía su corte un turno cada vez | Avanza **de a 4 turnos** (`PASO_PODA`): el prefijo cambia una vez cada 4 turnos |
+
+**Bugs:**
+
+- **Rebobinar (editar o reintentar un mensaje) ignoraba las tarjetas de anuncio y de meta.** Una tarjeta de anuncio pendiente del tramo borrado seguía confirmable (y creaba una campaña en Meta desde una conversación que ya no existía), y se podía rebobinar por encima de un anuncio ya creado. Ahora: las pendientes pasan a "reemplazada" y un anuncio creado bloquea el rebobinado, igual que una campaña de push. La tarjeta de meta dice "quedó sin efecto" en vez de "reemplazada por una meta confirmada".
+- **Modo directo de la campaña diaria:** marcaba "borrador creado" sin verificarlo. Ahora mira el estado real de la propuesta y, si el borrador no se creó, lo registra como error.
+- **Ruido en Auditoría:** la campaña diaria y la publicidad dejaban una fila diaria "omitida: apagada" o "no configurada", y el seguimiento una "Meta no configurado". Ya no.
+
+**Palanca pendiente (decisión):** ninguna llamada fija `effort`, así que todo corre con el de por defecto de Opus 4.8 (alto), incluidas las tareas automáticas.
+
 ## 🚧 Bloqueado — lo que solo puede aportar FinZen
 
 | Qué | Por qué hace falta |

@@ -72,8 +72,9 @@ export async function runMetaAds(opts: { forzar?: boolean } = {}): Promise<MetaA
     const sinSaldo = motivoParaNoLlamar();
     if (sinSaldo && !opts.forzar) return await omitir(sinSaldo);
     const cfg = await db.metaAdsConfig.findUnique({ where: { id: 1 } });
-    if (!cfg) return await omitir('la publicidad automática no está configurada');
-    if (!cfg.enabled && !opts.forzar) return await omitir('la publicidad automática está apagada');
+    if (!cfg) return { ok: false, omitido: 'la publicidad automática no está configurada' };
+    // Apagada a propósito: no es un evento (ver dailyCampaign.ts).
+    if (!cfg.enabled && !opts.forzar) return { ok: false, omitido: 'la publicidad automática está apagada' };
     const falta = faltaParaCrear();
     if (falta) return await omitir(falta);
     if (!cfg.conversationId) return await omitir('no hay conversación destino configurada');

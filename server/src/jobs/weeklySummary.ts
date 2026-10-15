@@ -9,7 +9,7 @@ import { getClient, MODEL } from '../agent/runner';
 import { buildBetaTools } from '../agent/adapter';
 import { buildSystemPrompt, CACHE_AUTOMATICO } from '../agent/systemPrompt';
 import { esSinSaldo, marcarConSaldo, marcarSinSaldo } from '../services/saldoAnthropic';
-import { injectDateContext } from '../agent/contexto';
+import { buildContextBlock } from '../agent/contexto';
 import { activeGoal, resumenMeta } from '../agent/tools/goals';
 import { TZ_RD, todayInRD } from '../util/fecha';
 import { getTonoDeMarca } from '../agent/tono';
@@ -186,14 +186,14 @@ export async function runWeeklySummary(): Promise<WeeklySummaryResult> {
     const messages = await buildHistory(conversationId);
     const baseLen = messages.length;
     const meta = await activeGoal();
-    injectDateContext(messages, new Date(), meta && { id: meta.id, resumen: resumenMeta(meta), desde: meta.confirmedAt });
+    const contexto = buildContextBlock(new Date(), meta && { id: meta.id, resumen: resumenMeta(meta), desde: meta.confirmedAt });
     const ctx: ToolContext = { conversationId, sse: undefined };
     const tonoDeMarca = await getTonoDeMarca().catch(() => undefined);
 
     const runner = getClient().beta.messages.toolRunner({
       model: MODEL,
       max_tokens: 16_000,
-      system: buildSystemPrompt(tonoDeMarca),
+      system: buildSystemPrompt(tonoDeMarca, contexto),
       cache_control: CACHE_AUTOMATICO,
       tools: buildBetaTools(ctx, CRON_TOOL_LIST),
       messages,

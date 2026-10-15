@@ -136,7 +136,9 @@ export async function runAdResults(): Promise<AdResultsResult> {
       (out.evaluados.length ? ` (${out.evaluados.join(', ')})` : '') +
       (out.omitidos.length ? ` · omitidos: ${out.omitidos.join(' · ')}` : '') +
       (out.fallidos.length ? ` · fallidos: ${out.fallidos.join(' · ')}` : '');
-    if (out.leidos || out.fallidos.length || out.evaluados.length || out.omitidos.length) {
+    // Sin Meta configurado no hay nada que seguir: no se registra cada día.
+    const algoQueContar = out.leidos || out.fallidos.length || out.evaluados.length || out.omitidos.some((o) => o !== 'Meta no está configurado');
+    if (algoQueContar) {
       await audit
         .log({ conversationId: null, actor: 'cron', action: 'cron:ad-results', resultSummary: resumen.slice(0, 2000), isError: out.fallidos.length > 0, durationMs: Date.now() - startedAt })
         .catch(() => {});

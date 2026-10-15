@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { audit } from './audit';
-import { runAgentTurn } from '../agent/runner';
+import { runAgentTurn, type ResultadoTurno } from '../agent/runner';
 import type { SseWriter } from '../agent/tools/guard';
 import { runningConversations } from './runningConversations';
 
@@ -35,7 +35,7 @@ export async function confirmarYCrearBorrador(
   proposal: { id: string; conversationId: string },
   quien: { confirmedBy: string; actor: string; motivo?: string },
   sse?: SseWriter,
-): Promise<void> {
+): Promise<ResultadoTurno> {
   await db.proposal.update({
     where: { id: proposal.id },
     data: { status: 'CONFIRMED', confirmedAt: new Date(), confirmedBy: quien.confirmedBy },
@@ -58,7 +58,7 @@ export async function confirmarYCrearBorrador(
   runningConversations.add(proposal.conversationId, new AbortController());
   try {
     await db.conversation.update({ where: { id: proposal.conversationId }, data: { updatedAt: new Date() } });
-    await runAgentTurn(proposal.conversationId, syntheticText, sse);
+    return await runAgentTurn(proposal.conversationId, syntheticText, sse);
   } finally {
     runningConversations.delete(proposal.conversationId);
   }

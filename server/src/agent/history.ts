@@ -174,6 +174,8 @@ export function repararHuerfanos(messages: BetaMessageParam[]): BetaMessageParam
 
 /** Turnos humanos recientes cuyos resultados de tools viajan completos. */
 export const TURNOS_COMPLETOS = 2;
+/** De a cuántos turnos avanza el recorte (ver podarResultadosViejos, caché). */
+export const PASO_PODA = 4;
 /** Un resultado más corto que esto viaja siempre: recortarlo no ahorra nada. */
 export const MIN_CHARS_PODA = 1500;
 
@@ -208,19 +210,28 @@ function esTurnoHumano(m: BetaMessageParam): boolean {
  * Es EN MEMORIA, como repararHuerfanos: la BD guarda todo, y los candados del
  * gate (segment_count, lectura del Cerebro) leen el audit log, no esto.
  *
- * Caché: el recorte es determinista, así que un turno ya recortado se manda
- * igual en cada pedido. El prefijo solo cambia una vez por turno nuevo, en el
- * turno que pasa a ser viejo.
+ * Caché: el recorte es determinista y avanza DE A PASO_PODA turnos
+ * (2026-10-15). Si avanzara de a uno, cada turno nuevo cambiaría el prefijo en
+ * el turno que pasa a ser viejo, y todo lo posterior se reescribiría en el
+ * caché (1,25×) en vez de leerse (0,1×). De a 4, el prefijo cambia una vez
+ * cada 4 turnos; entre recorte y recorte viajan completos entre
+ * TURNOS_COMPLETOS y TURNOS_COMPLETOS + PASO_PODA - 1 turnos.
  *
  * OJO si se migra a un modelo con "preserved thinking" (Opus 5.5, Fable 5.1):
  * esos modelos rechazan o descartan el razonamiento si se edita la historia
  * anterior. Con Opus 4.8 no aplica. Revisar esto antes de cambiar de modelo.
  */
-export function podarResultadosViejos(messages: BetaMessageParam[], turnosCompletos = TURNOS_COMPLETOS): BetaMessageParam[] {
-  // Desde qué índice empiezan los turnos que viajan completos.
+export function podarResultadosViejos(
+  messages: BetaMessageParam[],
+  turnosCompletos = TURNOS_COMPLETOS,
+  paso = PASO_PODA,
+): BetaMessageParam[] {
+  // Cuántos turnos se recortan: múltiplo de `paso`, para que el corte (y con
+  // él el prefijo cacheado) se mueva de a saltos y no en cada turno.
   const humanos = messages.map((m, i) => (esTurnoHumano(m) ? i : -1)).filter((i) => i >= 0);
-  if (humanos.length <= turnosCompletos) return messages;
-  const corte = humanos[humanos.length - turnosCompletos];
+  const recortables = Math.floor((humanos.length - turnosCompletos) / paso) * paso;
+  if (recortables <= 0) return messages;
+  const corte = humanos[recortables];
 
   // Nombre de la tool por id, para que la línea que queda diga qué era.
   const nombres = new Map<string, string>();
