@@ -165,10 +165,17 @@ export function useAgentStream(conversationId: string | null, onDone: () => void
     [conversationId, runStream],
   );
 
+  // Reintentar cuando Kaizen no llegó a responder (sin respuesta que borrar):
+  // routes/chat.ts → /retry-last.
+  const retryLast = useCallback(() => {
+    if (!conversationId) return;
+    void runStream(`/api/conversations/${conversationId}/retry-last`, {});
+  }, [conversationId, runStream]);
+
   // El error del turno sobrevive a propósito al final del stream (se preserva
   // abajo del while), así que hace falta una forma explícita de descartarlo:
   // sin esto la barra roja se quedaba hasta recargar la página.
   const clearError = useCallback(() => setState((s) => ({ ...s, error: null })), []);
 
-  return { ...state, sendMessage, confirmProposal, editMessage, retryMessage, clearError };
+  return { ...state, sendMessage, confirmProposal, editMessage, retryMessage, retryLast, clearError };
 }

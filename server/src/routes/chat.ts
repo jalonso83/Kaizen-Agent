@@ -5,6 +5,7 @@ import { urlAdsManager } from '../clients/metaApi';
 import { requireAuth, requirePermission } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { runAgentTurn } from '../agent/runner';
+import { quedoSinRespuesta } from '../agent/history';
 import { generateConversationTitle } from '../agent/autoTitle';
 import type { SseWriter } from '../agent/tools/guard';
 import { runningConversations } from '../services/runningConversations';
@@ -361,6 +362,30 @@ router.post('/:id/messages/:messageId/edit', asyncRoute(async (req, res) => {
   }
 
   await streamAgentTurn(req, res, conversation.id, text);
+}));
+
+// Reintentar cuando Kaizen NO llegó a responder (2026-10-15). El reintento de
+// arriba necesita una respuesta de Kaizen para borrarla y volver a correr;
+// cuando el turno falla antes de escribir nada (el saldo agotado del 12-oct,
+// una caída de la API) no hay ninguna, y la única salida era editar el
+// mensaje y reenviarlo. Acá no se borra nada: el turno corre de nuevo sobre
+// el historial tal cual, con el último mensaje del socio esperando respuesta.
+router.post('/:id/retry-last', asyncRoute(async (req, res) => {
+  const conversation = await loadOwnedConversation(req.params.id, req.partner!.id);
+  if (!conversation) {
+    res.status(404).json({ message: 'Conversación no encontrada.' });
+    return;
+  }
+  if (runningConversations.has(conversation.id)) {
+    res.status(409).json({ message: 'El agente ya está respondiendo en esta conversación.' });
+    return;
+  }
+  const ultimo = await db.message.findFirst({ where: { conversationId: conversation.id }, orderBy: { seq: 'desc' } });
+  if (!quedoSinRespuesta(ultimo ?? undefined)) {
+    res.status(400).json({ message: 'El último mensaje ya tiene respuesta. Para pedir otra, usa el reintento sobre la respuesta de Kaizen.' });
+    return;
+  }
+  await streamAgentTurn(req, res, conversation.id, null);
 }));
 
 router.post('/:id/messages/:messageId/retry', asyncRoute(async (req, res) => {

@@ -172,6 +172,24 @@ export function repararHuerfanos(messages: BetaMessageParam[]): BetaMessageParam
   return salida;
 }
 
+const EVENTO_SISTEMA_RE = /^<evento_sistema>[\s\S]*<\/evento_sistema>$/;
+
+/**
+ * ¿Quedó el último mensaje esperando una respuesta de Kaizen? (2026-10-15)
+ *
+ * Sí cuando el último es del socio, o son resultados de tools de un turno que
+ * se cortó a mitad. No cuando es un evento del sistema solo (confirmar o
+ * rechazar una tarjeta): esos se guardan a propósito sin disparar un turno.
+ */
+export function quedoSinRespuesta(ultimo?: { role: string; content: unknown }): boolean {
+  if (!ultimo || ultimo.role !== 'user') return false;
+  const bloques = Array.isArray(ultimo.content)
+    ? (ultimo.content as Array<{ type?: string; text?: unknown }>)
+    : [{ type: 'text', text: String(ultimo.content ?? '') }];
+  const soloEvento = bloques.length > 0 && bloques.every((b) => b.type === 'text' && typeof b.text === 'string' && EVENTO_SISTEMA_RE.test(b.text.trim()));
+  return !soloEvento;
+}
+
 /** Turnos humanos recientes cuyos resultados de tools viajan completos. */
 export const TURNOS_COMPLETOS = 2;
 /** De a cuántos turnos avanza el recorte (ver podarResultadosViejos, caché). */

@@ -312,6 +312,14 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
     stream.retryMessage(messageId);
   };
 
+  // Kaizen no llegó a responder (p. ej. sin saldo): se corre el turno de nuevo
+  // sobre el mismo historial, sin borrar ni reescribir nada.
+  const handleRetryLast = () => {
+    stream.clearError();
+    setLoadError(null);
+    stream.retryLast();
+  };
+
   const handleRewindMessage = async (messageId: string) => {
     if (!activeId) return;
     try {
@@ -413,6 +421,7 @@ export function ChatPage({ partner, onLoggedOut }: Props) {
               onRejectProposal={handleRejectProposal}
               onEditMessage={empezarEdicion}
               onRetryMessage={handleRetryMessage}
+              onRetryLast={handleRetryLast}
               onRewindMessage={handleRewindMessage}
               onConfirmGoal={handleConfirmGoal}
               onRejectGoal={handleRejectGoal}

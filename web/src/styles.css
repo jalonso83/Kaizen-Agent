@@ -1503,3 +1503,15 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 
 /* Auditoría · saldo de Anthropic agotado (2026-10-13): la tarjeta que hay que ver primero. */
 .audit-health-card.is-alerta { border-color: var(--danger); background: var(--danger-bg); }
+
+/* Chat · el último mensaje quedó sin respuesta (2026-10-15) */
+.chat-sin-respuesta {
+  display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px;
+  font-size: 13px; color: var(--text-secondary); margin: -4px 0 8px;
+}
+.chat-sin-respuesta-btn {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+  padding: 6px 12px; font: inherit; font-size: 13px; color: var(--text-primary); cursor: pointer;
+}
+.chat-sin-respuesta-btn:hover { border-color: var(--signal); color: var(--signal); }
+.chat-sin-respuesta-btn:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }

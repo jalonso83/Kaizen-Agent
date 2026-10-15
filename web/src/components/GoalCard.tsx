@@ -78,7 +78,11 @@ export function GoalCard({ goal, reemplaza, onConfirm, onReject, puedeDecidir }:
         </p>
       )}
       {goal.status === 'SUPERSEDED' && (
-        <p className="goal-note">Reemplazada por una meta posterior que el socio confirmó.</p>
+        <p className="goal-note">
+          {goal.confirmedAt
+            ? 'Reemplazada por una meta posterior que el socio confirmó.'
+            : 'Quedó sin efecto: el mensaje que la propuso se editó o se borró.'}
+        </p>
       )}
 
       {pendiente && !puedeDecidir && (

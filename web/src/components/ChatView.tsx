@@ -35,6 +35,22 @@ import { ConfirmDialog } from './ConfirmDialog';
 
 const SYSTEM_EVENT_RE = /^<evento_sistema>[\s\S]*<\/evento_sistema>$/;
 
+/**
+ * ¿El último mensaje quedó sin respuesta de Kaizen? (2026-10-15) Pasa cuando
+ * el turno falla antes de escribir nada (p. ej. sin saldo en Anthropic): no
+ * hay respuesta sobre la que reintentar, así que el botón va debajo del
+ * mensaje del socio. Un evento del sistema solo (confirmar o rechazar una
+ * tarjeta) no espera respuesta. Misma regla que quedoSinRespuesta en
+ * server/src/agent/history.ts, que es la que manda.
+ */
+function quedoSinRespuesta(ultimo: StoredMessage | undefined): boolean {
+  if (!ultimo || ultimo.role !== 'user') return false;
+  const soloEvento =
+    ultimo.content.length > 0 &&
+    ultimo.content.every((b) => b.type === 'text' && typeof b.text === 'string' && SYSTEM_EVENT_RE.test(b.text.trim()));
+  return !soloEvento;
+}
+
 // La tabla va envuelta en un contenedor que scrollea en horizontal: las de
 // Kaizen suelen tener 5-6 columnas y sin esto estiran la burbuja y el chat.
 const MD_COMPONENTS: Components = {
@@ -111,6 +127,8 @@ interface Props {
   onRejectProposal: (proposalId: string) => void;
   onEditMessage: (messageId: string, text: string) => void;
   onRetryMessage: (messageId: string) => void;
+  /** Reintentar cuando Kaizen no llegó a responder al último mensaje. */
+  onRetryLast: () => void;
   onRewindMessage: (messageId: string) => void;
   onConfirmGoal: (goalId: string) => void;
   onRejectGoal: (goalId: string) => void;
@@ -137,6 +155,7 @@ export function ChatView({
   onRejectProposal,
   onEditMessage,
   onRetryMessage,
+  onRetryLast,
   onRewindMessage,
   onConfirmGoal,
   onRejectGoal,
@@ -392,6 +411,15 @@ export function ChatView({
           </div>
         );
       })}
+
+      {!isStreaming && quedoSinRespuesta(messages[messages.length - 1]) && (
+        <div className="chat-sin-respuesta" role="status">
+          <span>Kaizen no respondió a este mensaje.</span>
+          <button type="button" className="chat-sin-respuesta-btn" onClick={onRetryLast}>
+            ↻ Reintentar respuesta
+          </button>
+        </div>
+      )}
 
       {isStreaming && (
         <div className="bubble bubble-assistant bubble-live">
