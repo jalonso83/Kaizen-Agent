@@ -155,7 +155,11 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-.app-tabs { display: flex; gap: 2px; }
+/* En un teléfono angosto las cinco pestañas no entran: la barra scrollea sola
+   en vez de cortar "Usuarios" fuera de la pantalla. */
+.app-tabs { display: flex; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.app-tabs::-webkit-scrollbar { display: none; }
+.app-tab { flex-shrink: 0; }
 .app-tab {
   background: none; border: none; border-bottom: 2px solid transparent;
   color: var(--text-secondary); font-size: 14px; padding: 12px 12px 10px;
@@ -329,8 +333,10 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
   display: flex; flex-direction: column; gap: 14px;
 }
 
+/* min(68ch, 100%): en el teléfono 68ch (~590px) es más ancho que la pantalla,
+   y la burbuja empujaba el chat entero a scrollear en horizontal (2026-10-19). */
 .bubble {
-  max-width: 68ch; padding: 11px 15px; border-radius: 12px;
+  max-width: min(68ch, 100%); min-width: 0; padding: 11px 15px; border-radius: 12px;
   background: var(--surface); border: 1px solid var(--border);
 }
 .bubble-user { align-self: flex-end; background: var(--signal-bg); border-color: transparent; }
@@ -342,7 +348,9 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 /* .bubble-text es un <div> que envuelve el Markdown renderizado (ReactMarkdown
    produce sus propios <p>/<ul>/<h2>/etc — el white-space:pre-wrap de antes ya
    no hace falta, esos elementos manejan los saltos de línea solos). */
-.bubble-text { font-size: 14.5px; }
+/* overflow-wrap: anywhere — un link con UTM o un id largo no tiene dónde
+   cortarse y estiraba la burbuja más allá de la pantalla. */
+.bubble-text { font-size: 14.5px; overflow-wrap: anywhere; }
 .bubble-text + .bubble-text { margin-top: 8px; }
 .bubble-text > *:first-child { margin-top: 0; }
 .bubble-text > *:last-child { margin-bottom: 0; }
@@ -360,6 +368,12 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
   background: var(--surface-2); padding: 1px 4px; border-radius: 4px;
 }
 .bubble-text a { color: inherit; text-decoration: underline; }
+/* Un bloque de código no se corta (sería otro código): scrollea él solo. */
+.bubble-text pre {
+  overflow-x: auto; margin: 0 0 8px; padding: 8px 10px;
+  background: var(--surface-2); border-radius: 6px;
+}
+.bubble-text pre code { background: none; padding: 0; overflow-wrap: normal; }
 
 /* Tablas (GFM). Kaizen las usa para comparar campañas y KPIs, así que suelen
    ser anchas: el wrapper scrollea en horizontal para que una tabla larga no
@@ -386,7 +400,7 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
    sobre la burbuja, desaparecerían justo al mover el mouse hacia ellos. */
 .message-group {
   display: flex; flex-direction: column; gap: 3px;
-  max-width: 68ch; min-width: 0;
+  max-width: min(68ch, 100%); min-width: 0;
 }
 .message-group-user { align-self: flex-end; align-items: flex-end; }
 .message-group-assistant { align-self: flex-start; align-items: flex-start; }
