@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 
 interface Props {
@@ -21,6 +21,28 @@ interface Props {
  */
 export function Composer({ isStreaming, onSend, onStop, editando, onCancelarEdicion }: Props) {
   const [text, setText] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // El cuadro crece con el texto, línea a línea, hasta el max-height del CSS;
+  // recién ahí aparece la barra de scroll (2026-10-19). Antes quedaba en una
+  // línea y scrolleaba desde la segunda. useLayoutEffect y no useEffect: se
+  // mide antes de pintar, así no se ve un salto de alto en cada tecla.
+  const ajustarAlto = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const borde = el.offsetHeight - el.clientHeight; // border-box: el alto incluye el borde
+    const alto = el.scrollHeight + borde;
+    const maximo = parseFloat(getComputedStyle(el).maxHeight) || Infinity;
+    el.style.height = `${Math.min(alto, maximo)}px`;
+    el.style.overflowY = alto > maximo ? 'auto' : 'hidden';
+  };
+  useLayoutEffect(ajustarAlto, [text]);
+  // Girar el teléfono o achicar la ventana cambia dónde se cortan las líneas.
+  useEffect(() => {
+    window.addEventListener('resize', ajustarAlto);
+    return () => window.removeEventListener('resize', ajustarAlto);
+  }, []);
 
   // Al empezar a editar, el texto del mensaje entra al cuadro; al cancelar o
   // terminar, se vacía. La dependencia es el id y no el objeto: así lo que el
@@ -60,6 +82,7 @@ export function Composer({ isStreaming, onSend, onStop, editando, onCancelarEdic
       )}
       <div className="composer-fila">
         <textarea
+          ref={textareaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}

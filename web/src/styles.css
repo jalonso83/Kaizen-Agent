@@ -486,7 +486,9 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .composer textarea {
   flex: 1; resize: none; border: 1px solid var(--border); border-radius: var(--radius);
   padding: 10px 13px; background: var(--surface); color: var(--text-primary);
-  max-height: 160px;
+  /* Composer.tsx ajusta el alto al texto; este es el techo, después scrollea.
+     En un teléfono 240px se comería media pantalla con el teclado abierto. */
+  max-height: min(240px, 35vh); overflow-y: hidden; line-height: 1.45;
 }
 .composer textarea:focus { outline: 2px solid var(--signal); outline-offset: 1px; }
 
