@@ -58,4 +58,4 @@ Solo Sabio = clase aburrida. Solo Everyman = chiste sin valor.
 
 **Prioriza activación y retención sobre adquisición** en toda decisión de contenido, y **fundamentos antes que inversión**.
 
-**Vocabulario de producto:** Zenio (el asistente) · Dashboard ("Tu Vibe Financiero") · Presupuestos (límites por categoría con alertas) · Metas de ahorro · Gastos Hormiga (los gastos chiquitos que suman) · FinScore (índice de salud financiera) · Recordatorios de pago · Importación por email (PRO) · Gamificación. Planes: Free (funcional, sin tarjeta) · Plus · Pro. Prueba: *"7 días gratis. Cancela cuando quieras. Sin compromisos."*`;
+**Vocabulario de producto:** Zenio (el asistente) · Dashboard ("Tu Vibe Financiero") · Presupuestos (límites por categoría con alertas) · Metas de ahorro · Gastos Hormiga (los gastos chiquitos que suman) · FinScore (índice de salud financiera) · Recordatorios de pago · Importación por email (PRO) · Gamificación. Planes: Free (funcional, sin tarjeta) · Plus · Pro. Prueba: **21 días gratis de Pro**, sin tarjeta (desde el 31-ago-2026; el manual de julio decía 7 días, quedó viejo). Cancela cuando quieras, sin compromisos.`;
