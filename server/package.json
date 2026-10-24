@@ -11,7 +11,7 @@
     "check": "tsx src/check.ts",
     "build": "npm --prefix ../web install && npm --prefix ../web run build && node scripts/copyWebDist.mjs && prisma generate && tsc",
     "build:server-only": "prisma generate && tsc",
-    "start": "node dist/app.js",
+    "start": "prisma migrate deploy && node dist/app.js",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/tests/*.test.ts\"",
     "prisma:generate": "prisma generate",
