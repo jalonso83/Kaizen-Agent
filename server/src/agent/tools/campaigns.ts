@@ -4,6 +4,7 @@ import { audit } from '../../services/audit';
 import { createCampaignDraft, getKpis, FinzenApiError, type CampaignDraftInput } from '../../clients/finzenApi';
 import type { KaizenTool, ToolContext } from './guard';
 import { activeGoal } from './goals';
+import { esLegible, leerCampana } from '../../services/lecturaCampanas';
 
 // Taxonomía de tipo de mensaje (2026-07-24, a pedido del socio — pendiente de
 // validar con marketing de FinZen). Ver get_message_type_performance: cruza
@@ -18,6 +19,82 @@ export const MESSAGE_TYPES = [
   'otro',
 ] as const;
 export type MessageType = (typeof MESSAGE_TYPES)[number];
+
+// Objetivo del mensaje (plan de mensajería interna, 2026-10-26). Antes todo se
+// medía igual —si el usuario transacciona a 7 días—, y eso solo tiene sentido
+// para una parte de los mensajes: uno de Plus o de prueba gratis se juzgaba
+// por transacción y su resultado natural (iniciar prueba, pagar) nunca se
+// medía. El objetivo fija la métrica y la ventana; `api` dice si la Agent API
+// de FinZen la entrega hoy (si no, la lectura solo puede ser descriptiva).
+export const OBJETIVOS = {
+  habito: {
+    etiqueta: 'Hábito',
+    metrica: '% que transacciona en al menos 3 de cada 4 semanas',
+    ventana: '8 semanas',
+    api: 'no: falta la actividad por semana',
+  },
+  uso_funcion: {
+    etiqueta: 'Uso de una función',
+    metrica: '% que usa esa función por primera vez',
+    ventana: '7 días',
+    api: 'no: falta el uso por función',
+  },
+  monetizacion: {
+    etiqueta: 'Monetización',
+    metrica: '% que inicia prueba, o % de pruebas vencidas que pagan',
+    ventana: '7 días, o al vencer la prueba',
+    api: 'parcial: solo totales de pruebas y conversión, no por campaña',
+  },
+  reactivacion: {
+    etiqueta: 'Reactivación',
+    metrica: '% que vuelve a transaccionar',
+    ventana: '14 días',
+    api: 'sí: es la tasa de transacción contra el control',
+  },
+  aviso: {
+    etiqueta: 'Aviso o servicio',
+    metrica: 'ninguna de crecimiento; si anuncia una función, su uso',
+    ventana: '14 días',
+    api: 'según el caso',
+  },
+} as const;
+export type Objetivo = keyof typeof OBJETIVOS;
+const OBJETIVO_KEYS = Object.keys(OBJETIVOS) as Objetivo[];
+
+/**
+ * Segmentos a los que no se les manda campaña, diga lo que diga el modelo
+ * (regla 1 del plan de mensajería). Por push no se recupera a quien nunca
+ * activó: "Dile a Zenio" a 1.849 dio 0 transacciones en ambos brazos, y lo
+ * confirman H9 y H11. Recuperarlos es trabajo de producto (el primer uso de
+ * la app), no de mensajería.
+ */
+// Un Map y no un objeto literal: con un objeto, un slug como "constructor" o
+// "toString" encontraría la propiedad heredada y daría un falso positivo.
+export const SEGMENTOS_VETADOS: ReadonlyMap<string, string> = new Map([
+  [
+    'never_activated',
+    'por push no se recupera a quien nunca activó ("Dile a Zenio" a 1.849: 0 transacciones en ambos brazos; H9 y H11 igual). Eso se resuelve en el producto, no con mensajería',
+  ],
+]);
+
+/** Mínimo de holdout: por debajo de 1 % el control es de unas pocas personas, que es lo mismo que no tenerlo. */
+export const HOLDOUT_MINIMO_PCT = 1;
+
+/**
+ * Las reglas fijas del plan sobre lo que viaja a FinZen. Se comprueban al
+ * proponer Y otra vez al crear el borrador: una tarjeta pendiente de antes del
+ * plan (o del deploy) no puede colarse por el botón.
+ */
+export function violacionReglasFijas(c: Pick<CampaignDraftInput, 'segment_slug' | 'holdout_pct'>): string | null {
+  const veto = SEGMENTOS_VETADOS.get(c.segment_slug);
+  if (veto) {
+    return `No se proponen campañas a "${c.segment_slug}": ${veto}. Es una regla fija del plan de mensajería, no una sugerencia. Si el socio quiere llegar a esa gente, dile que es un tema de producto.`;
+  }
+  if (c.holdout_pct !== undefined && c.holdout_pct !== null && c.holdout_pct < HOLDOUT_MINIMO_PCT) {
+    return `No se proponen campañas sin grupo de control: "holdout_pct" tiene que ser al menos ${HOLDOUT_MINIMO_PCT}. Elige el holdout con el skill diseno-experimentos.`;
+  }
+  return null;
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // El gate de confirmación — DISENO_FASE1.md §7 (la pieza más importante de la
@@ -38,16 +115,18 @@ interface ValidatedProposal {
   segmentCount: number;
   expectedMeasurement: string;
   messageType: MessageType;
+  objetivo: Objetivo;
 }
 
 /** Mismas reglas que PRD §4.4 — el error debe llegar al proponer, no al ejecutar. */
-function validateProposalInput(input: Record<string, unknown>): ValidatedProposal {
+export function validateProposalInput(input: Record<string, unknown>): ValidatedProposal {
   const title = input.title as string | undefined;
   const message = input.message as string | undefined;
   const segment_slug = input.segment_slug as string | undefined;
   const rationale = input.rationale as string | undefined;
   const expected_measurement = input.expected_measurement as string | undefined;
   const message_type = input.message_type as string | undefined;
+  const objetivo = input.objetivo as string | undefined;
   const segment_count = input.segment_count;
   const surface = input.surface as string | undefined;
   const holdout_pct = input.holdout_pct as number | undefined;
@@ -77,9 +156,19 @@ function validateProposalInput(input: Record<string, unknown>): ValidatedProposa
   if (surface !== undefined && !['push', 'slot', 'both'].includes(surface)) {
     throw new Error('"surface" debe ser "push", "slot" o "both".');
   }
-  if (holdout_pct !== undefined && (typeof holdout_pct !== 'number' || holdout_pct < 0 || holdout_pct > 100)) {
+  if (!objetivo || !OBJETIVO_KEYS.includes(objetivo as Objetivo)) {
+    throw new Error(
+      `"objetivo" es requerido y debe ser uno de: ${OBJETIVO_KEYS.join(', ')}. Es PARA QUÉ es el mensaje (no el enfoque del copy, que es message_type): ` +
+        'fija con qué métrica y en qué ventana se va a medir.',
+    );
+  }
+  if (holdout_pct !== undefined && (typeof holdout_pct !== 'number' || !Number.isFinite(holdout_pct) || holdout_pct < 0 || holdout_pct > 100)) {
     throw new Error('"holdout_pct" debe estar entre 0 y 100.');
   }
+  // Reglas 1 y 2 del plan: nunca a never_activated, nunca sin control.
+  // (Omitir el holdout deja el default de la API, 10 %: eso sí tiene control.)
+  const violacion = violacionReglasFijas({ segment_slug, holdout_pct });
+  if (violacion) throw new Error(violacion);
 
   return {
     campaignInput: {
@@ -94,6 +183,7 @@ function validateProposalInput(input: Record<string, unknown>): ValidatedProposa
     segmentCount: segment_count,
     expectedMeasurement: expected_measurement,
     messageType: message_type as MessageType,
+    objetivo: objetivo as Objetivo,
   };
 }
 
@@ -270,6 +360,7 @@ export const proposeCampaignTool: KaizenTool = {
   ambito: 'finzen',
   description:
     'Registra una propuesta de campaña en la tarjeta del chat para que el socio la confirme o rechace. NO envía nada a FinZen — eso solo pasa después, con create_campaign_draft, y solo si el socio confirmó. ' +
+    'Reglas fijas que la tool hace cumplir: nunca al segmento never_activated, nunca con holdout_pct 0, y siempre con objetivo. ' +
     'Llama SIEMPRE después de evaluar el segmento real (evaluate_segment), haber leído el Cerebro con search_cerebro (se VERIFICA: sin una búsqueda con resultado en esta conversación, la propuesta se rechaza) y consultar KPIs/resultados de campañas comparables. Antes de elegir message_type, considera consultar get_message_type_performance para ver qué tipo tuvo mejor lift histórico. ' +
     'Una propuesta nueva reemplaza (SUPERSEDED) cualquier propuesta pendiente anterior de esta conversación.',
   inputSchema: {
@@ -305,16 +396,27 @@ export const proposeCampaignTool: KaizenTool = {
           'Categoría del enfoque del mensaje — urgencia (apremio, "hoy"/"ya"), educativo (explica un concepto/beneficio), ' +
           'incentivo (premio/descuento/gamificación), social_proof ("otros usuarios ya..."), pregunta_directa (interpela al usuario), otro.',
       },
+      objetivo: {
+        type: 'string',
+        enum: [...OBJETIVO_KEYS],
+        description:
+          'PARA QUÉ es el mensaje (distinto de message_type, que es el enfoque del copy). Fija la métrica y la ventana: ' +
+          'habito (que revisen sus finanzas con regularidad; % que transacciona 3 de cada 4 semanas, 8 semanas) · ' +
+          'uso_funcion (que prueben algo concreto; % que la usa por primera vez, 7 días) · ' +
+          'monetizacion (iniciar prueba o pagar; % que inicia prueba o paga, 7 días o al vencer) · ' +
+          'reactivacion (que vuelva quien dejó de transaccionar; % que vuelve, 14 días) · ' +
+          'aviso (informar; sin métrica de crecimiento). Escribe expected_measurement con ESA métrica.',
+      },
       surface: { type: 'string', enum: ['push', 'slot', 'both'], description: 'Default: push' },
-      holdout_pct: { type: 'number', description: '0-100. No asumas 10% de memoria — ver skill diseno-experimentos' },
+      holdout_pct: { type: 'number', description: '1-100 (0 se rechaza: nada sin grupo de control). No asumas 10% de memoria — ver skill diseno-experimentos' },
     },
-    required: ['title', 'message', 'segment_slug', 'rationale', 'segment_count', 'expected_measurement', 'message_type'],
+    required: ['title', 'message', 'segment_slug', 'rationale', 'segment_count', 'expected_measurement', 'message_type', 'objetivo'],
   },
   async execute(input, ctx: ToolContext) {
     if (!ctx.conversationId) {
       throw new Error('propose_campaign requiere una conversación activa (no disponible en corridas sin chat, como el cron).');
     }
-    const { campaignInput, segmentCount, expectedMeasurement, messageType } = validateProposalInput(input);
+    const { campaignInput, segmentCount, expectedMeasurement, messageType, objetivo } = validateProposalInput(input);
 
     // Backstop de la regla 1: el count tiene que salir de un evaluate_segment
     // real de ESTA conversación, no de la memoria del modelo.
@@ -353,6 +455,7 @@ export const proposeCampaignTool: KaizenTool = {
           segmentCount,
           expectedMeasurement,
           messageType,
+          objetivo,
           goalId: meta?.id ?? null,
           origen: ctx.restricciones?.origen ?? 'chat',
         },
@@ -361,9 +464,12 @@ export const proposeCampaignTool: KaizenTool = {
 
     ctx.sse?.send('proposal', proposal);
 
+    const o = OBJETIVOS[objetivo];
     return (
       `Propuesta registrada (id ${proposal.id}). El socio verá una tarjeta con botón Confirmar. ` +
-      'NO llames a create_campaign_draft hasta que el sistema te indique que fue confirmada.'
+      'NO llames a create_campaign_draft hasta que el sistema te indique que fue confirmada. ' +
+      `Objetivo: ${o.etiqueta} — se mide con "${o.metrica}" en ${o.ventana}. ¿Lo da la API de FinZen hoy? ${o.api}.` +
+      (o.api.startsWith('sí') ? '' : ' Díselo al socio: con lo que expone la API hoy, la lectura de esta campaña va a ser descriptiva, no un resultado medido.')
     );
   },
 };
@@ -429,6 +535,22 @@ export const createCampaignDraftTool: KaizenTool = {
     }
 
     // CAS anti doble-ejecución: solo una llamada puede ganar la transición.
+    // Las reglas fijas otra vez, sobre el payload guardado: una tarjeta
+    // confirmada que se propuso antes del plan no llega a FinZen.
+    const violacion = violacionReglasFijas(proposal.payload as unknown as CampaignDraftInput);
+    if (violacion) {
+      await db.proposal.update({ where: { id: proposal.id }, data: { status: 'REJECTED', error: violacion } });
+      await audit.log({
+        conversationId: ctx.conversationId,
+        actor: 'agent',
+        action: 'gate:denied',
+        input: { proposal_id: proposalId, motivo: 'regla fija del plan de mensajería' },
+        resultSummary: violacion,
+        isError: true,
+      });
+      throw new Error(`${violacion} La propuesta quedó rechazada: avísale al socio.`);
+    }
+
     const cas = await db.proposal.updateMany({
       where: { id: proposal.id, status: 'CONFIRMED' },
       data: { status: 'EXECUTING' },
@@ -489,9 +611,19 @@ export const getMessageTypePerformanceTool: KaizenTool = {
 
     const byType = new Map<string, { liftSum: number; count: number }>();
     let matched = 0;
+    // Solo cuentan las campañas LEGIBLES (plan de mensajería 2026-10-26): una
+    // que no llegó o con la ventana abierta no dice nada del enfoque, y antes
+    // entraba al promedio como si fuera un lift real.
+    const excluidas: Record<string, number> = {};
+    const ahora = new Date();
     for (const p of proposals) {
       const campaign = campaignById.get(p.finzenCampaignId!);
       if (!campaign) continue; // fuera del rango que devolvió FinZen esta vez
+      const lectura = leerCampana(campaign, ahora);
+      if (!esLegible(lectura)) {
+        excluidas[lectura.veredicto] = (excluidas[lectura.veredicto] ?? 0) + 1;
+        continue;
+      }
       matched++;
       const type = p.messageType ?? 'sin_tipo';
       const acc = byType.get(type) ?? { liftSum: 0, count: 0 };
@@ -500,10 +632,17 @@ export const getMessageTypePerformanceTool: KaizenTool = {
       byType.set(type, acc);
     }
 
+    const notaExcluidas = Object.keys(excluidas).length
+      ? `Excluidas por no ser legibles: ${Object.entries(excluidas).map(([v, n]) => `${n} ${v}`).join(', ')}.`
+      : undefined;
+
     if (matched === 0) {
       return JSON.stringify({
         results: [],
-        note: 'Las campañas ejecutadas por Kaizen no aparecen en el rango que devolvió get_kpis (puede que FinZen solo devuelva las últimas 20). No hay agregado confiable todavía.',
+        excluidas,
+        note: notaExcluidas
+          ? `Ninguna campaña de Kaizen es legible todavía (sin entrega confirmada, ventana abierta o sin control). ${notaExcluidas} No hay agregado confiable: no elijas tipo de mensaje por esto.`
+          : 'Las campañas ejecutadas por Kaizen no aparecen en el rango que devolvió get_kpis (puede que FinZen solo devuelva las últimas 20). No hay agregado confiable todavía.',
       });
     }
 
@@ -515,9 +654,10 @@ export const getMessageTypePerformanceTool: KaizenTool = {
       }))
       .sort((a, b) => b.avg_lift_pts - a.avg_lift_pts);
 
-    return JSON.stringify({
-      results,
-      note: results.every((r) => r.campaigns < 3) ? 'Pocas campañas por tipo todavía — usar esta comparación con cautela.' : undefined,
-    });
+    const notas = [
+      results.every((r) => r.campaigns < 3) ? 'Pocas campañas por tipo todavía — usar esta comparación con cautela.' : '',
+      notaExcluidas ?? '',
+    ].filter(Boolean);
+    return JSON.stringify({ results, excluidas, note: notas.length ? notas.join(' ') : undefined });
   },
 };

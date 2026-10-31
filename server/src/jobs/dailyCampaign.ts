@@ -10,6 +10,8 @@ import { listSegments } from '../clients/finzenApi';
 import { runningConversations } from '../services/runningConversations';
 import { TZ_RD, todayInRD } from '../util/fecha';
 import { CONFIRMADO_AUTO, confirmarYCrearBorrador } from '../services/confirmarPropuesta';
+import { expresionCron } from '../services/publicidad';
+import { SEGMENTOS_VETADOS } from '../agent/tools/campaigns';
 
 // ─────────────────────────────────────────────────────────────────────────
 // La campaña diaria (2026-09-20).
@@ -42,9 +44,17 @@ import { CONFIRMADO_AUTO, confirmarYCrearBorrador } from '../services/confirmarP
 //
 // Si la conversación elegida está ocupada (el socio escribiendo justo en ese
 // momento), la corrida se omite y se audita; no se encola. Mañana hay otra.
+//
+// PLAN DE MENSAJERÍA (2026-10-26): corre solo los días elegidos (2-3 por
+// semana, lunes/miércoles/viernes por defecto) y never_activated no entra
+// nunca entre los permitidos (SEGMENTOS_VETADOS, que propose_campaign
+// también hace cumplir).
 // ─────────────────────────────────────────────────────────────────────────
 
 const DEFAULT_HOUR = 9;
+/** Lunes, miércoles y viernes: el default del schema, si la fila no lo trae. */
+export const DIAS_DEFAULT = [1, 3, 5];
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 /** Un segmento con menos alcance que esto no vale una campaña diaria (el holdout dejaría nada que medir). */
 const MINIMO_ALCANZABLE = 50;
 
@@ -68,9 +78,12 @@ async function crearConversacionDestino(partnerId: string, titulo = 'Campañas d
  * corrida (con 11 segmentos y 7 días no pasa; con un catálogo chico sí).
  */
 export function segmentosPermitidos(catalogo: string[], usadosRecientes: string[]): string[] {
+  // Los vetados (never_activated, plan de mensajería 2026-10-26) no entran
+  // nunca, ni cuando la rotación se agota y se reabre el catálogo.
+  const elegibles = catalogo.filter((s) => !SEGMENTOS_VETADOS.has(s));
   const usados = new Set(usadosRecientes);
-  const libres = catalogo.filter((s) => !usados.has(s));
-  return libres.length > 0 ? libres : [...catalogo];
+  const libres = elegibles.filter((s) => !usados.has(s));
+  return libres.length > 0 ? libres : [...elegibles];
 }
 
 async function usadosEnDias(dias: number): Promise<string[]> {
@@ -95,8 +108,8 @@ function buildPrompt(permitidos: string[], usados: string[], rotacionDias: numbe
     `Hacé esto, en orden:\n` +
     `1. search_cerebro("decisions log") y search_cerebro("estado actual"): ubicate antes de proponer, y descartá ideas ya cerradas ahí.\n` +
     `2. list_segments, y evaluate_segment de los 2-3 segmentos PERMITIDOS con más sentido según el skill campanas-retencion (cargalo). Los counts son push alcanzable y se solapan entre segmentos: no los sumes.\n` +
-    `3. get_kpis de los últimos 7 días y get_campaign_results de los últimos 14, para el racional y para no repetir un mensaje que ya no funcionó. get_message_type_performance para elegir el tipo de mensaje.\n` +
-    `4. Cargá copy-push y diseno-experimentos, y escribí en el chat 3-5 líneas: qué segmento elegiste y por qué HOY (con cifras de los tools), el Título y el Mensaje, y qué se va a medir. Después llamá a propose_campaign — UNA sola tarjeta, con el count exacto que devolvió evaluate_segment.\n` +
+    `3. get_kpis de los últimos 7 días y get_campaign_results de los últimos 14, para el racional y para no repetir un mensaje que ya no funcionó. Cada campaña trae su "lectura" calculada: las no_medible_entrega y ventana_abierta NO cuentan como "no funcionó" ni como "funcionó". get_message_type_performance para elegir el tipo de mensaje.\n` +
+    `4. Cargá copy-push y diseno-experimentos, y escribí en el chat 3-5 líneas: qué segmento elegiste y por qué HOY (con cifras de los tools), el Título y el Mensaje, el OBJETIVO (habito, uso_funcion, monetizacion, reactivacion o aviso) y qué se va a medir con la métrica de ese objetivo. Después llamá a propose_campaign — UNA sola tarjeta, con el count exacto que devolvió evaluate_segment y un holdout mayor que 0.\n` +
     `5. Si ningún segmento permitido tiene al menos ${MINIMO_ALCANZABLE} usuarios alcanzables, o los datos no muestran ninguna oportunidad clara, NO llames a propose_campaign: escribí en 2-3 líneas por qué hoy no hay campaña y qué mirarías mañana. Es una respuesta válida.\n\n` +
     (modo === 'directo'
       ? `Esta corrida está en MODO DIRECTO: la tarjeta que registres se va a confirmar automáticamente y el borrador se creará en FinZen, donde un humano lo aprueba en el panel. Sé más exigente, no menos: ante la duda, no propongas. `
@@ -237,7 +250,11 @@ export async function startDailyCampaignCron(): Promise<void> {
     scheduledTask = null;
   }
   // Se programa siempre, apagada o no: runDailyCampaign lee `enabled` en cada
-  // disparo, así encender desde la web no necesita reprogramar nada.
-  scheduledTask = cron.schedule(`0 ${hour} * * *`, () => void runDailyCampaign(), { timezone: TZ_RD });
-  console.log(`[daily-campaign] programada todos los días a las ${String(hour).padStart(2, '0')}:00 hora RD (${cfg?.enabled ? 'encendida' : 'apagada'}).`);
+  // disparo, así encender desde la web no necesita reprogramar nada. Los días
+  // sí van en la expresión (2026-10-26, plan de mensajería: 2-3 por semana).
+  const dias = cfg?.diasSemana?.length ? cfg.diasSemana : DIAS_DEFAULT;
+  scheduledTask = cron.schedule(expresionCron(hour, dias), () => void runDailyCampaign(), { timezone: TZ_RD });
+  console.log(
+    `[daily-campaign] programada ${dias.map((d) => DIAS[d]).join(', ')} a las ${String(hour).padStart(2, '0')}:00 hora RD (${cfg?.enabled ? 'encendida' : 'apagada'}).`,
+  );
 }

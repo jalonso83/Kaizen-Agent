@@ -161,7 +161,7 @@ export const api = {
     }),
 
   getDailyCampaignConfig: () => request<DailyCampaignConfig>('/api/config/daily-campaign'),
-  updateDailyCampaignConfig: (cfg: { enabled: boolean; cronHour: number; modo: 'tarjeta' | 'directo'; conversationId: string | null; rotacionDias: number }) =>
+  updateDailyCampaignConfig: (cfg: { enabled: boolean; cronHour: number; modo: 'tarjeta' | 'directo'; conversationId: string | null; rotacionDias: number; diasSemana: number[] }) =>
     request<DailyCampaignConfig>('/api/config/daily-campaign', { method: 'PUT', body: JSON.stringify(cfg) }),
   runDailyCampaignNow: () =>
     request<{ ok: true; conversationId: string; permitidos: string[]; modo: string; borradorAutomatico: boolean }>('/api/config/daily-campaign/run-now', { method: 'POST' }),

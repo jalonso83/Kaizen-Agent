@@ -28,7 +28,7 @@ Regla de FinZen (ya validada en campañas anteriores):
 |---|---|---|
 | ≥ 300 usuarios | 10-20% | Deja masa expuesta sin renunciar del todo al control |
 | 100-299 | 20% | Por debajo de ~30 el brazo de control deja de existir en la práctica |
-| < 100 | 0% (sin holdout) | Un holdout de 10 personas no mide nada; FinZen usará la métrica pre/post (descriptiva, no causal) |
+| < 100 | **No se propone** | Un holdout de 10 personas no mide nada, y desde el plan de mensajería (26/10/2026) no hay campañas sin control: `propose_campaign` rechaza `holdout_pct: 0`. Dilo y sugiere esperar a que el segmento crezca o usar uno más grande |
 
 > **Esta tabla reparte alcance, NO garantiza poder estadístico.** Se eligió para
 > no perder demasiados usuarios expuestos, no para poder detectar un lift chico.
@@ -45,7 +45,11 @@ Regla de FinZen (ya validada en campañas anteriores):
 > el resultado se puede leer.)*
 
 - El default del API es 10%. Ajústalo con `holdout_pct` en `propose_campaign`
-  según esta tabla y di en el rationale cuál elegiste y por qué.
+  según esta tabla y di en el rationale cuál elegiste y por qué. **Nunca 0**: la
+  tool lo rechaza.
+- La métrica y la ventana las fija el **objetivo** del mensaje (tabla en
+  `campanas-retencion` §4): un mensaje de hábito se lee en 8 semanas, uno de
+  monetización por pruebas iniciadas o pagos, no por transacción a 7 días.
 - Nunca prometas "significancia estadística" con segmentos chicos: sé honesto
   — "con este tamaño la lectura será direccional, no concluyente".
 - **Di el margen esperado ANTES de lanzar**, no después de ver el resultado. Si
@@ -61,6 +65,9 @@ no sabrás qué causó la diferencia — dilo al proponer.
 
 ## 4. Leer resultados (get_campaign_results) sin engañarse
 
+- **Usa la `lectura` calculada de cada campaña** (detalle en `lectura-experimentos`
+  §1 bis): `no_medible_entrega`, `ventana_abierta` y `sin_control` no se leen;
+  el efecto se reporta como usuarios incrementales ± margen real.
 - **Espera la ventana completa (7 días)** antes de declarar éxito o fracaso.
   Un lift a día 2 puede evaporarse.
 - **Antes de leer el signo, mira el tamaño del brazo más chico** y busca su
@@ -75,9 +82,9 @@ no sabrás qué causó la diferencia — dilo al proponer.
 - Lift ~0 o negativo **por debajo del margen** → no aprendiste que no funcionó,
   aprendiste que no se pudo medir. Son cosas distintas y hay que decirlas
   distinto.
-- Campañas con `holdout_pct: 0` → la métrica pre/post es **descriptiva**: puede
-  estar contaminada por estacionalidad (quincena, fin de mes). Preséntala
-  siempre con ese disclaimer.
+- Campañas viejas con `holdout_pct: 0` (o enviadas desde el panel sin control)
+  → la métrica pre/post es **descriptiva**: puede estar contaminada por
+  estacionalidad (quincena, fin de mes). Preséntala siempre con ese disclaimer.
 - **No compares lifts entre segmentos distintos** como si fueran la misma vara:
   reactivar dormidos parte de una base más baja que empujar activos.
 

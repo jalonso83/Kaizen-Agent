@@ -10,7 +10,7 @@ El veredicto de un experimento se decide contra lo que se firmó ANTES de verlo 
 ## 0. Antes de empezar
 
 1. `search_cerebro("<nombre del experimento>")` — recuperar hipótesis, umbral firmado, diseño (brazos, holdout, ancla de la métrica) y fecha de la ventana. **Leer el diseño ANTES de opinar sobre la validez del resultado.**
-2. `get_campaign_results` (o `get_kpis` si la métrica es de producto) con conteos por brazo.
+2. `get_campaign_results` (o `get_kpis` si la métrica es de producto) con conteos por brazo. Cada campaña trae una **`lectura` calculada en código** (§1 bis): úsala, no la rehagas.
 3. Al cerrar: `save_cerebro_note` con el aprendizaje. Sin excepción — un experimento leído que no se escribe no compone.
 
 ## 1. Las cinco reglas del veredicto
@@ -21,13 +21,23 @@ El veredicto de un experimento se decide contra lo que se firmó ANTES de verlo 
 4. **Correlación con tendencia previa no es causa.** Si la métrica ya venía cayendo antes del experimento (la sobrevida D1→D7 caía desde tres cohortes antes), no se le atribuye la caída al experimento sin más evidencia.
 5. **Confusores se declaran, no se descubren después.** Si durante la ventana entró otra intervención sobre la misma métrica (otra promo, otro slot, un deploy), el veredicto lo dice arriba, no en nota al pie.
 
+## 1 bis. Tres filtros antes del veredicto (plan de mensajería, 26/10/2026)
+
+Vienen calculados en `lectura` de cada campaña. Respétalos en este orden:
+
+1. **Sin entrega confirmada no hay lectura.** `no_medible_entrega` = menos del 50 % de impresiones sobre expuestos (o FinZen no informó impresiones). El 14-sep tuvo 0 impresiones y jul–ago se entregó el 2–3 %: eso no mide el mensaje. Se dice **"no medible"**, nunca "sin efecto".
+2. **Ventana cerrada.** `ventana_abierta` = no pasaron 7 días del envío: el número todavía se mueve (el 8-oct cambió de signo después). No se usa para concluir ni para recomendar.
+3. **Impacto con su margen real.** Se reporta "`usuarios_incrementales` ± `margen_usuarios`". El margen sale de la tasa de transacción real, no de 50 % (que lo infla 2 a 8 veces). Si el efecto cabe en el margen, el veredicto es `indistinguible`: no demuestra ni que funcionó ni que no.
+
+El total de un período (`campaigns_total_periodo` en `get_kpis`, `total_periodo` en `get_campaign_results`) suma solo las legibles, con el margen combinado como raíz de la suma de los cuadrados.
+
 ## 2. Veredictos permitidos (elegir uno)
 
 | Veredicto | Cuándo |
 |---|---|
 | Positivo / Negativo | Cruzó (o no) el umbral firmado, con n suficiente y sin confusor mayor |
 | Positivo acotado | El mecanismo funciona pero la condición firmada no se cumplió completa; se documenta qué parte sí |
-| No medible | Sin control, n insuficiente, o confusor dominante. Se dice qué haría falta para medirlo |
+| No medible | Sin entrega confirmada, sin control, n insuficiente, o confusor dominante. Se dice qué haría falta para medirlo |
 | Confirma, no decide | El dato ya estaba aritméticamente determinado por resultados previos; no aporta decisión nueva |
 
 ## 3. Cierre obligatorio (lo que hace que el sistema componga)

@@ -239,6 +239,8 @@ export interface Proposal {
   segmentCount: number | null;
   expectedMeasurement: string | null;
   messageType: string | null;
+  /** Para qué es el mensaje (2026-10-26): habito | uso_funcion | monetizacion | reactivacion | aviso. Null en las anteriores. */
+  objetivo?: string | null;
   /** 'chat' o 'diaria' (la corrida automática de campaña diaria). */
   origen?: string;
   finzenCampaignId: string | null;
@@ -501,6 +503,8 @@ export interface DailyCampaignConfig {
   modo: 'tarjeta' | 'directo';
   conversationId: string | null;
   rotacionDias: number;
+  /** Días en que corre: 0 = domingo … 6 = sábado (2026-10-26). */
+  diasSemana: number[];
   conversacion: { id: string; title: string; esMia: boolean } | null;
 }
 

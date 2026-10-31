@@ -4,7 +4,7 @@ import { requireAuth, requirePermission } from '../middleware/requireAuth';
 import { asyncRoute } from '../middleware/asyncRoute';
 import { audit } from '../services/audit';
 import { runWeeklySummary, startWeeklySummaryCron } from '../jobs/weeklySummary';
-import { runDailyCampaign, startDailyCampaignCron } from '../jobs/dailyCampaign';
+import { DIAS_DEFAULT, runDailyCampaign, startDailyCampaignCron } from '../jobs/dailyCampaign';
 import { runCerebroIndex } from '../jobs/cerebroIndex';
 import { runMetaAds, startMetaAdsCron } from '../jobs/metaAds';
 import { runAdResults } from '../jobs/adResults';
@@ -120,7 +120,7 @@ router.post('/weekly-summary/run-now', asyncRoute(async (req, res) => {
 
 router.get('/daily-campaign', asyncRoute(async (req, res) => {
   const cfg = (await db.dailyCampaignConfig.findUnique({ where: { id: 1 } })) ?? {
-    id: 1, enabled: false, cronHour: 9, modo: 'tarjeta', conversationId: null, rotacionDias: 7, updatedAt: null, updatedBy: null,
+    id: 1, enabled: false, cronHour: 9, modo: 'tarjeta', conversationId: null, rotacionDias: 7, diasSemana: DIAS_DEFAULT, updatedAt: null, updatedBy: null,
   };
   // La conversación destino tiene que existir y ser de quien configura (las
   // conversaciones son por socio; la tarjeta la ve su dueño). Si la borraron,
@@ -137,6 +137,8 @@ router.put('/daily-campaign', asyncRoute(async (req, res) => {
   let conversationId = req.body?.conversationId as string | null | undefined;
   const rotacionDias = req.body?.rotacionDias ?? 7;
   const modo = (req.body?.modo ?? 'tarjeta') as string;
+  // Sin días en el cuerpo (una web vieja), se conservan los que había.
+  const diasSemana = (req.body?.diasSemana ?? null) as unknown;
 
   if (typeof enabled !== 'boolean') {
     res.status(400).json({ message: '"enabled" debe ser true o false.' });
@@ -151,6 +153,10 @@ router.put('/daily-campaign', asyncRoute(async (req, res) => {
     invalidInt(rotacionDias, 1, 30, 'rotacionDias', 'días sin repetir un segmento');
   if (error) {
     res.status(400).json({ message: error });
+    return;
+  }
+  if (diasSemana !== null && (!Array.isArray(diasSemana) || diasSemana.length === 0 || diasSemana.some((d) => !Number.isInteger(d) || d < 0 || d > 6))) {
+    res.status(400).json({ message: '"diasSemana" debe ser una lista no vacía de días 0-6 (0 = domingo).' });
     return;
   }
   // "Nueva conversación": la crea el servidor a nombre de quien configura y
@@ -179,7 +185,8 @@ router.put('/daily-campaign', asyncRoute(async (req, res) => {
   }
 
   const previo = await db.dailyCampaignConfig.findUnique({ where: { id: 1 } });
-  const data = { enabled, cronHour, modo, conversationId: conversationId ?? null, rotacionDias };
+  const dias = diasSemana !== null ? [...new Set(diasSemana as number[])].sort((a, b) => a - b) : (previo?.diasSemana ?? DIAS_DEFAULT);
+  const data = { enabled, cronHour, modo, conversationId: conversationId ?? null, rotacionDias, diasSemana: dias };
   const updated = await db.dailyCampaignConfig.upsert({
     where: { id: 1 },
     update: { ...data, updatedBy: req.partner!.id },
@@ -189,7 +196,7 @@ router.put('/daily-campaign', asyncRoute(async (req, res) => {
   await audit.log({
     actor: `partner:${req.partner!.id}`,
     action: 'config:daily-campaign-updated',
-    input: { ...data, anterior: previo ? { enabled: previo.enabled, cronHour: previo.cronHour, modo: previo.modo, conversationId: previo.conversationId, rotacionDias: previo.rotacionDias } : null },
+    input: { ...data, anterior: previo ? { enabled: previo.enabled, cronHour: previo.cronHour, modo: previo.modo, conversationId: previo.conversationId, rotacionDias: previo.rotacionDias, diasSemana: previo.diasSemana } : null },
   });
   const conv = updated.conversationId ? await db.conversation.findUnique({ where: { id: updated.conversationId }, select: { id: true, title: true, partnerId: true } }) : null;
   res.json({ ...updated, conversacion: conv ? { id: conv.id, title: conv.title, esMia: conv.partnerId === req.partner!.id } : null });

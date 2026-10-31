@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
 import type { ConversationSummary, MetaAdsConfig, MetaAdsVista, WeekMode } from '../types';
 import { Select } from './Select';
-import { MetaAdsConfigBlock, configPorDefecto } from './MetaAdsConfigBlock';
+import { DIAS_CORTOS, MetaAdsConfigBlock, configPorDefecto } from './MetaAdsConfigBlock';
 
 const DAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const DAY_OPTIONS = DAY_LABELS.map((label, value) => ({ value, label }));
@@ -39,7 +39,7 @@ interface Props {
 type Seccion = 'resumen' | 'diaria' | 'publicidad' | 'cerebro';
 const SECCIONES: Array<{ id: Seccion; label: string; descripcion: string }> = [
   { id: 'resumen', label: 'Resumen semanal', descripcion: 'Qué semana reporta el resumen automático y cuándo se genera.' },
-  { id: 'diaria', label: 'Campaña diaria', descripcion: 'Una campaña de push por día, con una audiencia distinta cada vez.' },
+  { id: 'diaria', label: 'Campaña diaria', descripcion: 'Una campaña de push los días elegidos, con una audiencia distinta cada vez.' },
   { id: 'publicidad', label: 'Publicidad en Meta', descripcion: 'Anuncios que promocionan posts de Instagram de FinZen. Se crean en pausa.' },
   { id: 'cerebro', label: 'Cerebro', descripcion: 'La copia local de los documentos de Drive que Kaizen consulta.' },
 ];
@@ -73,6 +73,8 @@ export function ConfigDialog({ onClose }: Props) {
   const [dcHour, setDcHour] = useState(9);
   const [dcConversationId, setDcConversationId] = useState<string | null>(null);
   const [dcRotacion, setDcRotacion] = useState(7);
+  // Qué días corre (2026-10-26, plan de mensajería: 2-3 por semana).
+  const [dcDias, setDcDias] = useState<number[]>([1, 3, 5]);
   const [dcConvBorrada, setDcConvBorrada] = useState(false);
   const [conversaciones, setConversaciones] = useState<ConversationSummary[]>([]);
   const [dcRunning, setDcRunning] = useState(false);
@@ -103,6 +105,7 @@ export function ConfigDialog({ onClose }: Props) {
         setDcModo(cfg.modo);
         setDcHour(cfg.cronHour);
         setDcRotacion(cfg.rotacionDias);
+        if (cfg.diasSemana?.length) setDcDias(cfg.diasSemana);
         // Si la conversación guardada ya no existe, se muestra vacío y se avisa.
         setDcConversationId(cfg.conversacion ? cfg.conversacion.id : null);
         setDcConvBorrada(Boolean(cfg.conversationId && !cfg.conversacion));
@@ -132,7 +135,7 @@ export function ConfigDialog({ onClose }: Props) {
     setError(null);
     try {
       await api.updateWeeklySummaryConfig({ weekMode, weekStartDay, cronDay, cronHour });
-      await api.updateDailyCampaignConfig({ enabled: dcEnabled, cronHour: dcHour, modo: dcModo, conversationId: dcConversationId, rotacionDias: dcRotacion });
+      await api.updateDailyCampaignConfig({ enabled: dcEnabled, cronHour: dcHour, modo: dcModo, conversationId: dcConversationId, rotacionDias: dcRotacion, diasSemana: dcDias });
       if (ma && maSucio) await api.updateMetaAdsConfig({ ...ma, urlDestino: ma.urlDestino || null });
       onClose();
     } catch (err) {
@@ -329,9 +332,27 @@ export function ConfigDialog({ onClose }: Props) {
               <label className="config-check">
                 <input type="checkbox" checked={dcEnabled} onChange={(e) => setDcEnabled(e.target.checked)} />
                 <span>
-                  <strong>Proponer una campaña cada día</strong> — Kaizen elige una audiencia distinta cada día y deja la tarjeta en la conversación elegida. Vos la confirmás o rechazás desde ahí; nada sale a FinZen sin ese clic.
+                  <strong>Proponer una campaña los días elegidos</strong> — Kaizen elige una audiencia distinta cada vez y deja la tarjeta en la conversación elegida. Tú la confirmas o rechazas desde ahí; nada sale a FinZen sin ese clic.
                 </span>
               </label>
+              <div className="config-schedule-row">
+                <div className="select-field">
+                  <span className="select-label">Días:</span>
+                  <div className="config-dias">
+                    {DIAS_CORTOS.map((d, i) => (
+                      <label key={d} className={`config-dia${dcDias.includes(i) ? ' activo' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={dcDias.includes(i)}
+                          // No se puede quedar sin días: para no correr, se apaga arriba.
+                          onChange={() => setDcDias((ds) => (ds.includes(i) ? (ds.length > 1 ? ds.filter((x) => x !== i) : ds) : [...ds, i].sort((a, b) => a - b)))}
+                        />
+                        {d}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
               <div className="config-schedule-row">
                 <div className="select-field">
                   <span className="select-label">Hora:</span>

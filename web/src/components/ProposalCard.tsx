@@ -28,6 +28,16 @@ const MESSAGE_TYPE_LABEL: Record<string, string> = {
   otro: 'Otro',
 };
 
+// Objetivo del mensaje (server/src/agent/tools/campaigns.ts, OBJETIVOS): fija
+// con qué métrica y en qué ventana se mide. Distinto del tipo (enfoque del copy).
+const OBJETIVO_LABEL: Record<string, { etiqueta: string; mide: string }> = {
+  habito: { etiqueta: 'Hábito', mide: '% que transacciona 3 de cada 4 semanas, en 8 semanas' },
+  uso_funcion: { etiqueta: 'Uso de una función', mide: '% que usa la función por primera vez, en 7 días' },
+  monetizacion: { etiqueta: 'Monetización', mide: '% que inicia prueba o paga, en 7 días o al vencer la prueba' },
+  reactivacion: { etiqueta: 'Reactivación', mide: '% que vuelve a transaccionar, en 14 días' },
+  aviso: { etiqueta: 'Aviso o servicio', mide: 'sin métrica de crecimiento' },
+};
+
 interface Props {
   proposal: Proposal;
   onConfirm: (proposalId: string) => void;
@@ -66,15 +76,24 @@ export function ProposalCard({ proposal, onConfirm, onReject, puedeDecidir }: Pr
           <dt>Superficie</dt>
           <dd>{payload.surface ?? 'push'}</dd>
         </div>
+        {proposal.objetivo && (
+          <div>
+            <dt>Objetivo</dt>
+            <dd>{OBJETIVO_LABEL[proposal.objetivo]?.etiqueta ?? proposal.objetivo}</dd>
+          </div>
+        )}
         {proposal.messageType && (
           <div>
-            <dt>Tipo</dt>
+            <dt>Enfoque</dt>
             <dd>{MESSAGE_TYPE_LABEL[proposal.messageType] ?? proposal.messageType}</dd>
           </div>
         )}
       </dl>
 
       <p className="proposal-rationale">{payload.rationale}</p>
+      {proposal.objetivo && OBJETIVO_LABEL[proposal.objetivo] && (
+        <p className="proposal-note">Métrica del objetivo: {OBJETIVO_LABEL[proposal.objetivo].mide}.</p>
+      )}
       {proposal.expectedMeasurement && (
         <p className="proposal-note">Se mide: {proposal.expectedMeasurement}</p>
       )}

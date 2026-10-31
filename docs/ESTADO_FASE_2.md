@@ -1605,6 +1605,35 @@ evaluación registraban "corrió" aunque el modelo no hubiera respondido.
 
 **Palanca pendiente (decisión):** ninguna llamada fija `effort`, así que todo corre con el de por defecto de Opus 4.8 (alto), incluidas las tareas automáticas.
 
+## Plan de mensajería interna: la parte de Kaizen (2026-10-26)
+
+El plan (`docs/plan-mensajeria-interna.html`) deja de medir campaña por campaña
+y pasa a medir programas con su objetivo. Lo que depende de Kaizen quedó en
+código; lo que depende del panel o de la Agent API de FinZen queda pendiente,
+porque no tenemos acceso a ese repo ni a esa API.
+
+| Cambio del plan | Cómo quedó |
+|---|---|
+| Nada de campañas a nunca activados | `SEGMENTOS_VETADOS` en `agent/tools/campaigns.ts`: `propose_campaign` rechaza `never_activated` y la campaña diaria nunca lo ofrece, ni cuando la rotación reabre el catálogo |
+| Nada sin grupo de control | `propose_campaign` rechaza un holdout menor que 1 %. Omitirlo deja el default de la API (10 %). La tabla de `diseno-experimentos` ya no recomienda 0 % para segmentos < 100: dice que no se propone |
+| Objetivo por tipo de mensaje | Campo obligatorio `objetivo` (habito, uso_funcion, monetizacion, reactivacion, aviso) en `Proposal`, separado de `messageType` (el enfoque del copy). Fija métrica y ventana (`OBJETIVOS`); la tool le dice a Kaizen si la API la da hoy. La tarjeta muestra "Objetivo" y su métrica, y lo que antes decía "Tipo" ahora dice "Enfoque". No viaja a FinZen |
+| Entrega baja = no medible; ventanas abiertas no se usan; margen con la tasa real | `services/lecturaCampanas.ts`: cada campaña de `get_kpis` y `get_campaign_results` trae una `lectura` calculada (entrega, cierre de la ventana, usuarios incrementales ± margen, veredicto) y el total del período. `get_message_type_performance` solo promedia las legibles. Skills `lectura-experimentos`, `diseno-experimentos` y `campanas-retencion` actualizadas |
+| Las reglas valen también para tarjetas viejas | `create_campaign_draft` vuelve a comprobar el segmento y el holdout del payload guardado (`violacionReglasFijas`): una tarjeta pendiente de antes del plan no llega a FinZen, queda rechazada y se registra como `gate:denied` |
+| Campaña diaria a 2-3 por semana | `DailyCampaignConfig.diasSemana` (lunes, miércoles y viernes por defecto, también para la fila existente), con selector de días en Configuración |
+
+**Supuesto a confirmar con FinZen:** "entrega" es impresiones / expuestos, y el
+mínimo para leer una campaña es 50 % (`ENTREGA_MINIMA_PCT`). Las fallidas
+conocidas están en 0-3 %; si la entrega normal del proveedor es más baja, hay
+que bajar el corte.
+
+**Pendiente del lado de FinZen (Alonso):** no permitir envíos sin control desde
+el panel, el grupo de control global, los datos nuevos de la API (actividad por
+semana, uso por función, pruebas por campaña, opt-outs por campaña), por qué
+cambian resultados con la ventana cerrada, la alerta de créditos del proveedor
+de push, y el programa de hábito (es una función de la app: la hora elegida y el
+registro de un toque). La campaña diaria tampoco puede respetar el control
+global hasta que exista. **Pendiente de decisión (Junior):** la meta por programa.
+
 ## 🚧 Bloqueado — lo que solo puede aportar FinZen
 
 | Qué | Por qué hace falta |

@@ -361,6 +361,30 @@ el mouse se ven los tokens.
 - `npm test` incluye `tests/cache.test.ts`: nunca más de 4 cortes, mismo TTL,
   y ninguna fecha en el system prompt.
 
+## 11c-ter. Plan de mensajería interna (2026-10-26)
+
+Necesita la migración `mensajeria_programas`. Las reglas tienen pruebas
+automáticas (`src/tests/mensajeria.test.ts`); esto es lo que se mira en la app.
+
+1. **Nunca a nunca activados.** Pedirle por chat "haz una campaña a los que nunca
+   activaron". Kaizen tiene que explicar que no se hace (es tema de producto) y,
+   si igual llama a `propose_campaign`, en Auditoría queda el
+   `tool:propose_campaign` con error "No se proponen campañas a never_activated".
+2. **Nunca sin control.** Pedirle una campaña "sin holdout". La tool la rechaza;
+   ninguna tarjeta se crea con holdout 0 %.
+3. **Objetivo.** En una propuesta normal, la tarjeta muestra "Objetivo" (por
+   ejemplo Reactivación) y debajo "Métrica del objetivo". Si el objetivo es
+   hábito, uso o monetización, Kaizen dice en el chat que la lectura va a ser
+   descriptiva porque la API no da esa métrica.
+4. **Lectura de campañas.** Preguntar "¿cómo salieron las campañas de
+   septiembre?". La del 14-sep (0 impresiones) tiene que salir como **no
+   medible**, nunca como "sin efecto"; las de los últimos 7 días, como ventana
+   abierta; y cada efecto como "N usuarios ± M".
+5. **Días.** Configuración → Campaña diaria: el selector de días viene en Lun,
+   Mié y Vie. Al guardar, el log del servidor dice "programada lunes, miércoles,
+   viernes a las …". No se puede desmarcar el último día (para no correr, se
+   apaga). "Generar campaña ahora" corre igual cualquier día.
+
 ## 11d. La publicidad automática en Meta (2026-10-04)
 
 **Sin credenciales, contra el simulador** (no gasta nada, no toca Meta):

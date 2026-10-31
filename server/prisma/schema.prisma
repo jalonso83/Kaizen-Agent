@@ -80,6 +80,12 @@ model Proposal {
   segmentCount        Int? // count real al proponer, para la tarjeta
   expectedMeasurement String? // qué se va a medir y cómo (DISENO §6) — no viaja a FinZen, solo para la tarjeta/auditoría
   messageType         String? // taxonomía de tipo de mensaje (2026-07-24): urgencia|educativo|incentivo|social_proof|pregunta_directa|otro — no viaja a FinZen, es para que get_message_type_performance agregue lift por tipo
+  // Para QUÉ es el mensaje (plan de mensajería interna, 2026-10-26): habito |
+  // uso_funcion | monetizacion | reactivacion | aviso. Distinto de messageType,
+  // que es el enfoque del copy. El objetivo fija la métrica y la ventana con
+  // que se mide (OBJETIVOS en agent/tools/campaigns.ts). No viaja a FinZen.
+  // Null en las propuestas anteriores al plan.
+  objetivo            String?
   finzenCampaignId    String?
   confirmedAt         DateTime?
   confirmedBy         String? // partnerId — SOLO lo escribe el endpoint HTTP, jamás el agente
@@ -310,6 +316,10 @@ model DailyCampaignConfig {
   conversationId String?
   // Cuántos días sin repetir un segmento. 7 con un catálogo de 11 alcanza.
   rotacionDias   Int      @default(7)
+  // Qué días corre: 0 = domingo … 6 = sábado (2026-10-26). El plan de
+  // mensajería baja la campaña diaria a 2-3 por semana: lunes, miércoles y
+  // viernes por defecto, para no sumar fatiga al programa de hábito.
+  diasSemana     Int[]    @default([1, 3, 5])
   updatedAt      DateTime @updatedAt
   updatedBy      String?
 }

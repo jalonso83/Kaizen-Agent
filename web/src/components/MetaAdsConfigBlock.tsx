@@ -15,7 +15,7 @@ import { OBJETIVO_LABEL } from './AdProposalCard';
 // Configuración por primera vez fallaría al guardar un bloque a medio llenar.
 // ─────────────────────────────────────────────────────────────────────────
 
-const DIAS_CORTOS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+export const DIAS_CORTOS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const HOUR12 = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: String(i + 1) }));
 const MERIDIEM = [
   { value: 0, label: 'AM' },

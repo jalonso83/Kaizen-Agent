@@ -1,4 +1,5 @@
-import { getKpis } from '../../clients/finzenApi';
+import { getKpis, type KpisResponse } from '../../clients/finzenApi';
+import { leerCampana, totalPeriodo } from '../../services/lecturaCampanas';
 import type { KaizenTool } from './guard';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -20,6 +21,29 @@ const PLANES_NOTE =
 const CAMPANAS_NOTE =
   'OJO con campaigns: SOLO trae campañas ya ENVIADAS, y sent_at es su fecha real de publicación (úsala tal cual). ' +
   'Los borradores en PENDING_APPROVAL no aparecen acá: si una campaña no está en esta lista, no se publicó. Dilo explícitamente al mencionarlas.';
+// La lectura de cada campaña viaja CALCULADA (services/lecturaCampanas.ts,
+// plan de mensajería interna 2026-10-26): entrega, ventana, efecto en
+// usuarios con su margen real y un veredicto. El modelo la cita, no la rehace.
+const LECTURA_NOTE =
+  'Cada campaña trae "lectura", calculada en código: úsala, no la recalcules. veredicto = no_medible_entrega (no llegó: NUNCA digas "sin efecto") | ' +
+  'ventana_abierta (todavía se mueve: no concluyas ni recomiendes con ella) | sin_control | sin_datos (FinZen no mandó lo necesario) | indistinguible (el efecto cabe en el margen) | positivo | negativo. ' +
+  'Reporta siempre el efecto como "usuarios_incrementales ± margen_usuarios". El total del período suma solo las legibles, con el margen combinado.';
+
+/**
+ * Le pega a cada campaña su lectura, y agrega el total del período. Al modelo
+ * le llegan solo los campos de la lectura, sin la frase explicativa: la nota
+ * de arriba ya dice qué significa cada veredicto, y repetir la frase en cada
+ * una de hasta 20 campañas costaba unos 2.000 tokens por llamada a get_kpis.
+ */
+function conLectura(campaigns: KpisResponse['campaigns']) {
+  const ahora = new Date();
+  const lecturas = campaigns.map((c) => leerCampana(c, ahora));
+  const conL = campaigns.map((c, i) => {
+    const { veredicto, entrega_pct, ventana_cierra, usuarios_incrementales, margen_usuarios } = lecturas[i];
+    return { ...c, lectura: { veredicto, entrega_pct, ventana_cierra, usuarios_incrementales, margen_usuarios } };
+  });
+  return { campaigns: conL, total_periodo: totalPeriodo(lecturas) };
+}
 
 /** Valida from/to: formato YYYY-MM-DD y from ≤ to. Lanza error recuperable. */
 function validateRange(input: Record<string, unknown>): { from?: string; to?: string } {
@@ -71,7 +95,8 @@ export const getKpisTool: KaizenTool = {
     }
     const week_mode = weekModeInput as 'rolling' | 'calendar' | undefined;
     const kpis = await getKpis({ from, to, week_mode });
-    return [PCT_NOTE, PLANES_NOTE, CAMPANAS_NOTE, JSON.stringify(kpis)].join('\n');
+    const { campaigns, total_periodo } = conLectura(kpis.campaigns ?? []);
+    return [PCT_NOTE, PLANES_NOTE, CAMPANAS_NOTE, LECTURA_NOTE, JSON.stringify({ ...kpis, campaigns, campaigns_total_periodo: total_periodo })].join('\n');
   },
 };
 
@@ -105,12 +130,12 @@ export const getCampaignResultsTool: KaizenTool = {
         const ids = all.map((c) => c.id).join(', ') || '(ninguna en el período)';
         throw new Error(`No encontré la campaña "${campaignId}" en este período. Campañas disponibles: ${ids}. Amplía el rango de fechas o usa uno de esos ids.`);
       }
-      return [PCT_NOTE, CAMPANAS_NOTE, JSON.stringify(one)].join('\n');
+      return [PCT_NOTE, CAMPANAS_NOTE, LECTURA_NOTE, JSON.stringify(conLectura([one]).campaigns[0])].join('\n');
     }
 
     if (all.length === 0) {
       return 'No hubo campañas medidas en este período. Prueba ampliar el rango de fechas con from/to.';
     }
-    return [PCT_NOTE, CAMPANAS_NOTE, JSON.stringify(all)].join('\n');
+    return [PCT_NOTE, CAMPANAS_NOTE, LECTURA_NOTE, JSON.stringify(conLectura(all))].join('\n');
   },
 };
